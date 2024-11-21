@@ -1,0 +1,19 @@
+{
+  "name": "test",
+  "description": "I am a test",
+
+  "version": "1",
+
+  "execution": {
+    "conditions": [
+      {
+        "type": "schedule",
+        "cron": "*/2 * * * * *"
+      }
+    ],
+    "action": {
+      "type": "script",
+      "script": "export const handler = (payload) => 'just testing here bruv'"
+    }
+  }
+}
