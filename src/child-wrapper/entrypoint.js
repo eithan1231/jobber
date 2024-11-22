@@ -15,7 +15,12 @@ const getArgument = (name) => {
   return process.argv[index + 1];
 };
 
+const timeout = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const main = async () => {
+  let handleRequestsProcessing = 0;
+  let isShuttingDown = false;
+
   const jobRunnerIdentifier = getArgument("job-runner-identifier");
   const jobControllerHost = getArgument("job-controller-host");
   const jobControllerPort = Number(getArgument("job-controller-port"));
@@ -26,29 +31,62 @@ const main = async () => {
 
   const sock = new Socket();
 
-  sock.on("data", async (data) => {
+  const onDataHandle = async (data) => {
+    handleRequestsProcessing++;
+
+    console.log("[main] Starting client handler, traceId", data.traceId);
+
+    const result = await clientEntry.handler(data.payload);
+
+    console.log("[main] Finished client handler, traceId", data.traceId);
+
+    sock.write(
+      JSON.stringify({
+        type: "handle-response",
+        id: jobRunnerIdentifier,
+        traceId: data.traceId,
+        payload: result,
+      }),
+      (err) => {
+        handleRequestsProcessing--;
+      }
+    );
+  };
+
+  const onDataShutdown = async (data) => {
+    isShuttingDown = true;
+
+    console.log("[main] Initiating shutdown routine");
+
+    for (let i = 0; i < 1000; i++) {
+      if (handleRequestsProcessing === 0) {
+        break;
+      }
+
+      await timeout(100);
+    }
+
+    sock.end(() => {
+      process.exit();
+    });
+  };
+
+  sock.on("data", (data) => {
     const parsedData = JSON.parse(data.toString());
 
+    if (isShuttingDown) {
+      // throw out
+      console.log("[main] Shutting down, not accepting new requests.");
+
+      return;
+    }
+
     if (parsedData.type === "handle") {
-      console.log(
-        "[main] Starting client handler, traceId",
-        parsedData.traceId
-      );
+      onDataHandle(parsedData);
+    }
 
-      const result = await clientEntry.handler(parsedData.payload);
-
-      console.log(
-        "[main] Finished client handler, traceId",
-        parsedData.traceId
-      );
-
-      sock.write(
-        JSON.stringify({
-          type: "handle-response",
-          traceId: parsedData.traceId,
-          payload: result,
-        })
-      );
+    if (parsedData.type === "shutdown") {
+      onDataShutdown();
     }
   });
 

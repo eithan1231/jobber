@@ -32,11 +32,15 @@ export const registerJobSchema = z.object({
       z.object({
         id: z.string().default(() => randomUUID()),
         type: z.literal("zip"),
+        keepAlive: z.boolean().default(false),
+        refreshTimeout: z.number().default(60 * 60),
         entrypoint: z.string().default("index.js"),
       }),
       z.object({
         id: z.string().default(() => randomUUID()),
         type: z.literal("script"),
+        keepAlive: z.boolean().default(false),
+        refreshTimeout: z.number().default(60 * 60),
         script: z.string(),
       }),
     ]),
@@ -63,26 +67,12 @@ type JobSchedule = {
   timeout: number;
 };
 
-type JobAction = {
-  id: string;
-  jobName: string;
-
-  status: "ready";
-
-  runtime: {
-    directory: string;
-    entrypoint: string;
-  };
-};
-
 export class Job {
   private jobController: JobController;
 
   private jobs: JobItem[] = [];
 
   private jobSchedules: Map<string, JobSchedule> = new Map();
-
-  private jobActions: Map<string, JobAction> = new Map();
 
   private eventScheduleTickInterval: NodeJS.Timeout | null = null;
 
@@ -119,13 +109,7 @@ export class Job {
         continue;
       }
 
-      for (const [jobActionKey, jobAction] of this.jobActions.entries()) {
-        if (jobAction.jobName != job.base.name) {
-          continue;
-        }
-
-        this.handleAction(jobAction, job);
-      }
+      this.handleAction(job);
     }
   }
 
@@ -156,44 +140,15 @@ export class Job {
     }
   }
 
-  private async handleAction(action: JobAction, job: JobItem) {
-    // TODO: Migrate to preserve processes
-    const jobRunnerIdentifier = `job-runner-id-${randomUUID()}`;
-
-    this.jobController.registerExpectedClient(jobRunnerIdentifier);
-
-    console.log(path.join(action.runtime.directory, action.runtime.entrypoint));
-
-    const res = spawn(
-      "node",
-      [
-        path.join(action.runtime.directory, action.runtime.entrypoint),
-        "--job-runner-identifier",
-        jobRunnerIdentifier,
-        "--job-controller-host",
-        "127.0.0.1",
-        "--job-controller-port",
-        "10211",
-      ],
+  private async handleAction(job: JobItem) {
+    const response = await this.jobController.sendHandleRequest(
+      job.base.execution.action.id,
       {
-        windowsHide: true,
-        cwd: action.runtime.directory,
-        stdio: "pipe",
+        message: "hello world!",
       }
     );
 
-    res.once("spawn", () => console.log("spawned"));
-    res.once("close", () => console.log("closed"));
-
-    res.stdout.on("data", (dat: Buffer) => console.log(dat.toString()));
-    res.stderr.on("data", (dat: Buffer) => console.log(dat.toString()));
-
-    const response = await this.jobController.sendHandle(
-      jobRunnerIdentifier,
-      {}
-    );
-
-    console.log(response);
+    console.log(`[Job/handleAction] Response ${response}`);
   }
 
   private async registerJob(directory: string, payload: RegisterJobSchemaType) {
@@ -244,10 +199,12 @@ export class Job {
         entrypointSecretContent
       );
 
-      this.jobActions.set(parsed.execution.action.id, {
+      this.jobController.registerAction({
         id: parsed.execution.action.id,
         jobName: parsed.name,
-        status: "ready",
+
+        keepAlive: parsed.execution.action.keepAlive,
+        refreshTimeout: parsed.execution.action.refreshTimeout,
 
         runtime: {
           directory: jobItem.directoryRuntime,

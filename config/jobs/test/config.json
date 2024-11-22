@@ -13,6 +13,7 @@
     ],
     "action": {
       "type": "script",
+      "keepAlive": false,
       "script": "export const handler = (payload) => 'just testing here bruv'"
     }
   }
