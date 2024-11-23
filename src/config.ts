@@ -1,14 +1,6 @@
 import { z } from "zod";
 
 export const ConfigurationOptionsSchema = z.object({
-  /**
-   * Is authentication required? If this is false, user will bypass `api_auth_bearer_token` header validation
-   */
-  API_AUTH_REQUIRE_BEARER: z
-    .string()
-    .transform((val) => val.toLowerCase() === "true")
-    .pipe(z.boolean())
-    .default("true"),
   API_AUTH_BEARER_TOKEN: z.string().optional(),
 
   /**

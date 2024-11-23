@@ -11,30 +11,29 @@ type Variables = {
   auth: VariableAuth;
 };
 
-const authGuard = () => {
-  return async (c: Context<{ Variables: VariableAuth }>, next: Next) => {
-    const envRequireBearer = getConfigOption("API_AUTH_REQUIRE_BEARER");
-
-    if (!envRequireBearer) {
-      return await next();
-    }
+const authGuard = (mode: "reject" | "permit" = "reject") => {
+  return async (c: Context<{ Variables: Variables }>, next: Next) => {
+    let auth: VariableAuth = {
+      authenticated: false,
+    };
 
     const envBearerToken = getConfigOption("API_AUTH_BEARER_TOKEN");
-
-    if (!envBearerToken) {
-      return c.json(
-        {
-          success: false,
-          message: "Forbidden",
-        },
-        403
-      );
-    }
-
     const authorisation = c.req.header("Authorization");
 
-    if (authorisation === envBearerToken) {
-      return await next();
+    if (envBearerToken && authorisation && envBearerToken === authorisation) {
+      auth = {
+        authenticated: true,
+      };
+    }
+
+    c.set("auth", auth);
+
+    if (auth.authenticated) {
+      return next();
+    }
+
+    if (mode === "permit") {
+      return next();
     }
 
     return c.json(
