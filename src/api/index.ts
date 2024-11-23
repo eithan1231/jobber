@@ -104,49 +104,6 @@ export const createHonoApp = async (job: Job) => {
     });
   });
 
-  // app.post("/api/job", authGuard(), async (c, next) => {
-  //   const bod = await c.req.parseBody();
-  //   console.log(bod);
-  //   const schema = z.object({
-  //     version: z.string(),
-
-  //     name: z.string().max(32).min(3).regex(REGEX_ALPHA_NUMERIC_DASHES),
-  //     description: z.string().optional(),
-
-  //     "conditions.type[]": z
-  //       .custom((data) => {
-  //         if (Array.isArray(data)) {
-  //           return data;
-  //         } else {
-  //           return [data];
-  //         }
-  //       })
-  //       .pipe(z.array(z.enum(["schedule"]))),
-
-  //     "conditions.timezone[]": z.array(z.string().optional()),
-  //     "conditions.cron[]": z.array(z.string()),
-  //     "conditions.timeout[]": z.array(z.coerce.number()),
-
-  //     "action.type": z.enum(["script", "zip"]),
-  //     "action.keepAlive": z.coerce.number().optional(),
-  //     "action.refreshTimeout": z.coerce.number().optional(),
-  //     "action.script": z.string().optional(), // type script
-  //     "action.zip": z
-  //       .custom((input) => {
-  //         // if(input instanceof File)
-  //         return true;
-  //       })
-  //       .optional(), // type zip
-  //     "action.zip.entrypoint": z.string().optional(), // type zip
-  //   });
-
-  //   const body = await schema.parseAsync(bod, {
-  //     path: ["request", "body"],
-  //   });
-
-  //   for (const condition of body["conditions.type[]"]) return c.json({});
-  // });
-
   app.post("/api/job", authGuard(), async (c, next) => {
     const mode = c.req.query("mode") === "zip" ? "zip" : "script";
 
