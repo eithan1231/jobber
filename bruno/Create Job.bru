@@ -14,6 +14,10 @@ params:query {
   mode: script
 }
 
+headers {
+  Authorization: 1
+}
+
 body:json {
   {
     "name": "test-experiment",
@@ -35,7 +39,7 @@ body:multipart-form {
   description: I will run every 15 seconds sir
   version: 1
   conditionType: schedule
-  conditionCron: 0,15,30,45 * * * * *
+  conditionCron: * * * * * *
   actionKeepAlive: true
-  actionScript: export const handler = (payload) => 'just testing here bruv'
+  actionScript: export const handler = (payload) => new Promise((resolve) => setTimeout(() => resolve('I FINISHED'), 5000))
 }

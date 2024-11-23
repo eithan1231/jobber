@@ -1,4 +1,4 @@
-import { createHonoServer } from "./api/index.js";
+import { createHonoServer } from "./api.js";
 import { JobController } from "./jobber/job-controller.js";
 import { Job } from "./jobber/job.js";
 

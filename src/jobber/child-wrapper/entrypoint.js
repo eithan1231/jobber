@@ -112,7 +112,7 @@ const main = async () => {
     }
   };
 
-  const onDataShutdown = async (data) => {
+  const onDataShutdown = async () => {
     isShuttingDown = true;
 
     console.log("[main] Initiating shutdown routine");
@@ -161,6 +161,14 @@ const main = async () => {
         id: jobRunnerIdentifier,
       })
     );
+  });
+
+  process.once("SIGINT", async () => {
+    console.log("[main] Received SIGINT signal");
+
+    if (!isShuttingDown) {
+      await onDataShutdown();
+    }
   });
 };
 

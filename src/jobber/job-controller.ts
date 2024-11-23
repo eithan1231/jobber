@@ -493,8 +493,17 @@ export class JobController {
     if (data.type === "handle-response") {
       const runner = this.runners.get(data.id);
 
-      if (!runner || runner.status !== "connected") {
+      if (!runner) {
         throw new Error("Unable to find runner with associated data.");
+      }
+
+      const expectedStatuses = ["connected", "disconnecting"];
+      if (!expectedStatuses.includes(runner.status)) {
+        throw new Error(
+          `Unable to find valid runner. Expected status of ${expectedStatuses.join(
+            ", "
+          )}, but got ${runner.status}`
+        );
       }
 
       if (!data.traceId) {
