@@ -1,20 +1,19 @@
-import { mkdir, readdir, readFile, writeFile } from "fs/promises";
+import { mkdir, readdir, readFile, rm, unlink, writeFile } from "fs/promises";
 import path from "path";
 import { z } from "zod";
 import { JobController } from "./job-controller.js";
 
-import {
-  ChildProcess,
-  ChildProcessWithoutNullStreams,
-  spawn,
-} from "child_process";
 import { CronTime } from "cron";
-import { randomBytes, randomUUID } from "crypto";
+import { randomUUID } from "crypto";
+import { REGEX_ALPHA_NUMERIC_DASHES } from "~/constants.js";
+import { sanitiseFilename } from "~/util.js";
+
+const DIRECTORY_JOBS = path.join(process.cwd(), "./config/jobs");
 
 export const registerJobSchema = z.object({
   version: z.string(),
 
-  name: z.string(),
+  name: z.string().max(32).min(3).regex(REGEX_ALPHA_NUMERIC_DASHES),
   description: z.string().optional(),
 
   execution: z.object({
@@ -24,7 +23,6 @@ export const registerJobSchema = z.object({
         type: z.literal("schedule"),
         timezone: z.string().optional(),
         cron: z.string(),
-        timeout: z.number().default(30),
       })
     ),
 
@@ -50,6 +48,7 @@ export const registerJobSchema = z.object({
 export type RegisterJobSchemaType = z.infer<typeof registerJobSchema>;
 
 type JobItem = {
+  status: "active" | "closing";
   base: RegisterJobSchemaType;
   directory: string;
   directoryRuntime: string;
@@ -64,13 +63,12 @@ type JobSchedule = {
 
   timezone?: string;
   cron: string;
-  timeout: number;
 };
 
 export class Job {
   private jobController: JobController;
 
-  private jobs: JobItem[] = [];
+  private jobs: Map<string, JobItem> = new Map();
 
   private jobSchedules: Map<string, JobSchedule> = new Map();
 
@@ -78,6 +76,64 @@ export class Job {
 
   constructor(jobController: JobController) {
     this.jobController = jobController;
+  }
+
+  public async start() {
+    const jobs = await readdir(DIRECTORY_JOBS);
+
+    for (const job of jobs) {
+      const directoryJob = path.join(DIRECTORY_JOBS, job);
+      const directoryJobConfig = path.join(directoryJob, "config.json");
+
+      const content = await readFile(directoryJobConfig);
+
+      const contentParsed = JSON.parse(content.toString());
+
+      await this.registerJob(directoryJob, contentParsed);
+    }
+
+    this.eventScheduleTickInterval = setInterval(() => {
+      this.eventScheduleTick();
+    }, 1000);
+  }
+
+  public async stop() {
+    if (this.eventScheduleTickInterval) {
+      clearInterval(this.eventScheduleTickInterval);
+    }
+
+    for (const [jobId, _job] of this.jobs.entries()) {
+      await this.deregisterJob(jobId);
+    }
+  }
+
+  public async getJobs() {
+    const result: RegisterJobSchemaType[] = [];
+
+    for (const job of this.jobs.values()) {
+      result.push(job.base);
+    }
+
+    return result;
+  }
+
+  public async upsertJobScript(payload: unknown) {
+    const job = await registerJobSchema.parseAsync(payload);
+
+    const existingJob = this.jobs.get(job.name);
+
+    const directoryJob = path.join(DIRECTORY_JOBS, sanitiseFilename(job.name));
+    const directoryJobConfig = path.join(directoryJob, "config.json");
+
+    if (existingJob) {
+      await this.deregisterJob(job.name);
+    }
+
+    await mkdir(directoryJob, { recursive: true });
+
+    await writeFile(directoryJobConfig, JSON.stringify(job));
+
+    await this.registerJob(directoryJob, job);
   }
 
   private eventScheduleTick() {
@@ -97,9 +153,7 @@ export class Job {
         runAt: jobSchedule.cronTime.sendAt().toMillis(),
       });
 
-      const job = this.jobs.find(
-        (index) => index.base.name === jobSchedule.jobName
-      );
+      const job = this.jobs.get(jobSchedule.jobName);
 
       if (!job) {
         console.log(
@@ -113,33 +167,6 @@ export class Job {
     }
   }
 
-  public async start() {
-    const directoryJobs = "./config/jobs";
-
-    const jobs = await readdir(directoryJobs);
-
-    for (const job of jobs) {
-      const directoryJob = path.join(process.cwd(), "./config/jobs", job);
-      const directoryJobConfig = path.join(directoryJob, "config.json");
-
-      const content = await readFile(directoryJobConfig);
-
-      const contentParsed = JSON.parse(content.toString());
-
-      await this.registerJob(directoryJob, contentParsed);
-    }
-
-    this.eventScheduleTickInterval = setInterval(() => {
-      this.eventScheduleTick();
-    }, 1000);
-  }
-
-  public async stop() {
-    if (this.eventScheduleTickInterval) {
-      clearInterval(this.eventScheduleTickInterval);
-    }
-  }
-
   private async handleAction(job: JobItem) {
     const response = await this.jobController.sendHandleRequest(
       job.base.execution.action.id,
@@ -148,13 +175,36 @@ export class Job {
       }
     );
 
-    console.log(`[Job/handleAction] Response ${response}`);
+    if (!response.success) {
+      console.log(
+        `[Job/handleAction] Job failed in ${response.duration}ms with error ${response.error}`
+      );
+
+      return;
+    }
+
+    console.log(`[Job/handleAction] Job finished in ${response.duration}ms`);
   }
 
   private async registerJob(directory: string, payload: RegisterJobSchemaType) {
+    if (this.jobs.has(payload.name)) {
+      const job = this.jobs.get(payload.name);
+
+      if (job?.status === "active") {
+        throw new Error("Cannot register an already active job");
+      }
+
+      if (job?.status === "closing") {
+        throw new Error("Cannot reregister job while its closing");
+      }
+
+      throw new Error("Cannot register job");
+    }
+
     const parsed = await registerJobSchema.parseAsync(payload);
 
     const jobItem: JobItem = {
+      status: "active",
       base: parsed,
       directory,
       directoryRuntime: path.join(directory, "runtime"),
@@ -174,7 +224,6 @@ export class Job {
           runAt: cronTime.sendAt().toMillis(),
 
           cron: condition.cron,
-          timeout: condition.timeout,
           timezone: condition.timezone,
         });
       }
@@ -191,7 +240,7 @@ export class Job {
       );
 
       const entrypointSecretContent = (
-        await readFile("./src/child-wrapper/entrypoint.js", "utf8")
+        await readFile("./src/jobber/child-wrapper/entrypoint.js", "utf8")
       ).replaceAll("<<entrypointClient>>", entrypointClient);
 
       await writeFile(
@@ -212,6 +261,31 @@ export class Job {
         },
       });
     }
-    this.jobs.push(jobItem);
+
+    this.jobs.set(jobItem.base.name, jobItem);
+  }
+
+  private async deregisterJob(jobName: string) {
+    const job = this.jobs.get(jobName);
+
+    if (!job) {
+      throw new Error("Failed to get job");
+    }
+
+    for (const [jobScheduleId, jobSchedule] of this.jobSchedules.entries()) {
+      if (jobSchedule.jobName === jobName) {
+        this.jobSchedules.delete(jobScheduleId);
+      }
+    }
+
+    if (job.base.execution.action.type === "script") {
+      await this.jobController.deregisterAction(job.base.execution.action.id);
+
+      await rm(job.directoryRuntime, {
+        recursive: true,
+      });
+    }
+
+    this.jobs.delete(jobName);
   }
 }

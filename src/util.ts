@@ -1,9 +1,13 @@
+import { REGEX_ALPHA_NUMERIC_DASHES } from "./constants.js";
+
 export const getUnixTimestamp = () => Math.round(Date.now() / 1000);
 
 export const timeout = (ms: number) =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
-// Awaits the callback to return true
+/**
+ * Awaits until the callback yields true
+ */
 export const awaitTruthy = async (
   callback: () => Promise<boolean>,
   timeoutMs: number = 30_000
@@ -26,4 +30,8 @@ export const awaitTruthy = async (
       await timeout(20);
     }
   }
+};
+
+export const sanitiseFilename = (filename: string) => {
+  return filename.replaceAll(/[^0-9a-z-_ ]/gi, "");
 };

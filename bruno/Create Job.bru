@@ -1,0 +1,41 @@
+meta {
+  name: Create Job
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:3000/api/job?mode=script
+  body: multipartForm
+  auth: none
+}
+
+params:query {
+  mode: script
+}
+
+body:json {
+  {
+    "name": "test-experiment",
+    "description": "I am a test",
+  
+    "version": "1",
+    
+    "conditionType": "schedule",
+    "conditionCron": "0,30 * * * * *",
+    
+    "actionKeepAlive": "true",
+    "actionScript": "export const handler = (payload) => 'just testing here bruv'"
+  }
+  
+}
+
+body:multipart-form {
+  name: test-experiment
+  description: I will run every 15 seconds sir
+  version: 1
+  conditionType: schedule
+  conditionCron: 0,15,30,45 * * * * *
+  actionKeepAlive: true
+  actionScript: export const handler = (payload) => 'just testing here bruv'
+}

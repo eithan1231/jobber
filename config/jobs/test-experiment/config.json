@@ -1,0 +1,1 @@
+{"version":"1","name":"test-experiment","description":"I am a test","execution":{"conditions":[{"id":"65c50f6c-a7cc-4b78-b3ac-938887bbc41d","type":"schedule","cron":"0,15,30,45 * * * * *"}],"action":{"id":"166a135b-d245-4d1b-9fad-f82953b85275","type":"script","keepAlive":true,"refreshTimeout":3600,"script":"export const handler = (payload) => 'just testing here bruv'"}}}

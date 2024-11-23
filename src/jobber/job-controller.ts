@@ -1,8 +1,11 @@
 import { ChildProcessWithoutNullStreams, spawn } from "child_process";
 import { randomBytes } from "crypto";
 import { Server, Socket } from "net";
-import { awaitTruthy, getUnixTimestamp } from "./util.js";
 import path from "path";
+import { awaitTruthy, getUnixTimestamp } from "../util.js";
+import { getConfigOption } from "~/config.js";
+
+/////////////////////////////////// DTO Responses (From client)
 
 type DTOResponseInit = {
   type: "init";
@@ -10,6 +13,11 @@ type DTOResponseInit = {
 
 type DTOResponseHandle = {
   type: "handle-response";
+  metadata: {
+    duration?: number;
+    success?: boolean;
+    error?: string;
+  };
   payload: unknown;
 };
 
@@ -17,13 +25,14 @@ type DTOResponse = (DTOResponseInit | DTOResponseHandle) & {
   id: string;
   traceId?: string;
 };
+
+/////////////////////////////////// DTO Requests (From server)
+
 type DTORequestHandle<RequestPayload> = {
   type: "handle";
 
   traceId: string;
-  metadata: {
-    //
-  };
+  metadata: {};
   payload: RequestPayload;
 };
 
@@ -33,6 +42,7 @@ type DTORequestShutdown = {
 
 // Stores record of all known actions
 type JobControllerAction = {
+  status: "active" | "closing";
   id: string;
   jobName: string;
 
@@ -51,42 +61,44 @@ type JobControllerAction = {
     entrypoint: string;
   };
 };
-
 // Stores record of currently running runners
-type JobControllerActionRunnerPending = {
+type JobControllerRunnerPending = {
   status: "pending";
 };
 
-type JobControllerActionRunnerConnected = {
+type JobControllerRunnerConnected = {
   status: "connected";
   socket: Socket;
 };
 
-type JobControllerActionRunnerDisconnecting = {
+type JobControllerRunnerDisconnecting = {
   status: "disconnecting";
   disconnectionStartTime: number;
   socket: Socket;
 };
 
-type JobControllerActionRunnerDisconnected = {
+type JobControllerRunnerDisconnected = {
   status: "disconnected";
 };
 
-type JobControllerActionRunner = (
-  | JobControllerActionRunnerPending
-  | JobControllerActionRunnerConnected
-  | JobControllerActionRunnerDisconnecting
-  | JobControllerActionRunnerDisconnected
+type JobControllerRunner = (
+  | JobControllerRunnerPending
+  | JobControllerRunnerConnected
+  | JobControllerRunnerDisconnecting
+  | JobControllerRunnerDisconnected
 ) & {
   id: string;
-
   actionId: string;
-
   jobName: string;
-
   created: number;
-
   process: ChildProcessWithoutNullStreams;
+};
+
+export type HandlerResult<T> = (
+  | { success: true; payload: T }
+  | { success: false; error: string }
+) & {
+  duration: number;
 };
 
 const SERVER_TCP_PORT = 5211;
@@ -96,7 +108,7 @@ export class JobController {
 
   private actions: Map<string, JobControllerAction> = new Map();
 
-  private actionRunners: Map<string, JobControllerActionRunner> = new Map();
+  private runners: Map<string, JobControllerRunner> = new Map();
 
   private eventRunnerTickInterval: NodeJS.Timeout | null = null;
 
@@ -109,15 +121,15 @@ export class JobController {
     this.server = new Server();
   }
 
-  private async sendActionRunnerShutdown(runnerId: string) {
-    const actionRunner = this.actionRunners.get(runnerId);
+  private async sendRunnerShutdown(runnerId: string) {
+    const runner = this.runners.get(runnerId);
 
-    if (!actionRunner || actionRunner.status !== "connected") {
+    if (!runner || runner.status !== "connected") {
       throw new Error(`Failed to send shutdown commend to runner ${runnerId}`);
     }
 
-    this.actionRunners.set(runnerId, {
-      ...actionRunner,
+    this.runners.set(runnerId, {
+      ...runner,
       disconnectionStartTime: getUnixTimestamp(),
       status: "disconnecting",
     });
@@ -126,29 +138,29 @@ export class JobController {
       type: "shutdown",
     };
 
-    actionRunner.socket.write(JSON.stringify(payload));
+    runner.socket.write(JSON.stringify(payload));
   }
 
-  private findActionRunnersByActionId(actionId: string) {
-    const result: JobControllerActionRunner[] = [];
+  private findRunnersByActionId(actionId: string) {
+    const result: JobControllerRunner[] = [];
 
-    for (const [_, actionRunner] of this.actionRunners.entries()) {
-      if (actionRunner.actionId === actionId) {
-        result.push(actionRunner);
+    for (const [_, runner] of this.runners.entries()) {
+      if (runner.actionId === actionId) {
+        result.push(runner);
       }
     }
 
     return result;
   }
 
-  private createActionRunnerByActionId(actionId: string) {
+  private createRunnerByActionId(actionId: string) {
     const action = this.actions.get(actionId);
 
     if (!action) {
       throw new Error(`Action not found ${actionId}`);
     }
 
-    const id = randomBytes(64).toString("hex");
+    const id = `runner-${randomBytes(24).toString("hex")}`;
 
     const proc = spawn(
       "node",
@@ -179,10 +191,20 @@ export class JobController {
         `[createActionRunnerByActionId] event "exit" for runnerId ${id}`
       );
 
-      this.actionRunners.delete(id);
+      this.runners.delete(id);
     });
 
-    this.actionRunners.set(id, {
+    if (getConfigOption("DEBUG_RUNNER_STD")) {
+      proc.stderr.on("data", (chunk) =>
+        console.log(`${id.substring(10)}...: ${chunk.toString().trim()}`)
+      );
+
+      proc.stdout.on("data", (chunk) =>
+        console.log(`${id.substring(10)}...: ${chunk.toString().trim()}`)
+      );
+    }
+
+    this.runners.set(id, {
       status: "pending",
       id: id,
       actionId: actionId,
@@ -197,7 +219,7 @@ export class JobController {
   /**
    * Gets or creates a new runner
    */
-  private async getActionRunnerByActionId(actionId: string) {
+  private async getRunnerByActionId(actionId: string) {
     const action = this.actions.get(actionId);
 
     if (!action) {
@@ -205,7 +227,7 @@ export class JobController {
     }
 
     if (action.keepAlive) {
-      const actionRunners = this.findActionRunnersByActionId(actionId);
+      const actionRunners = this.findRunnersByActionId(actionId);
 
       for (const actionRunner of actionRunners) {
         if (actionRunner.status === "connected") {
@@ -214,10 +236,10 @@ export class JobController {
       }
     }
 
-    const runnerId = this.createActionRunnerByActionId(actionId);
+    const runnerId = this.createRunnerByActionId(actionId);
 
     await awaitTruthy(async () => {
-      const actionRunner = this.actionRunners.get(runnerId);
+      const actionRunner = this.runners.get(runnerId);
 
       if (!actionRunner) {
         return false;
@@ -230,7 +252,7 @@ export class JobController {
       return true;
     });
 
-    return this.actionRunners.get(runnerId);
+    return this.runners.get(runnerId);
   }
 
   /**
@@ -239,26 +261,36 @@ export class JobController {
   public sendHandleRequest<RequestPayload, ResponsePayload>(
     actionId: string,
     request: RequestPayload
-  ): Promise<ResponsePayload> {
+  ): Promise<HandlerResult<ResponsePayload>> {
     return new Promise(async (resolve, reject) => {
       const traceId = `traceId-${randomBytes(64).toString("hex")}`;
 
       const action = this.actions.get(actionId);
 
       if (!action) {
-        return reject(new Error(`Failed to find action ${actionId}`));
+        return reject(
+          new Error(`[sendHandleRequest] Failed to find action ${actionId}`)
+        );
       }
 
-      const runner = await this.getActionRunnerByActionId(actionId);
+      if (action.status !== "active") {
+        return reject(
+          new Error(
+            `[sendHandleRequest] Action invoked with status of "${action.status}", expected "active"`
+          )
+        );
+      }
+
+      const runner = await this.getRunnerByActionId(actionId);
 
       if (!runner) {
-        return reject(new Error(`Failed to get runner`));
+        return reject(new Error(`[sendHandleRequest] Failed to get runner`));
       }
 
       if (runner.status !== "connected") {
         return reject(
           new Error(
-            `Failed to get runner, expected status connected, received ${runner.status}`
+            `[sendHandleRequest] Failed to get runner, expected status connected, received ${runner.status}`
           )
         );
       }
@@ -273,7 +305,7 @@ export class JobController {
       const timeoutInterval = setTimeout(() => {
         this.socketTraceIdResponses.delete(traceId);
 
-        reject(new Error("Timeout error"));
+        reject(new Error("[sendHandleRequest] Timeout error"));
       }, 60_000);
 
       this.socketTraceIdResponses.set(traceId, (data: DTOResponseHandle) => {
@@ -281,23 +313,85 @@ export class JobController {
 
         this.socketTraceIdResponses.delete(traceId);
 
-        resolve(data.payload as ResponsePayload);
-
         // TODO: Find a more nice solution for this. We are managing its lifecycle in two places.
         if (!action.keepAlive) {
-          this.sendActionRunnerShutdown(runner.id);
+          this.sendRunnerShutdown(runner.id);
         }
+
+        if (typeof data.metadata.success === "undefined") {
+          return reject(
+            new Error("[sendHandleRequest] Unknown metadata status")
+          );
+        }
+
+        if (!data.metadata.success) {
+          return resolve({
+            success: false,
+            error: data.metadata.error ?? "An unknown error occurred",
+            duration: data.metadata.duration ?? -1,
+          });
+        }
+
+        return resolve({
+          success: true,
+          payload: data.payload as ResponsePayload,
+          duration: data.metadata.duration ?? -1,
+        });
       });
 
-      runner.socket.write(JSON.stringify(payload));
+      runner.socket.write(JSON.stringify(payload), (err) => {
+        if (err) {
+          clearTimeout(timeoutInterval);
+
+          reject(err);
+        }
+      });
     });
   }
 
   /**
    * Registers a known action
    */
-  public async registerAction(payload: JobControllerAction) {
-    this.actions.set(payload.id, payload);
+  public async registerAction(payload: Omit<JobControllerAction, "status">) {
+    this.actions.set(payload.id, {
+      ...payload,
+      status: "active",
+    });
+  }
+
+  public async deregisterAction(actionId: string) {
+    const action = this.actions.get(actionId);
+
+    if (!action) {
+      throw new Error("Failed to get action");
+    }
+
+    this.actions.set(actionId, {
+      ...action,
+      status: "closing",
+    });
+
+    if (action.keepAlive) {
+      for (const [, runner] of this.runners) {
+        if (runner.actionId === actionId && runner.status === "connected") {
+          await this.sendRunnerShutdown(runner.id);
+        }
+      }
+    }
+
+    const success = await awaitTruthy(async () => {
+      for (const [, runner] of this.runners.entries()) {
+        if (runner.actionId === actionId) {
+          return false;
+        }
+      }
+
+      return true;
+    }, 60_000 * 5);
+
+    if (!success) {
+      throw new Error("[deregisterAction] Failed to deregister action");
+    }
   }
 
   /**
@@ -307,7 +401,7 @@ export class JobController {
    */
   private async eventRunnerTick() {
     // Check if no socket opened on process after a minute
-    for (const [runnerId, runner] of this.actionRunners) {
+    for (const [runnerId, runner] of this.runners) {
       if (
         getUnixTimestamp() - runner.created > 60 &&
         runner.status == "pending"
@@ -321,26 +415,30 @@ export class JobController {
     }
 
     for (const [actionId, action] of this.actions) {
-      const actionRunners = this.findActionRunnersByActionId(action.id);
+      const runners = this.findRunnersByActionId(action.id);
 
       // CREATE KEEPALIVE APPLICATION
-      if (action.keepAlive && actionRunners.length <= 0) {
-        this.createActionRunnerByActionId(actionId);
+      if (
+        action.status === "active" &&
+        action.keepAlive &&
+        runners.length <= 0
+      ) {
+        this.createRunnerByActionId(actionId);
       }
 
-      for (const actionRunner of actionRunners) {
+      for (const runner of runners) {
         // KEEP ALIVE REFRESH
         if (
           action.keepAlive &&
-          actionRunner.status === "connected" &&
-          getUnixTimestamp() - actionRunner.created > action.refreshTimeout
+          runner.status === "connected" &&
+          getUnixTimestamp() - runner.created > action.refreshTimeout
         ) {
-          await this.sendActionRunnerShutdown(actionRunner.id);
+          await this.sendRunnerShutdown(runner.id);
         }
 
         // DISCONNECTING TIMEOUT, FORCEFUL CLOSE
         const disconnectKillAfter = 60 * 20; // 20 minutes
-        for (const actionRunner of actionRunners) {
+        for (const actionRunner of runners) {
           if (
             actionRunner.status === "disconnecting" &&
             getUnixTimestamp() - actionRunner.disconnectionStartTime >
@@ -362,7 +460,7 @@ export class JobController {
    */
   private onSocketData(socket: Socket, data: DTOResponse) {
     if (data.type === "init") {
-      const runner = this.actionRunners.get(data.id);
+      const runner = this.runners.get(data.id);
 
       if (!runner) {
         socket.end();
@@ -376,7 +474,7 @@ export class JobController {
         );
       }
 
-      this.actionRunners.set(data.id, {
+      this.runners.set(data.id, {
         ...runner,
 
         status: "connected",
@@ -393,7 +491,7 @@ export class JobController {
     }
 
     if (data.type === "handle-response") {
-      const runner = this.actionRunners.get(data.id);
+      const runner = this.runners.get(data.id);
 
       if (!runner || runner.status !== "connected") {
         throw new Error("Unable to find runner with associated data.");
@@ -425,9 +523,7 @@ export class JobController {
   }
 
   private onSocketClose(socket: Socket, runnerId: string) {
-    console.log(`[JobController/onSocketClose] Started, runnerId ${runnerId}`);
-
-    const runner = this.actionRunners.get(runnerId);
+    const runner = this.runners.get(runnerId);
 
     if (!runner) {
       console.log(

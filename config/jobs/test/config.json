@@ -8,7 +8,7 @@
     "conditions": [
       {
         "type": "schedule",
-        "cron": "*/2 * * * * *"
+        "cron": "0,30 * * * * *"
       }
     ],
     "action": {
