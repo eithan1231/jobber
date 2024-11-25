@@ -174,6 +174,9 @@ export class JobController {
         SERVER_TCP_PORT.toString(),
       ],
       {
+        env: {
+          PATH: process.env.PATH,
+        },
         windowsHide: true,
         cwd: action.runtime.directory,
         stdio: "pipe",
