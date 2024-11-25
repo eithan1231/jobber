@@ -1,0 +1,39 @@
+meta {
+  name: Create Job (zip)
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://127.0.0.1:3000/api/job?mode=zip
+  body: multipartForm
+  auth: none
+}
+
+params:query {
+  mode: zip
+}
+
+headers {
+  Authorization: 1
+}
+
+body:json {
+  {
+    "name": "test",
+    "description": "I am a test",
+  
+    "version": "1",
+    
+    "conditionType": "schedule",
+    "conditionCron": "* * * * *",
+    
+    "actionKeepAlive": "true",
+    "actionScript": "export const handler = (payload) => 'just testing here bruv'"
+  }
+  
+}
+
+body:multipart-form {
+  archive: @file(test-v2.zip)
+}

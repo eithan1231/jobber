@@ -5,6 +5,9 @@ RUN corepack enable
 COPY . /app
 WORKDIR /app
 
+RUN apt update && apt install unzip --no-install-recommends -y
+RUN rm -rf /var/lib/apt/lists/*
+
 
 FROM base AS prod-deps
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile

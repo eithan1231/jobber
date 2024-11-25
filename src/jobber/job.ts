@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, rm, unlink, writeFile } from "fs/promises";
+import { cp, mkdir, readdir, readFile, rm, writeFile } from "fs/promises";
 import path from "path";
 import { z } from "zod";
 import { JobController } from "./job-controller.js";
@@ -6,7 +6,13 @@ import { JobController } from "./job-controller.js";
 import { CronTime } from "cron";
 import { randomUUID } from "crypto";
 import { REGEX_ALPHA_NUMERIC_DASHES } from "~/constants.js";
-import { sanitiseFilename } from "~/util.js";
+import {
+  fileExists,
+  getTmpFile,
+  getUnixTimestamp,
+  sanitiseFilename,
+  unzip,
+} from "~/util.js";
 
 const DIRECTORY_JOBS = path.join(process.cwd(), "./config/jobs");
 
@@ -33,6 +39,7 @@ export const registerJobSchema = z.object({
         keepAlive: z.boolean().default(false),
         refreshTimeout: z.number().default(60 * 60),
         entrypoint: z.string().default("index.js"),
+        archiveFileName: z.string(),
       }),
       z.object({
         id: z.string().default(() => randomUUID()),
@@ -46,6 +53,35 @@ export const registerJobSchema = z.object({
 });
 
 export type RegisterJobSchemaType = z.infer<typeof registerJobSchema>;
+
+const packageJsonSchema = z.object({
+  name: z.string().max(32).min(3).regex(REGEX_ALPHA_NUMERIC_DASHES),
+  version: z.string(),
+  description: z.string().optional(),
+  type: z.enum(["module", "commonjs"]).default("commonjs"),
+  main: z.string(),
+
+  jobber: z.object({
+    action: z
+      .object({
+        keepAlive: z.boolean().optional(),
+        refreshTimeout: z.number().optional(),
+      })
+      .optional(),
+
+    conditions: z
+      .array(
+        z.object({
+          type: z.enum(["schedule"]),
+          timezone: z.string().optional(),
+          cron: z.string(),
+        })
+      )
+      .min(1),
+  }),
+});
+
+export type PackageJsonSchemaType = z.infer<typeof packageJsonSchema>;
 
 type JobItem = {
   status: "active" | "closing";
@@ -118,22 +154,162 @@ export class Job {
   }
 
   public async upsertJobScript(payload: unknown) {
+    console.log(`[upsertJobScript] Started`);
+
     const job = await registerJobSchema.parseAsync(payload);
 
     const existingJob = this.jobs.get(job.name);
+
+    console.log(
+      `[upsertJobScript] Metadata, name ${job.name}, version ${
+        job.version
+      }, existing ${existingJob ? "true" : "false"}`
+    );
 
     const directoryJob = path.join(DIRECTORY_JOBS, sanitiseFilename(job.name));
     const directoryJobConfig = path.join(directoryJob, "config.json");
 
     if (existingJob) {
+      console.log(`[upsertJobScript] Existing job. Deregistering...`);
+
       await this.deregisterJob(job.name);
+
+      console.log(`[upsertJobScript] Deregistered.`);
     }
 
     await mkdir(directoryJob, { recursive: true });
 
-    await writeFile(directoryJobConfig, JSON.stringify(job));
+    await writeFile(directoryJobConfig, JSON.stringify(job, null, 2));
+
+    console.log(`[upsertJobScript] Registering...`);
 
     await this.registerJob(directoryJob, job);
+
+    console.log(`[upsertJobScript] Registered.`);
+  }
+
+  public async upsertJobZip(archiveFile: string) {
+    console.log(`[upsertJobZip] Started`);
+
+    const filenames: string[] = [];
+
+    try {
+      const directoryZipContent = getTmpFile({
+        length: 6,
+      });
+
+      await mkdir(directoryZipContent, {
+        recursive: true,
+      });
+
+      filenames.push(directoryZipContent);
+
+      await unzip(archiveFile, directoryZipContent);
+
+      const directoryZipContentPackageFile = path.join(
+        directoryZipContent,
+        "package.json"
+      );
+
+      if (!(await fileExists(directoryZipContentPackageFile))) {
+        return {
+          success: false,
+          message: "Expected package.json to be present",
+        } as const;
+      }
+
+      const packageContent = await readFile(
+        directoryZipContentPackageFile,
+        "utf8"
+      );
+
+      const packageContentPared = await packageJsonSchema.safeParseAsync(
+        JSON.parse(packageContent)
+      );
+
+      if (!packageContentPared.success) {
+        const formattedErrors = packageContentPared.error.errors
+          .map((issue) => `${issue.path.join(".")} - ${issue.message}`)
+          .join(", ");
+
+        return {
+          success: false,
+          message: `package.json validation failure... ${formattedErrors}`,
+        } as const;
+      }
+
+      const archiveFilenameInternal = `archive-${getUnixTimestamp()}.zip`;
+
+      const directoryJob = path.join(
+        DIRECTORY_JOBS,
+        sanitiseFilename(packageContentPared.data.name)
+      );
+
+      const directoryJobConfig = path.join(directoryJob, "config.json");
+      const directoryJobArchive = path.join(
+        directoryJob,
+        archiveFilenameInternal
+      );
+
+      const existingJob = this.jobs.get(packageContentPared.data.name);
+
+      // A bit of cleanup of the original job.
+      if (existingJob) {
+        await this.deregisterJob(packageContentPared.data.name);
+      }
+
+      await mkdir(directoryJob, { recursive: true });
+
+      await cp(archiveFile, directoryJobArchive);
+
+      // Create config file
+      const job = await registerJobSchema.parseAsync({
+        name: packageContentPared.data.name,
+        version: packageContentPared.data.version,
+        description: packageContentPared.data.description,
+        execution: {
+          action: {
+            type: "zip",
+            archiveFileName: archiveFilenameInternal,
+            entrypoint: packageContentPared.data.main,
+            keepAlive: packageContentPared.data.jobber?.action?.keepAlive,
+            refreshTimeout:
+              packageContentPared.data.jobber.action?.refreshTimeout,
+          },
+
+          conditions: packageContentPared.data.jobber.conditions.map(
+            (condition) => {
+              return {
+                type: condition.type,
+                timezone: condition.timezone,
+                cron: condition.cron,
+              };
+            }
+          ),
+        },
+      });
+
+      await writeFile(directoryJobConfig, JSON.stringify(job, null, 2));
+
+      await this.registerJob(directoryJob, job);
+
+      if (existingJob && existingJob.base.execution.action.type === "zip") {
+        await rm(
+          path.join(
+            directoryJob,
+            existingJob.base.execution.action.archiveFileName
+          )
+        );
+      }
+
+      console.log(`[upsertJobZip] Finished`);
+    } finally {
+      for (const filename of filenames) {
+        await rm(filename, {
+          recursive: true,
+        });
+      }
+    }
   }
 
   private eventScheduleTick() {
@@ -229,15 +405,55 @@ export class Job {
       }
     }
 
-    if (parsed.execution.action.type === "script") {
+    if (jobItem.base.execution.action.type === "script") {
       const entrypointSecret = `entrypoint-top-secret-cant-find-me.js`;
 
       const entrypointClient = "./index.js";
 
       await writeFile(
         path.join(jobItem.directoryRuntime, entrypointClient),
-        parsed.execution.action.script
+        jobItem.base.execution.action.script
       );
+
+      const entrypointSecretContent = (
+        await readFile("./src/jobber/child-wrapper/entrypoint.js", "utf8")
+      ).replaceAll("<<entrypointClient>>", entrypointClient);
+
+      await writeFile(
+        path.join(jobItem.directoryRuntime, entrypointSecret),
+        entrypointSecretContent
+      );
+
+      this.jobController.registerAction({
+        id: jobItem.base.execution.action.id,
+        jobName: parsed.name,
+
+        keepAlive: jobItem.base.execution.action.keepAlive,
+        refreshTimeout: jobItem.base.execution.action.refreshTimeout,
+
+        runtime: {
+          directory: jobItem.directoryRuntime,
+          entrypoint: entrypointSecret,
+        },
+      });
+    }
+
+    if (jobItem.base.execution.action.type === "zip") {
+      await unzip(
+        path.join(
+          jobItem.directory,
+          jobItem.base.execution.action.archiveFileName
+        ),
+        jobItem.directoryRuntime
+      );
+
+      const entrypointSecret = `entrypoint-top-secret-cant-find-me.js`;
+
+      let entrypointClient = jobItem.base.execution.action.entrypoint;
+
+      if (!entrypointClient.startsWith("./")) {
+        entrypointClient = `./${entrypointClient}`;
+      }
 
       const entrypointSecretContent = (
         await readFile("./src/jobber/child-wrapper/entrypoint.js", "utf8")
@@ -278,7 +494,10 @@ export class Job {
       }
     }
 
-    if (job.base.execution.action.type === "script") {
+    if (
+      job.base.execution.action.type === "script" ||
+      job.base.execution.action.type === "zip"
+    ) {
       await this.jobController.deregisterAction(job.base.execution.action.id);
 
       await rm(job.directoryRuntime, {

@@ -1,11 +1,11 @@
 meta {
-  name: Create Job
+  name: Create Job (script)
   type: http
   seq: 2
 }
 
 post {
-  url: http://localhost:3000/api/job?mode=script
+  url: http://127.0.0.1:3000/api/job?mode=script
   body: multipartForm
   auth: none
 }
@@ -20,13 +20,13 @@ headers {
 
 body:json {
   {
-    "name": "test-experiment",
+    "name": "test",
     "description": "I am a test",
   
     "version": "1",
     
     "conditionType": "schedule",
-    "conditionCron": "0,30 * * * * *",
+    "conditionCron": "* * * * *",
     
     "actionKeepAlive": "true",
     "actionScript": "export const handler = (payload) => 'just testing here bruv'"
@@ -39,7 +39,7 @@ body:multipart-form {
   description: I will run every 15 seconds sir
   version: 1
   conditionType: schedule
-  conditionCron: * * * * * *
-  actionKeepAlive: true
+  conditionCron: * * * * *
+  actionKeepAlive: false
   actionScript: export const handler = (payload) => new Promise((resolve) => setTimeout(() => resolve('I FINISHED'), 5000))
 }

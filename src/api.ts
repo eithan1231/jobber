@@ -1,9 +1,12 @@
-import { Context, Hono, Next } from "hono";
 import { serve } from "@hono/node-server";
-import { Job } from "~/jobber/job.js";
-import { getConfigOption } from "~/config.js";
+import { createWriteStream } from "fs";
+import { Context, Hono, Next } from "hono";
+import { ReadableStream } from "stream/web";
 import { z, ZodError } from "zod";
+import { getConfigOption } from "~/config.js";
 import { REGEX_ALPHA_NUMERIC_DASHES } from "~/constants.js";
+import { Job } from "~/jobber/job.js";
+import { getTmpFile, handleReadableStreamPipe } from "./util.js";
 
 type VariableAuth = { authenticated: true } | { authenticated: false };
 
@@ -108,6 +111,8 @@ export const createHonoApp = async (job: Job) => {
     const mode = c.req.query("mode") === "zip" ? "zip" : "script";
 
     if (mode === "script") {
+      console.log("[/api/job] Running in script mode");
+
       const schema = z.object({
         version: z.string(),
 
@@ -160,6 +165,47 @@ export const createHonoApp = async (job: Job) => {
     }
 
     if (mode === "zip") {
+      console.log("[/api/job] Running in zip mode");
+
+      const body = await c.req.parseBody();
+
+      const archiveFile = body["archive"];
+
+      if (!(archiveFile instanceof File)) {
+        return c.json(
+          {
+            success: false,
+            message: "Expected file",
+          },
+          400
+        );
+      }
+
+      if (!archiveFile.type.toLowerCase().startsWith("application/zip")) {
+        return c.json(
+          {
+            success: false,
+            message: "Unexpected file type",
+          },
+          400
+        );
+      }
+
+      const archiveFilename = getTmpFile({ extension: "zip" });
+
+      const writeStream = createWriteStream(archiveFilename);
+
+      await handleReadableStreamPipe(
+        archiveFile.stream() as ReadableStream,
+        writeStream
+      );
+
+      const result = await job.upsertJobZip(archiveFilename);
+
+      console.log(result?.message);
+      console.log(archiveFilename);
+
+      return c.json({}, 200);
     }
   });
 
