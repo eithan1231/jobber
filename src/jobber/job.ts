@@ -1,10 +1,8 @@
+import { CronTime } from "cron";
+import { randomUUID } from "crypto";
 import { cp, mkdir, readdir, readFile, rm, writeFile } from "fs/promises";
 import path from "path";
 import { z } from "zod";
-import { JobController } from "./job-controller.js";
-
-import { CronTime } from "cron";
-import { randomUUID } from "crypto";
 import { REGEX_ALPHA_NUMERIC_DASHES } from "~/constants.js";
 import {
   fileExists,
@@ -13,6 +11,7 @@ import {
   sanitiseFilename,
   unzip,
 } from "~/util.js";
+import { JobController } from "./job-controller.js";
 
 const DIRECTORY_JOBS = path.join(process.cwd(), "./config/jobs");
 
@@ -115,6 +114,8 @@ export class Job {
   }
 
   public async start() {
+    await mkdir(DIRECTORY_JOBS, { recursive: true });
+
     const jobs = await readdir(DIRECTORY_JOBS);
 
     for (const job of jobs) {
@@ -443,25 +444,27 @@ export class Job {
       }
     }
 
+    const entrypointSecret = `entrypoint-top-secret-cant-find-me.js`;
+
+    let entrypointClient =
+      jobItem.base.execution.action.type === "zip"
+        ? jobItem.base.execution.action.entrypoint
+        : "./index.js";
+
+    if (!entrypointClient.startsWith("./")) {
+      entrypointClient = `./${entrypointClient}`;
+    }
+
+    const entrypointSecretContent = (
+      await readFile("./src/jobber/child-wrapper/entrypoint.js", "utf8")
+    ).replaceAll("<<entrypointClient>>", entrypointClient);
+
+    await writeFile(
+      path.join(jobItem.directoryRuntime, entrypointSecret),
+      entrypointSecretContent
+    );
+
     if (jobItem.base.execution.action.type === "script") {
-      const entrypointSecret = `entrypoint-top-secret-cant-find-me.js`;
-
-      const entrypointClient = "./index.js";
-
-      await writeFile(
-        path.join(jobItem.directoryRuntime, entrypointClient),
-        jobItem.base.execution.action.script
-      );
-
-      const entrypointSecretContent = (
-        await readFile("./src/jobber/child-wrapper/entrypoint.js", "utf8")
-      ).replaceAll("<<entrypointClient>>", entrypointClient);
-
-      await writeFile(
-        path.join(jobItem.directoryRuntime, entrypointSecret),
-        entrypointSecretContent
-      );
-
       this.jobController.registerAction({
         id: jobItem.base.execution.action.id,
         jobName: parsed.name,
@@ -485,23 +488,6 @@ export class Job {
           jobItem.base.execution.action.archiveFileName
         ),
         jobItem.directoryRuntime
-      );
-
-      const entrypointSecret = `entrypoint-top-secret-cant-find-me.js`;
-
-      let entrypointClient = jobItem.base.execution.action.entrypoint;
-
-      if (!entrypointClient.startsWith("./")) {
-        entrypointClient = `./${entrypointClient}`;
-      }
-
-      const entrypointSecretContent = (
-        await readFile("./src/jobber/child-wrapper/entrypoint.js", "utf8")
-      ).replaceAll("<<entrypointClient>>", entrypointClient);
-
-      await writeFile(
-        path.join(jobItem.directoryRuntime, entrypointSecret),
-        entrypointSecretContent
       );
 
       this.jobController.registerAction({

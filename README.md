@@ -4,10 +4,12 @@ Do you like Lambda, the concept of disposable functions? Well this is surely the
 
 ### Future additions
 
+- Support environment variables
 - Run jobs within an isolated context for security, this will be most likely in the form of Docker.
-- With the support of docker, we could allow for remote docker-hosts.
+- Support secrets
 - Support other languages (python? native binaries?).
 - Support CommonJS?
+- With the support of docker, we could allow for remote docker-hosts.
 
 ### Security considerations
 

@@ -3,8 +3,6 @@ import { randomBytes } from "crypto";
 import { Socket } from "net";
 
 /**
- *
- *
  * @param {string} name
  * @returns {string|null}
  */
@@ -367,9 +365,6 @@ class JobberSocket {
 }
 
 const main = async () => {
-  let handleRequestsProcessing = 0;
-  let isShuttingDown = false;
-
   const jobRunnerIdentifier = getArgument("job-runner-identifier");
   const jobControllerHost = getArgument("job-controller-host");
   const jobControllerPort = Number(getArgument("job-controller-port"));
@@ -389,9 +384,7 @@ const main = async () => {
   process.once("SIGINT", async () => {
     console.log("[main] Received SIGINT signal");
 
-    if (!isShuttingDown) {
-      await jobber.onTransaction_Shutdown("fake", {});
-    }
+    await jobber.onTransaction_Shutdown("fake", {});
   });
 };
 
