@@ -12,6 +12,7 @@ import {
   unzip,
 } from "~/util.js";
 import { JobController } from "./job-controller.js";
+import { JobScheduler } from "./job-schedules.js";
 
 const DIRECTORY_JOBS = path.join(process.cwd(), "./config/jobs");
 
@@ -24,7 +25,6 @@ export const registerJobSchema = z.object({
   execution: z.object({
     conditions: z.array(
       z.object({
-        id: z.string().default(() => randomUUID()),
         type: z.literal("schedule"),
         timezone: z.string().optional(),
         cron: z.string(),
@@ -89,28 +89,19 @@ type JobItem = {
   directoryRuntime: string;
 };
 
-type JobSchedule = {
-  jobName: string;
-  jobExecutionConditionId: string;
-
-  cronTime: CronTime;
-  runAt: number;
-
-  timezone?: string;
-  cron: string;
-};
-
 export class Job {
   private jobController: JobController;
 
+  private jobScheduler: JobScheduler;
+
   private jobs: Map<string, JobItem> = new Map();
-
-  private jobSchedules: Map<string, JobSchedule> = new Map();
-
-  private eventScheduleTickInterval: NodeJS.Timeout | null = null;
 
   constructor(jobController: JobController) {
     this.jobController = jobController;
+
+    this.jobScheduler = new JobScheduler();
+
+    this.jobScheduler.on("schedule", (name) => this.onScheduleEvent(name));
   }
 
   public async start() {
@@ -129,15 +120,11 @@ export class Job {
       await this.registerJob(directoryJob, contentParsed);
     }
 
-    this.eventScheduleTickInterval = setInterval(() => {
-      this.eventScheduleTick();
-    }, 1000);
+    this.jobScheduler.start();
   }
 
   public async stop() {
-    if (this.eventScheduleTickInterval) {
-      clearInterval(this.eventScheduleTickInterval);
-    }
+    this.jobScheduler.stop();
 
     for (const [jobId, _job] of this.jobs.entries()) {
       await this.deregisterJob(jobId);
@@ -347,38 +334,13 @@ export class Job {
     }
   }
 
-  private eventScheduleTick() {
-    const timestamp = Date.now();
+  private async onScheduleEvent(jobName: string) {
+    const job = this.jobs.get(jobName);
 
-    for (const [key, jobSchedule] of this.jobSchedules.entries()) {
-      if (jobSchedule.runAt > timestamp) {
-        continue;
-      }
-
-      console.log(
-        `[Job/eventScheduleTick] Running schedule ${jobSchedule.jobName}, runAt ${jobSchedule.runAt}, jobExecutionConditionId ${jobSchedule.jobExecutionConditionId}`
-      );
-
-      this.jobSchedules.set(key, {
-        ...jobSchedule,
-        runAt: jobSchedule.cronTime.sendAt().toMillis(),
-      });
-
-      const job = this.jobs.get(jobSchedule.jobName);
-
-      if (!job) {
-        console.log(
-          `[Job/eventScheduleTick] Failed to find job, jobName ${jobSchedule.jobName}`
-        );
-
-        continue;
-      }
-
-      this.handleAction(job);
+    if (!job) {
+      throw new Error(`Failed to find job, job name ${jobName}`);
     }
-  }
 
-  private async handleAction(job: JobItem) {
     const response = await this.jobController.sendHandleRequest(
       job.base.execution.action.id,
       { type: "schedule" }
@@ -429,14 +391,8 @@ export class Job {
           `[Job/registerJob] Condition for ${parsed.name}, cron "${condition.cron}", tz ${condition.timezone}`
         );
 
-        const cronTime = new CronTime(condition.cron, condition.timezone);
-
-        this.jobSchedules.set(condition.id, {
+        this.jobScheduler.createSchedule({
           jobName: parsed.name,
-          jobExecutionConditionId: condition.id,
-
-          cronTime: cronTime,
-          runAt: cronTime.sendAt().toMillis(),
 
           cron: condition.cron,
           timezone: condition.timezone,
@@ -465,6 +421,11 @@ export class Job {
     );
 
     if (jobItem.base.execution.action.type === "script") {
+      await writeFile(
+        path.join(jobItem.directoryRuntime, entrypointClient),
+        jobItem.base.execution.action.script
+      );
+
       this.jobController.registerAction({
         id: jobItem.base.execution.action.id,
         jobName: parsed.name,
@@ -516,11 +477,7 @@ export class Job {
       throw new Error("Failed to get job");
     }
 
-    for (const [jobScheduleId, jobSchedule] of this.jobSchedules.entries()) {
-      if (jobSchedule.jobName === jobName) {
-        this.jobSchedules.delete(jobScheduleId);
-      }
-    }
+    this.jobScheduler.deleteSchedulesByJobName(jobName);
 
     if (
       job.base.execution.action.type === "script" ||
