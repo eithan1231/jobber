@@ -380,9 +380,7 @@ export class Job {
   private async handleAction(job: JobItem) {
     const response = await this.jobController.sendHandleRequest(
       job.base.execution.action.id,
-      {
-        message: "hello world!",
-      }
+      { type: "schedule" }
     );
 
     if (!response.success) {
@@ -397,8 +395,12 @@ export class Job {
   }
 
   private async registerJob(directory: string, payload: RegisterJobSchemaType) {
-    if (this.jobs.has(payload.name)) {
-      const job = this.jobs.get(payload.name);
+    const parsed = await registerJobSchema.parseAsync(payload);
+
+    console.log(`[Job/registerJob] Starting ${parsed.name}`);
+
+    if (this.jobs.has(parsed.name)) {
+      const job = this.jobs.get(parsed.name);
 
       if (job?.status === "active") {
         throw new Error("Cannot register an already active job");
@@ -411,8 +413,6 @@ export class Job {
       throw new Error("Cannot register job");
     }
 
-    const parsed = await registerJobSchema.parseAsync(payload);
-
     const jobItem: JobItem = {
       status: "active",
       base: parsed,
@@ -424,6 +424,10 @@ export class Job {
 
     for (const condition of parsed.execution.conditions) {
       if (condition.type === "schedule") {
+        console.log(
+          `[Job/registerJob] Condition for ${parsed.name}, cron "${condition.cron}", tz ${condition.timezone}`
+        );
+
         const cronTime = new CronTime(condition.cron, condition.timezone);
 
         this.jobSchedules.set(condition.id, {
@@ -470,6 +474,8 @@ export class Job {
           entrypoint: entrypointSecret,
         },
       });
+
+      console.log(`[Job/registerJob] Registered action ${parsed.name}`);
     }
 
     if (jobItem.base.execution.action.type === "zip") {
@@ -510,6 +516,8 @@ export class Job {
           entrypoint: entrypointSecret,
         },
       });
+
+      console.log(`[Job/registerJob] Registered action ${parsed.name}`);
     }
 
     this.jobs.set(jobItem.base.name, jobItem);

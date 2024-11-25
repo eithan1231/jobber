@@ -5,39 +5,19 @@ import path from "path";
 import { awaitTruthy, getUnixTimestamp } from "../util.js";
 import { getConfigOption } from "~/config.js";
 
-/////////////////////////////////// DTO Responses (From client)
+type SendHandleRequest =
+  | {
+      type: "schedule";
+    }
+  | {
+      type: "http";
+    };
 
-type DTOResponseInit = {
-  type: "init";
-};
-
-type DTOResponseHandle = {
-  type: "handle-response";
-  metadata: {
-    duration?: number;
-    success?: boolean;
-    error?: string;
-  };
-  payload: unknown;
-};
-
-type DTOResponse = (DTOResponseInit | DTOResponseHandle) & {
-  id: string;
-  traceId?: string;
-};
-
-/////////////////////////////////// DTO Requests (From server)
-
-type DTORequestHandle<RequestPayload> = {
-  type: "handle";
-
-  traceId: string;
-  metadata: {};
-  payload: RequestPayload;
-};
-
-type DTORequestShutdown = {
-  type: "shutdown";
+export type SendHandleResponse = (
+  | { success: true; payload: unknown }
+  | { success: false; error: string }
+) & {
+  duration: number;
 };
 
 // Stores record of all known actions
@@ -94,13 +74,6 @@ type JobControllerRunner = (
   process: ChildProcessWithoutNullStreams;
 };
 
-export type HandlerResult<T> = (
-  | { success: true; payload: T }
-  | { success: false; error: string }
-) & {
-  duration: number;
-};
-
 const SERVER_TCP_PORT = 5211;
 
 export class JobController {
@@ -112,9 +85,11 @@ export class JobController {
 
   private eventRunnerTickInterval: NodeJS.Timeout | null = null;
 
+  private transactionChunks: TransactionChunks = {};
+
   private socketTraceIdResponses: Map<
     string,
-    (data: DTOResponseHandle) => void
+    (raceId: string, data: any) => void
   > = new Map();
 
   constructor() {
@@ -128,17 +103,18 @@ export class JobController {
       throw new Error(`Failed to send shutdown commend to runner ${runnerId}`);
     }
 
+    await this.writeJson(
+      runner.id,
+      "shutdown",
+      randomBytes(32).toString("hex"),
+      {}
+    );
+
     this.runners.set(runnerId, {
       ...runner,
       disconnectionStartTime: getUnixTimestamp(),
       status: "disconnecting",
     });
-
-    const payload: DTORequestShutdown = {
-      type: "shutdown",
-    };
-
-    runner.socket.write(JSON.stringify(payload));
   }
 
   private findRunnersByActionId(actionId: string) {
@@ -185,13 +161,13 @@ export class JobController {
 
     proc.once("spawn", () => {
       console.log(
-        `[createActionRunnerByActionId] event "spawn" for runnerId ${id}`
+        `[JobController/createActionRunnerByActionId] event "spawn" for runnerId ${id}`
       );
     });
 
     proc.once("exit", () => {
       console.log(
-        `[createActionRunnerByActionId] event "exit" for runnerId ${id}`
+        `[JobController/createActionRunnerByActionId] event "exit" for runnerId ${id}`
       );
 
       this.runners.delete(id);
@@ -261,10 +237,10 @@ export class JobController {
   /**
    * Sends handle command to runner, and awaits response.
    */
-  public sendHandleRequest<RequestPayload, ResponsePayload>(
+  public sendHandleRequest(
     actionId: string,
-    request: RequestPayload
-  ): Promise<HandlerResult<ResponsePayload>> {
+    payload: SendHandleRequest
+  ): Promise<SendHandleResponse> {
     return new Promise(async (resolve, reject) => {
       const traceId = `traceId-${randomBytes(64).toString("hex")}`;
 
@@ -272,14 +248,16 @@ export class JobController {
 
       if (!action) {
         return reject(
-          new Error(`[sendHandleRequest] Failed to find action ${actionId}`)
+          new Error(
+            `[JobController/sendHandleRequest] Failed to find action ${actionId}`
+          )
         );
       }
 
       if (action.status !== "active") {
         return reject(
           new Error(
-            `[sendHandleRequest] Action invoked with status of "${action.status}", expected "active"`
+            `[JobController/sendHandleRequest] Action invoked with status of "${action.status}", expected "active"`
           )
         );
       }
@@ -287,31 +265,26 @@ export class JobController {
       const runner = await this.getRunnerByActionId(actionId);
 
       if (!runner) {
-        return reject(new Error(`[sendHandleRequest] Failed to get runner`));
+        return reject(
+          new Error(`[JobController/sendHandleRequest] Failed to get runner`)
+        );
       }
 
       if (runner.status !== "connected") {
         return reject(
           new Error(
-            `[sendHandleRequest] Failed to get runner, expected status connected, received ${runner.status}`
+            `[JobController/sendHandleRequest] Failed to get runner, expected status connected, received ${runner.status}`
           )
         );
       }
 
-      const payload: DTORequestHandle<RequestPayload> = {
-        type: "handle",
-        traceId: traceId,
-        payload: request,
-        metadata: {},
-      };
-
       const timeoutInterval = setTimeout(() => {
         this.socketTraceIdResponses.delete(traceId);
 
-        reject(new Error("[sendHandleRequest] Timeout error"));
+        reject(new Error("[JobController/sendHandleRequest] Timeout error"));
       }, 60_000);
 
-      this.socketTraceIdResponses.set(traceId, (data: DTOResponseHandle) => {
+      this.socketTraceIdResponses.set(traceId, (traceId, data) => {
         clearTimeout(timeoutInterval);
 
         this.socketTraceIdResponses.delete(traceId);
@@ -321,33 +294,33 @@ export class JobController {
           this.sendRunnerShutdown(runner.id);
         }
 
-        if (typeof data.metadata.success === "undefined") {
+        if (typeof data.success === "undefined") {
           return reject(
-            new Error("[sendHandleRequest] Unknown metadata status")
+            new Error("[JobController/sendHandleRequest] Unknown status")
           );
         }
 
-        if (!data.metadata.success) {
+        if (!data.success) {
           return resolve({
             success: false,
-            error: data.metadata.error ?? "An unknown error occurred",
-            duration: data.metadata.duration ?? -1,
+            error: data.error ?? "An unknown error occurred",
+            duration: data.duration ?? -1,
           });
         }
 
         return resolve({
           success: true,
-          payload: data.payload as ResponsePayload,
-          duration: data.metadata.duration ?? -1,
+          payload: data.payload,
+          duration: data.duration ?? -1,
         });
       });
 
-      runner.socket.write(JSON.stringify(payload), (err) => {
-        if (err) {
-          clearTimeout(timeoutInterval);
+      // TODO: repopulate the data payload. Currently omitted while we figure out a structure for conditions
+      // for Schedule and Http
+      this.writeJson(runner.id, "handle", traceId, {}).catch((err) => {
+        clearTimeout(timeoutInterval);
 
-          reject(err);
-        }
+        reject(err);
       });
     });
   }
@@ -458,95 +431,253 @@ export class JobController {
     }
   }
 
-  /**
-   * Event for handling socket data
-   */
-  private onSocketData(socket: Socket, data: DTOResponse) {
-    if (data.type === "init") {
-      const runner = this.runners.get(data.id);
+  async writeJson(runnerId: string, name: string, traceId: string, data: any) {
+    const buffer = Buffer.from(JSON.stringify(data));
 
-      if (!runner) {
-        socket.end();
-
-        throw new Error("Failed to find runner while initialising client.");
-      }
-
-      if (runner.status === "connected") {
-        throw new Error(
-          "Cannot initialise already connected runner. Session Hijacking attempt?"
-        );
-      }
-
-      this.runners.set(data.id, {
-        ...runner,
-
-        status: "connected",
-        socket: socket,
-      });
-
-      socket.once("close", () => {
-        if (runner) {
-          this.onSocketClose(socket, data.id);
-        }
-      });
+    if (buffer.length <= 1000) {
+      await this.write(
+        runnerId,
+        name,
+        traceId,
+        ["is-start", "is-end", "is-encoding-json"],
+        buffer
+      );
 
       return;
     }
 
-    if (data.type === "handle-response") {
-      const runner = this.runners.get(data.id);
+    for (let i = 0; i < buffer.length; i += 1000) {
+      const extras: PacketExtras[] = ["is-encoding-json"];
 
-      if (!runner) {
-        throw new Error("Unable to find runner with associated data.");
+      if (i === 0) {
+        extras.push("is-start");
       }
 
-      const expectedStatuses = ["connected", "disconnecting"];
-      if (!expectedStatuses.includes(runner.status)) {
-        throw new Error(
-          `Unable to find valid runner. Expected status of ${expectedStatuses.join(
-            ", "
-          )}, but got ${runner.status}`
-        );
+      if (i + 1000 >= buffer.length) {
+        extras.push("is-end");
       }
 
-      if (!data.traceId) {
-        throw new Error(
-          "Expecting traceId to be present on handle-response event"
-        );
-      }
-
-      const traceCallback = this.socketTraceIdResponses.get(data.traceId);
-      if (!traceCallback) {
-        console.log(
-          `[JobController/onSocketData] Failed to find trace callback. traceId ${data.traceId}`
-        );
-
-        return;
-      }
-
-      traceCallback(data);
-
-      return;
+      await this.write(
+        runnerId,
+        name,
+        traceId,
+        extras,
+        buffer.subarray(i, i + 1000)
+      );
     }
-
-    console.log(
-      `[JobController/listen] Received unknown type from runner. Payload ${data}`
-    );
   }
 
-  private onSocketClose(socket: Socket, runnerId: string) {
+  private write(
+    runnerId: string,
+    name: string,
+    traceId: string,
+    extras: PacketExtras[],
+    data: Buffer
+  ) {
+    return new Promise((resolve, reject) => {
+      const runner = this.runners.get(runnerId);
+
+      if (!runner) {
+        return reject(new Error("Unable to find runner"));
+      }
+
+      if (runner.status !== "connected") {
+        return reject(new Error("Cannot write when runner is not connected"));
+      }
+
+      const firstLine = stringifyFirstLine(name, traceId, extras);
+
+      const buffer = Buffer.concat([Buffer.from(`${firstLine}\n`), data]);
+
+      runner.socket.write(buffer, (err) => {
+        if (err) {
+          return reject(err);
+        }
+
+        return resolve(null);
+      });
+    });
+  }
+
+  private async onData(socket: Socket, data: Buffer) {
+    let firstLineIndex = data.indexOf("\n");
+
+    if (firstLineIndex < 0) {
+      throw new Error("Failed to parse first line!");
+    }
+
+    const firstLine = data.subarray(0, firstLineIndex).toString("utf8");
+
+    const metadata = parseFirstLine(firstLine);
+
+    const dataChunk = data.subarray(firstLineIndex + 1);
+
+    if (metadata.isStart && metadata.isEnd) {
+      this.onTransaction(
+        socket,
+        metadata.name,
+        metadata.runnerId,
+        metadata.traceId,
+        metadata.encoding,
+        [dataChunk]
+      );
+
+      return;
+    }
+
+    if (metadata.isStart) {
+      this.transactionChunks[metadata.traceId] = {
+        name: metadata.name,
+        traceId: metadata.traceId,
+        runnerId: metadata.runnerId,
+        encoding: metadata.encoding,
+        createdAt: getUnixTimestamp(),
+        modifiedAt: getUnixTimestamp(),
+        chunks: [dataChunk],
+      };
+
+      return;
+    }
+
+    if (metadata.isEnd) {
+      this.transactionChunks[metadata.traceId].chunks.push(dataChunk);
+
+      this.onTransaction(
+        socket,
+        this.transactionChunks[metadata.traceId].name,
+        this.transactionChunks[metadata.traceId].runnerId,
+        this.transactionChunks[metadata.traceId].traceId,
+        this.transactionChunks[metadata.traceId].encoding,
+        this.transactionChunks[metadata.traceId].chunks
+      );
+
+      delete this.transactionChunks[metadata.traceId];
+
+      return;
+    }
+
+    this.transactionChunks[metadata.traceId].chunks.push(dataChunk);
+  }
+
+  private async onTransaction(
+    socket: Socket,
+    name: string,
+    runnerId: string,
+    traceId: string,
+    encoding: PacketFirstLine["encoding"],
+    data: Array<Buffer>
+  ) {
+    const buffer = Buffer.concat(data);
+
+    if (name === "handle-response") {
+      if (encoding !== "json") {
+        throw new Error(`Expected encoding to be json, got ${encoding}`);
+      }
+
+      this.onTransaction_HandleResponse(
+        socket,
+        runnerId,
+        traceId,
+        JSON.parse(buffer.toString())
+      );
+
+      return;
+    }
+
+    if (name === "init") {
+      if (encoding !== "json") {
+        throw new Error(`Expected encoding to be json, got ${encoding}`);
+      }
+
+      this.onTransaction_Init(
+        socket,
+        runnerId,
+        traceId,
+        JSON.parse(buffer.toString())
+      );
+
+      return;
+    }
+  }
+
+  private async onTransaction_HandleResponse(
+    socket: Socket,
+    runnerId: string,
+    traceId: string,
+    data: {}
+  ) {
+    const runner = this.runners.get(runnerId);
+
+    if (!runner) {
+      throw new Error("Unable to find runner with associated data.");
+    }
+
+    const expectedStatuses = ["connected", "disconnecting"];
+    if (!expectedStatuses.includes(runner.status)) {
+      throw new Error(
+        `Unable to find valid runner. Expected status of ${expectedStatuses.join(
+          ", "
+        )}, but got ${runner.status}`
+      );
+    }
+
+    const traceCallback = this.socketTraceIdResponses.get(traceId);
+    if (!traceCallback) {
+      console.log(
+        `[JobController/onSocketData] Failed to find trace callback. traceId ${traceId}`
+      );
+
+      return;
+    }
+
+    traceCallback(traceId, data);
+  }
+
+  private async onTransaction_Init(
+    socket: Socket,
+    runnerId: string,
+    traceId: string,
+    data: { id: string }
+  ) {
+    const runner = this.runners.get(runnerId);
+
+    if (!runner) {
+      socket.end();
+
+      throw new Error("Failed to find runner while initialising client.");
+    }
+
+    if (runner.status === "connected") {
+      throw new Error(
+        "Cannot initialise already connected runner. Session Hijacking attempt?"
+      );
+    }
+
+    this.runners.set(runnerId, {
+      ...runner,
+
+      status: "connected",
+      socket: socket,
+    });
+
+    socket.once("close", () => {
+      this.onTransaction_Init_Close(socket, runner.id);
+    });
+  }
+
+  private async onTransaction_Init_Close(socket: Socket, runnerId: string) {
     const runner = this.runners.get(runnerId);
 
     if (!runner) {
       console.log(
-        `[JobController/onSocketClose] Runner not found, runnerId ${runnerId}`
+        `[JobController/onTransaction_Init_Close] Runner not found, runnerId ${runnerId}`
       );
 
       return;
     }
 
     console.log(
-      `[JobController/onSocketClose] Sending SIGKILL, runnerId ${runnerId}`
+      `[JobController/onTransaction_Init_Close] Sending SIGKILL, runnerId ${runnerId}`
     );
 
     runner.process.kill("SIGKILL");
@@ -562,7 +693,7 @@ export class JobController {
 
     this.server.on("connection", (socket) => {
       socket.on("data", (data: Buffer) => {
-        this.onSocketData(socket, JSON.parse(data.toString()));
+        this.onData(socket, data);
       });
     });
 
@@ -592,3 +723,78 @@ export class JobController {
     }
   }
 }
+
+type PacketExtras =
+  | "is-start"
+  | "is-end"
+  | "is-encoding-json"
+  | "is-encoding-binary";
+
+type PacketFirstLine = {
+  name: string;
+  runnerId: string;
+  traceId: string;
+  encoding: "json" | "binary" | "unknown";
+  isStart: boolean;
+  isEnd: boolean;
+};
+
+type TransactionChunks = {
+  [traceId: string]: {
+    name: string;
+    runnerId: string;
+    traceId: string;
+    encoding: PacketFirstLine["encoding"];
+    createdAt: number;
+    modifiedAt: number;
+    chunks: Array<Buffer>;
+  };
+};
+
+const parseFirstLine = (line: string): PacketFirstLine => {
+  const split = line.trimEnd().split("::");
+  let encoding: PacketFirstLine["encoding"] = "unknown";
+
+  if (split.includes("is-encoding-json", 3)) {
+    encoding = "json";
+  }
+
+  if (split.includes("is-encoding-binary", 3)) {
+    encoding = "binary";
+  }
+
+  const isStart = split.includes("is-start", 3);
+  const isEnd = split.includes("is-end", 3);
+
+  const name = split.at(0);
+  if (!name) {
+    throw new Error("Name not present");
+  }
+
+  const runnerId = split.at(1);
+  if (!runnerId) {
+    throw new Error("runnerId not present");
+  }
+
+  const traceId = split.at(2);
+  if (!traceId) {
+    throw new Error("traceId not present");
+  }
+
+  return {
+    name,
+    runnerId,
+    traceId,
+    encoding,
+    isStart,
+    isEnd,
+  };
+};
+
+const stringifyFirstLine = (
+  name: string,
+  traceId: string,
+  extras: PacketExtras[]
+) => {
+  return [name, traceId, ...extras].join("::");
+};

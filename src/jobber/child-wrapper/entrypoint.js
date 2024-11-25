@@ -1,7 +1,13 @@
 import * as clientEntry from "<<entrypointClient>>";
+import { randomBytes } from "crypto";
 import { Socket } from "net";
-import { promisify } from "util";
 
+/**
+ *
+ *
+ * @param {string} name
+ * @returns {string|null}
+ */
 const getArgument = (name) => {
   const index = process.argv.indexOf(`--${name}`);
 
@@ -18,6 +24,348 @@ const getArgument = (name) => {
 
 const timeout = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const getUnixTimestamp = () => Math.round(Date.now() / 1000);
+
+class JobberSocket {
+  /**
+   * @param {string} hostname
+   * @param {number} port
+   * @param {string} runnerId
+   */
+  constructor(hostname, port, runnerId) {
+    /**
+     * @type {string}
+     */
+    this.hostname = hostname;
+
+    /**
+     * @type {number}
+     */
+    this.port = port;
+
+    /**
+     * @type {string}
+     */
+    this.runnerId = runnerId;
+
+    /**
+     * @type {boolean}
+     */
+    this.isShuttingDown = false;
+
+    /**
+     * @type {number}
+     */
+    this.handleRequestsProcessing = 0;
+
+    this.socket = new Socket();
+
+    /**
+     * @type {{
+     *  [traceId: string]: {
+     *    name: string;
+     *    traceId: string;
+     *    encoding: 'json' | 'binary' | 'unknown';
+     *    createdAt: number;
+     *    modifiedAt: number;
+     *    chunks: Array<Buffer>;
+     *  }
+     * }}
+     */
+    this.transactionChunks = {};
+  }
+
+  connect() {
+    this.socket.connect({
+      host: this.hostname,
+      port: this.port,
+    });
+
+    this.socket.once("connect", () => {
+      console.log(`[JobberSocket/connect] Connected successfully`);
+
+      this.writeJson("init", `trace-init-${randomBytes(16).toString("hex")}`, {
+        type: "init",
+        id: this.runnerId,
+      });
+    });
+
+    this.socket.on("data", (data) => {
+      this.onData(data);
+    });
+  }
+
+  /**
+   * @param {Buffer} data
+   */
+  onData(data) {
+    let firstLineIndex = data.indexOf("\n");
+
+    if (firstLineIndex < 0) {
+      throw new Error("Failed to parse first line!");
+    }
+
+    const firstLine = data.subarray(0, firstLineIndex).toString("utf8");
+
+    const metadata = this.parseFirstLine(firstLine);
+
+    const dataChunk = data.subarray(firstLineIndex + 1);
+
+    if (metadata.isStart && metadata.isEnd) {
+      this.onTransaction(metadata.name, metadata.traceId, metadata.encoding, [
+        dataChunk,
+      ]);
+
+      return;
+    }
+
+    if (metadata.isStart) {
+      this.transactionChunks[metadata.traceId] = {
+        name: metadata.name,
+        encoding: metadata.encoding,
+        traceId: metadata.traceId,
+        createdAt: getUnixTimestamp(),
+        modifiedAt: getUnixTimestamp(),
+        chunks: [dataChunk],
+      };
+
+      return;
+    }
+
+    if (metadata.isEnd) {
+      this.transactionChunks[metadata.traceId].chunks.push(dataChunk);
+
+      this.onTransaction(
+        this.transactionChunks[metadata.traceId].name,
+        this.transactionChunks[metadata.traceId].traceId,
+        this.transactionChunks[metadata.traceId].encoding,
+        this.transactionChunks[metadata.traceId].chunks
+      );
+
+      delete this.transactionChunks[metadata.traceId];
+
+      return;
+    }
+
+    this.transactionChunks[metadata.traceId].chunks.push(dataChunk);
+  }
+
+  /**
+   * @param {string} name
+   * @param {string} traceId
+   * @param {'json' | 'binary' | 'unknown'} encoding
+   * @param {Array<Buffer>} data
+   */
+  onTransaction(name, traceId, encoding, data) {
+    const buffer = Buffer.concat(data);
+
+    if (name === "handle") {
+      if (encoding !== "json") {
+        throw new Error(`Expected encoding to be json, got ${encoding}`);
+      }
+
+      this.onTransaction_Handle(traceId, JSON.parse(buffer));
+
+      return;
+    }
+
+    if (name === "shutdown") {
+      this.onTransaction_Shutdown(traceId, JSON.parse(buffer));
+
+      return;
+    }
+
+    throw new Error(`Unexpected transaction name ${name}`);
+  }
+
+  /**
+   * @param {string} traceId
+   * @param {any} data
+   */
+  async onTransaction_Handle(traceId, data) {
+    const start = performance.now();
+
+    this.handleRequestsProcessing++;
+
+    console.log(
+      `[JobberSocket/onTransaction_Handle] Starting, traceId ${traceId}`
+    );
+
+    try {
+      // TODO: Wrapping of data so handler has callable functions.
+
+      const result = await clientEntry.handler(null);
+
+      console.log(
+        `[JobberSocket/onTransaction_Handle] Handler completed, traceId ${traceId}`
+      );
+
+      const metadata = {
+        success: true,
+        duration: performance.now() - start,
+      };
+
+      await this.writeJson("handle-response", traceId, metadata);
+
+      console.log(
+        "[JobberSocket/onTransaction_Handle] Delivered response, traceId",
+        traceId
+      );
+    } catch (err) {
+      console.log(
+        "[JobberSocket/onTransaction_Handle] Failed due to error, traceId",
+        traceId
+      );
+
+      console.error(err);
+
+      const metadata = {
+        success: false,
+        duration: performance.now() - start,
+        error: err.toString(),
+      };
+
+      await this.writeJson("handle-response", traceId, metadata);
+    } finally {
+      this.handleRequestsProcessing--;
+    }
+  }
+
+  /**
+   * @param {string} traceId
+   * @param {any} data
+   */
+  async onTransaction_Shutdown(traceId, data) {
+    this.isShuttingDown = true;
+
+    console.log(
+      "[JobberSocket/onTransaction_Shutdown] Starting shutdown routine"
+    );
+
+    for (let i = 0; i < 1000; i++) {
+      if (this.handleRequestsProcessing === 0) {
+        break;
+      }
+
+      await timeout(100);
+    }
+
+    this.socket.end(() => {
+      process.exit();
+    });
+  }
+
+  /**
+   * @param {string} name
+   * @param {string} traceId
+   * @param {any} data
+   * @returns {Promise<void>}
+   */
+  async writeJson(name, traceId, data) {
+    const buffer = Buffer.from(JSON.stringify(data));
+
+    if (buffer.length <= 1000) {
+      await this._write(
+        name,
+        traceId,
+        ["is-start", "is-end", "is-encoding-json"],
+        buffer
+      );
+
+      return;
+    }
+
+    for (let i = 0; i < buffer.length; i += 1000) {
+      const extras = ["is-encoding-json"];
+
+      if (i === 0) {
+        extras.push("is-start");
+      }
+
+      if (i + 1000 >= buffer.length) {
+        extras.push("is-end");
+      }
+
+      await this._write(name, traceId, extras, buffer.subarray(i, i + 1000));
+    }
+  }
+
+  /**
+   *
+   * @param {string} name
+   * @param {string} traceId
+   * @param {Array<'is-start' | 'is-end' | 'is-encoding-json' | 'is-encoding-binary'>} extras
+   * @param {Buffer} data
+   * @returns {Promise<null>}
+   */
+  _write(name, traceId, extras, data) {
+    return new Promise((resolve, reject) => {
+      const firstLine = this.stringifyFirstLine(
+        name,
+        this.runnerId,
+        traceId,
+        extras
+      );
+
+      const buffer = Buffer.concat([Buffer.from(`${firstLine}\n`), data]);
+
+      this.socket.write(buffer, (err) => {
+        if (err) {
+          return reject(err);
+        }
+
+        return resolve(null);
+      });
+    });
+  }
+
+  /**
+   * @param {string} line
+   * @returns {{
+   *  name: string,
+   *  traceId: string,
+   *  encoding: 'json' | 'binary' | 'unknown'
+   *  isStart: boolean;
+   *  isEnd: boolean;
+   * }}
+   */
+  parseFirstLine(line) {
+    const split = line.trimEnd().split("::");
+
+    let encoding = "unknown";
+
+    if (split.includes("is-encoding-json", 2)) {
+      encoding = "json";
+    }
+
+    if (split.includes("is-encoding-binary", 2)) {
+      encoding = "binary";
+    }
+
+    const isStart = split.includes("is-start", 2);
+    const isEnd = split.includes("is-end", 2);
+
+    return {
+      name: split.at(0),
+      traceId: split.at(1),
+      encoding: encoding,
+      isStart,
+      isEnd,
+    };
+  }
+
+  /**
+   * @param {string} name
+   * @param {string} runnerId
+   * @param {string} traceId
+   * @param {Array<'is-start' | 'is-end' | 'is-encoding-json' | 'is-encoding-binary'>} extras
+   * @returns {string}
+   */
+  stringifyFirstLine(name, runnerId, traceId, extras) {
+    return [name, runnerId, traceId, ...extras].join("::");
+  }
+}
+
 const main = async () => {
   let handleRequestsProcessing = 0;
   let isShuttingDown = false;
@@ -30,144 +378,19 @@ const main = async () => {
     throw new Error("Handler is not present");
   }
 
-  const sock = new Socket();
+  const jobber = new JobberSocket(
+    jobControllerHost,
+    jobControllerPort,
+    jobRunnerIdentifier
+  );
 
-  const createDtoHandleResponse = (traceId, metadata, payload) => {
-    return {
-      type: "handle-response",
-      id: jobRunnerIdentifier,
-      traceId,
-      metadata,
-      payload,
-    };
-  };
-
-  const sockWrite = (data) => {
-    return new Promise((resolve, reject) => {
-      let raw;
-
-      if (typeof data === "string") {
-        raw = data;
-      } else if (typeof data === "object" && data instanceof Buffer) {
-        raw = data;
-      } else if (typeof data === "object") {
-        raw = JSON.stringify(data);
-      } else {
-        throw new Error("Cannot write to sock, unknown type of data");
-      }
-
-      sock.write(raw, (err) => {
-        if (err) {
-          return reject(err);
-        }
-
-        return resolve(null);
-      });
-    });
-  };
-
-  const onDataHandle = async (data) => {
-    const start = performance.now();
-
-    handleRequestsProcessing++;
-
-    console.log("[main/onDataHandle] Starting, traceId", data.traceId);
-
-    try {
-      const result = await clientEntry.handler(data.payload);
-
-      console.log(
-        "[main/onDataHandle] Handler completed, traceId",
-        data.traceId
-      );
-
-      const metadata = {
-        success: true,
-        duration: performance.now() - start,
-      };
-
-      await sockWrite(createDtoHandleResponse(data.traceId, metadata, result));
-
-      console.log(
-        "[main/onDataHandle] Delivered response, traceId",
-        data.traceId
-      );
-    } catch (err) {
-      console.log(
-        "[main/onDataHandle] Failed due to error, traceId",
-        data.traceId
-      );
-
-      console.error(err);
-
-      const metadata = {
-        success: false,
-        duration: performance.now() - start,
-        error: err.toString(),
-      };
-
-      await sockWrite(createDtoHandleResponse(data.traceId, metadata, null));
-    } finally {
-      handleRequestsProcessing--;
-    }
-  };
-
-  const onDataShutdown = async () => {
-    isShuttingDown = true;
-
-    console.log("[main] Initiating shutdown routine");
-
-    for (let i = 0; i < 1000; i++) {
-      if (handleRequestsProcessing === 0) {
-        break;
-      }
-
-      await timeout(100);
-    }
-
-    sock.end(() => {
-      process.exit();
-    });
-  };
-
-  sock.on("data", (data) => {
-    const parsedData = JSON.parse(data.toString());
-
-    if (isShuttingDown) {
-      // throw out
-      console.log("[main] Shutting down, not accepting new requests.");
-
-      return;
-    }
-
-    if (parsedData.type === "handle") {
-      onDataHandle(parsedData);
-    }
-
-    if (parsedData.type === "shutdown") {
-      onDataShutdown();
-    }
-  });
-
-  sock.connect({
-    host: jobControllerHost,
-    port: jobControllerPort,
-  });
-
-  sock.once("connect", () => {
-    sock.write(
-      JSON.stringify({
-        type: "init",
-        id: jobRunnerIdentifier,
-      })
-    );
-  });
+  jobber.connect();
 
   process.once("SIGINT", async () => {
     console.log("[main] Received SIGINT signal");
 
     if (!isShuttingDown) {
-      await onDataShutdown();
+      await jobber.onTransaction_Shutdown("fake", {});
     }
   });
 };

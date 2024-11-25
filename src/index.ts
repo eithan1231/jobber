@@ -1,17 +1,20 @@
 import { createHonoServer } from "./api.js";
 import { JobController } from "./jobber/job-controller.js";
 import { Job } from "./jobber/job.js";
+import { timeout } from "./util.js";
 
 const main = async () => {
   const jobController = new JobController();
-  await jobController.listen();
-
-  console.log("[main] Job Controller has started");
-
   const job = new Job(jobController);
-  await job.start();
 
-  console.log("[main] Job has started");
+  console.log("[main] Starting job...");
+  await job.start();
+  console.log("[main] Started job.");
+
+  console.log("[main] Starting job controller...");
+  await timeout(1000);
+  await jobController.listen();
+  console.log("[main] Started job controller.");
 
   const server = await createHonoServer(job);
   server.once("listening", () => {
