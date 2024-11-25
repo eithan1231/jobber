@@ -189,7 +189,7 @@ export class Job {
   }
 
   public async upsertJobZip(archiveFile: string) {
-    console.log(`[upsertJobZip] Started`);
+    console.log(`[Job/upsertJobZip] Started`);
 
     const filenames: string[] = [];
 
@@ -204,7 +204,14 @@ export class Job {
 
       filenames.push(directoryZipContent);
 
+      console.log(
+        `[Job/upsertJobZip] Unzipping ${archiveFile} to ${directoryZipContent}`
+      );
+
       await unzip(archiveFile, directoryZipContent);
+
+      console.log(`[Job/upsertJobZip] Unzipped.`);
+      console.log(`[Job/upsertJobZip] Validating package.json file...`);
 
       const directoryZipContentPackageFile = path.join(
         directoryZipContent,
@@ -212,6 +219,8 @@ export class Job {
       );
 
       if (!(await fileExists(directoryZipContentPackageFile))) {
+        console.log(`[Job/upsertJobZip] package.json not present.`);
+
         return {
           success: false,
           message: "Expected package.json to be present",
@@ -232,11 +241,17 @@ export class Job {
           .map((issue) => `${issue.path.join(".")} - ${issue.message}`)
           .join(", ");
 
+        console.log(
+          `[Job/upsertJobZip] Validation of package.json failed, ${formattedErrors}`
+        );
+
         return {
           success: false,
           message: `package.json validation failure... ${formattedErrors}`,
         } as const;
       }
+
+      console.log(`[Job/upsertJobZip] Validated package.json.`);
 
       const archiveFilenameInternal = `archive-${getUnixTimestamp()}.zip`;
 
@@ -255,8 +270,16 @@ export class Job {
 
       // A bit of cleanup of the original job.
       if (existingJob) {
+        console.log(
+          `[Job/upsertJobZip] Deregistering existing job ${existingJob.base.name}.`
+        );
+
         await this.deregisterJob(packageContentPared.data.name);
+
+        console.log(`[Job/upsertJobZip] Deregistered.`);
       }
+
+      console.log(`[Job/upsertJobZip] Copying new files and zip archive.`);
 
       await mkdir(directoryJob, { recursive: true });
 
@@ -291,9 +314,15 @@ export class Job {
 
       await writeFile(directoryJobConfig, JSON.stringify(job, null, 2));
 
+      console.log(`[Job/upsertJobZip] Registering new job...`);
+
       await this.registerJob(directoryJob, job);
 
+      console.log(`[Job/upsertJobZip] Registered`);
+
       if (existingJob && existingJob.base.execution.action.type === "zip") {
+        console.log(`[Job/upsertJobZip] Removing legacy zip fle.`);
+
         await rm(
           path.join(
             directoryJob,
@@ -302,7 +331,12 @@ export class Job {
         );
       }
 
-      console.log(`[upsertJobZip] Finished`);
+      console.log(`[Job/upsertJobZip] Finished`);
+
+      return {
+        success: true,
+        message: "ok",
+      } as const;
     } finally {
       for (const filename of filenames) {
         await rm(filename, {

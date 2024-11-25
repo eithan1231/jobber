@@ -202,10 +202,22 @@ export const createHonoApp = async (job: Job) => {
 
       const result = await job.upsertJobZip(archiveFilename);
 
-      console.log(result?.message);
-      console.log(archiveFilename);
-
-      return c.json({}, 200);
+      if (!result.success) {
+        return c.json(
+          {
+            success: false,
+            message: result.message,
+          },
+          400
+        );
+      }
+      return c.json(
+        {
+          success: true,
+          message: "Successfully upserted zip file",
+        },
+        200
+      );
     }
   });
 
