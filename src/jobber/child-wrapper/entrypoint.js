@@ -734,10 +734,20 @@ const main = async () => {
 
   jobber.connect();
 
-  process.once("SIGINT", async () => {
-    console.log("[main] Received SIGINT signal");
+  const shutdownRoutine = async () => {
+    console.log("[main/shutdownRoutine] Received shutdown signal");
 
     await jobber.onTransaction_Shutdown(randomBytes(16).toString("hex"), {});
+
+    console.log("[main/shutdownRoutine] Finished! Goodbye!");
+  };
+
+  process.once("SIGTERM", async () => {
+    await shutdownRoutine();
+  });
+
+  process.once("SIGINT", async () => {
+    await shutdownRoutine();
   });
 };
 
