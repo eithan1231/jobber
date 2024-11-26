@@ -427,11 +427,25 @@ export class Job {
         },
 
         conditions: packageContentPared.data.jobber.conditions.map(
-          (condition) => ({
-            type: condition.type,
-            timezone: condition.timezone,
-            cron: condition.cron,
-          })
+          (condition) => {
+            if (condition.type === "schedule") {
+              return {
+                type: condition.type,
+                timezone: condition.timezone,
+                cron: condition.cron,
+              };
+            }
+
+            if (condition.type === "http") {
+              return {
+                type: condition.type,
+                method: condition.method,
+                path: condition.path,
+              };
+            }
+
+            throw new Error("unexpected type, expected http or schedule");
+          }
         ),
       });
 
