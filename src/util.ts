@@ -45,9 +45,11 @@ export const sanitiseFilename = (filename: string) => {
 export const unzip = (
   source: string,
   destination: string,
-  timeout: number = 300
+  timeout: number = 60
 ) => {
   return new Promise((resolve, reject) => {
+    console.log(`[unzip] Started, source ${source} destination ${destination}`);
+
     const logs: string[] = [];
 
     let hasResolved = false;
@@ -60,17 +62,24 @@ export const unzip = (
       throw new Error("[unzip] Destination must be absolute path");
     }
 
-    const proc = spawn(`unzip`, [source, "-d", destination], {
-      stdio: "pipe",
-    });
+    const proc = spawn(
+      `unzip`,
+      [
+        // overwrite existing files without prompting
+        "-o",
+        source,
+        "-d",
+        destination,
+      ],
+      {
+        stdio: "pipe",
+      }
+    );
 
+    proc.stderr.on("data", (data) => logs.push(data.toString()));
     proc.stdout.on("data", (data) => logs.push(data.toString()));
 
     const timeoutInterval = setTimeout(() => {
-      if (timeout === 0) {
-        return;
-      }
-
       if (hasResolved) {
         return;
       }
@@ -93,7 +102,13 @@ export const unzip = (
 
       clearTimeout(timeoutInterval);
 
-      resolve(code === 0);
+      if (code === 0) {
+        console.log(`[unzip] Finished successfully`);
+
+        return resolve(true);
+      }
+
+      throw new Error(`[unzip] Failed with exit code ${code}`);
     });
   });
 };
