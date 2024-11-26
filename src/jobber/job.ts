@@ -242,6 +242,38 @@ export class Job {
     return result;
   }
 
+  public async httpDeleteJob(jobName: string) {
+    console.log(`[httpDeleteJob] Started`);
+
+    const existingJob = this.jobs.get(jobName);
+
+    if (!existingJob) {
+      return {
+        success: false,
+        message: "Job not found",
+      } as const;
+    }
+
+    const directoryJob = path.join(DIRECTORY_JOBS, sanitiseFilename(jobName));
+
+    console.log(`[httpDeleteJob] Deregistering job...`);
+
+    await this.deregisterJob(jobName);
+
+    console.log(`[httpDeleteJob] Deregistered`);
+
+    console.log(`[httpDeleteJob] Deleting local files...`);
+
+    await rm(directoryJob, { recursive: true });
+
+    console.log(`[httpDeleteJob] deleted local files`);
+
+    return {
+      success: true,
+      message: "Ok",
+    } as const;
+  }
+
   public async httpUpsertJobScript(payload: unknown) {
     console.log(`[upsertJobScript] Started`);
 

@@ -233,6 +233,14 @@ export const createHonoApp = async (job: Job) => {
     }
   });
 
+  app.delete("/jobber/api/job/:jobName", authGuard(), async (c, next) => {
+    const jobName = c.req.param("jobName");
+
+    const result = await job.httpDeleteJob(jobName);
+
+    return c.json(result);
+  });
+
   app.use(async (c, next) => {
     const bodyDirect = await c.req.arrayBuffer();
 
