@@ -115,11 +115,18 @@ const packageJsonSchema = z.object({
 
     conditions: z
       .array(
-        z.object({
-          type: z.enum(["schedule"]),
-          timezone: z.string().optional(),
-          cron: z.string(),
-        })
+        z.union([
+          z.object({
+            type: z.literal("schedule"),
+            timezone: z.string().optional(),
+            cron: z.string(),
+          }),
+          z.object({
+            type: z.literal("http"),
+            method: z.string(),
+            path: z.string(),
+          }),
+        ])
       )
       .min(1),
   }),
