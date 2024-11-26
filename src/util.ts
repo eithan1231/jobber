@@ -48,6 +48,8 @@ export const unzip = (
   timeout: number = 300
 ) => {
   return new Promise((resolve, reject) => {
+    const logs: string[] = [];
+
     let hasResolved = false;
 
     if (!path.isAbsolute(source)) {
@@ -62,6 +64,8 @@ export const unzip = (
       stdio: "pipe",
     });
 
+    proc.stdout.on("data", (data) => logs.push(data.toString()));
+
     const timeoutInterval = setTimeout(() => {
       if (timeout === 0) {
         return;
@@ -72,6 +76,8 @@ export const unzip = (
       }
 
       hasResolved = true;
+
+      console.log(logs);
 
       reject(new Error(`[unzip] Timeout exceeded ${timeout}s`));
 
@@ -124,7 +130,7 @@ export const handleReadableStreamPipe = (
 
       resolved = true;
 
-      reject(err);
+      return reject(err);
     });
 
     destination.once("error", (err) => {
@@ -137,7 +143,7 @@ export const handleReadableStreamPipe = (
 
       resolved = true;
 
-      reject(err);
+      return reject(err);
     });
 
     destination.once("finish", () => {

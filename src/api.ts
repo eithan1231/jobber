@@ -184,6 +184,8 @@ export const createHonoApp = async (job: Job) => {
       const archiveFile = body["archive"];
 
       if (!(archiveFile instanceof File)) {
+        console.log("[/api/job] archive not present on body, or invalid type");
+
         return c.json(
           {
             success: false,
@@ -194,6 +196,8 @@ export const createHonoApp = async (job: Job) => {
       }
 
       if (!archiveFile.type.toLowerCase().startsWith("application/zip")) {
+        console.log("[/api/job] archive has invalid mime type");
+
         return c.json(
           {
             success: false,
@@ -207,10 +211,14 @@ export const createHonoApp = async (job: Job) => {
 
       const writeStream = createWriteStream(archiveFilename);
 
+      console.log(`[/api/job] writing stream to disk, ${archiveFilename}`);
+
       await handleReadableStreamPipe(
         archiveFile.stream() as ReadableStream,
         writeStream
       );
+
+      console.log(`[/api/job] finished writing stream to disk`);
 
       const result = await job.httpUpsertJobZip(archiveFilename);
 
@@ -223,6 +231,7 @@ export const createHonoApp = async (job: Job) => {
           400
         );
       }
+
       return c.json(
         {
           success: true,
