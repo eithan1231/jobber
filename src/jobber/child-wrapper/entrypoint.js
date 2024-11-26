@@ -55,7 +55,7 @@ class JobberHandlerRequest {
      * @private
      * @type {Record<string, string>}
      */
-    this._headers = data.query;
+    this._headers = data.headers;
 
     /**
      * @private
@@ -131,8 +131,8 @@ class JobberHandlerRequest {
 
     const key = name.toLowerCase();
 
-    if (this.query[key]) {
-      return this.query[key];
+    if (this._query[key]) {
+      return this._query[key];
     }
 
     return null;
@@ -149,8 +149,8 @@ class JobberHandlerRequest {
 
     const key = name.toLowerCase();
 
-    if (this.queries[key]) {
-      return this.queries[key];
+    if (this._queries[key]) {
+      return this._queries[key];
     }
 
     return null;
