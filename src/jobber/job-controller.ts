@@ -5,23 +5,35 @@ import path from "path";
 import { awaitTruthy, getUnixTimestamp } from "../util.js";
 import { getConfigOption } from "~/config.js";
 
-type SendHandleRequest =
-  | {
-      type: "schedule";
-    }
-  | {
-      type: "http";
-    };
+export type SendHandleRequestHttp = {
+  type: "http";
+  headers: Record<string, string>;
+  query: Record<string, string>;
+  queries: Record<string, string[]>;
+  path: string;
+  method: string;
+  body: string;
+  bodyLength: number;
+};
+
+export type SendHandleRequest = { type: "schedule" } | SendHandleRequestHttp;
 
 export type SendHandleResponse = (
-  | { success: true; payload: unknown }
+  | {
+      success: true;
+      http?: {
+        status: number;
+        headers: Record<string, string>;
+        body: Buffer;
+      };
+    }
   | { success: false; error: string }
 ) & {
   duration: number;
 };
 
 // Stores record of all known actions
-type JobControllerAction = {
+type Action = {
   status: "active" | "closing";
   id: string;
   jobName: string;
@@ -41,31 +53,31 @@ type JobControllerAction = {
     entrypoint: string;
   };
 };
-// Stores record of currently running runners
-type JobControllerRunnerPending = {
+
+type RunnerPending = {
   status: "pending";
 };
 
-type JobControllerRunnerConnected = {
+type RunnerConnected = {
   status: "connected";
   socket: Socket;
 };
 
-type JobControllerRunnerDisconnecting = {
+type RunnerDisconnecting = {
   status: "disconnecting";
   disconnectionStartTime: number;
   socket: Socket;
 };
 
-type JobControllerRunnerDisconnected = {
+type RunnerDisconnected = {
   status: "disconnected";
 };
 
-type JobControllerRunner = (
-  | JobControllerRunnerPending
-  | JobControllerRunnerConnected
-  | JobControllerRunnerDisconnecting
-  | JobControllerRunnerDisconnected
+type Runner = (
+  | RunnerPending
+  | RunnerConnected
+  | RunnerDisconnecting
+  | RunnerDisconnected
 ) & {
   id: string;
   actionId: string;
@@ -79,9 +91,9 @@ const SERVER_TCP_PORT = 5211;
 export class JobController {
   private server: Server;
 
-  private actions: Map<string, JobControllerAction> = new Map();
+  private actions: Map<string, Action> = new Map();
 
-  private runners: Map<string, JobControllerRunner> = new Map();
+  private runners: Map<string, Runner> = new Map();
 
   private eventRunnerTickInterval: NodeJS.Timeout | null = null;
 
@@ -118,7 +130,7 @@ export class JobController {
   }
 
   private findRunnersByActionId(actionId: string) {
-    const result: JobControllerRunner[] = [];
+    const result: Runner[] = [];
 
     for (const [_, runner] of this.runners.entries()) {
       if (runner.actionId === actionId) {
@@ -308,16 +320,27 @@ export class JobController {
           });
         }
 
+        if (data.http) {
+          const httpBody = Buffer.from(data.http.body, "base64");
+
+          return resolve({
+            success: true,
+            duration: data.duration ?? -1,
+            http: {
+              body: httpBody,
+              headers: data.http.headers,
+              status: data.http.status,
+            },
+          });
+        }
+
         return resolve({
           success: true,
-          payload: data.payload,
           duration: data.duration ?? -1,
         });
       });
 
-      // TODO: repopulate the data payload. Currently omitted while we figure out a structure for conditions
-      // for Schedule and Http
-      this.writeJson(runner.id, "handle", traceId, {}).catch((err) => {
+      this.writeJson(runner.id, "handle", traceId, payload).catch((err) => {
         clearTimeout(timeoutInterval);
 
         reject(err);
@@ -328,7 +351,7 @@ export class JobController {
   /**
    * Registers a known action
    */
-  public async registerAction(payload: Omit<JobControllerAction, "status">) {
+  public async registerAction(payload: Omit<Action, "status">) {
     this.actions.set(payload.id, {
       ...payload,
       status: "active",

@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: http://127.0.0.1:3000/api/job?mode=script
+  url: http://127.0.0.1:3000/jobber/api/job?mode=script
   body: multipartForm
   auth: none
 }
@@ -38,8 +38,11 @@ body:multipart-form {
   name: test-experiment
   description: I will run every 15 seconds sir
   version: 1
-  conditionType: schedule
-  conditionCron: * * * * *
-  actionKeepAlive: false
-  actionScript: export const handler = (payload) => new Promise((resolve) => setTimeout(() => resolve('I FINISHED'), 5000))
+  conditionType: http
+  actionKeepAlive: true
+  actionScript: export const handler = (req, res) => res.json("test");
+  conditionPath: /test
+  conditionMethod: get
+  actionRefreshTimeout: 60
+  ~conditionCron: * * * * *
 }

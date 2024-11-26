@@ -7,6 +7,8 @@ import { getConfigOption } from "~/config.js";
 import { REGEX_ALPHA_NUMERIC_DASHES } from "~/constants.js";
 import { Job } from "~/jobber/job.js";
 import { getTmpFile, handleReadableStreamPipe } from "./util.js";
+import { SendHandleRequest } from "./jobber/job-controller.js";
+import { StatusCode } from "hono/utils/http-status";
 
 type VariableAuth = { authenticated: true } | { authenticated: false };
 
@@ -94,20 +96,20 @@ export const createHonoApp = async (job: Job) => {
     return c.json(
       {
         success: false,
-        message: "Content not found",
+        message: "Page not found",
       },
       404
     );
   });
 
-  app.get("/api/jobs", authGuard(), async (c, next) => {
+  app.get("/jobber/api/jobs", authGuard(), async (c, next) => {
     return c.json({
       success: true,
-      data: await job.getJobs(),
+      data: await job.httpGetJobs(),
     });
   });
 
-  app.post("/api/job", authGuard(), async (c, next) => {
+  app.post("/jobber/api/job", authGuard(), async (c, next) => {
     const mode = c.req.query("mode") === "zip" ? "zip" : "script";
 
     if (mode === "script") {
@@ -119,10 +121,14 @@ export const createHonoApp = async (job: Job) => {
         name: z.string().max(32).min(3).regex(REGEX_ALPHA_NUMERIC_DASHES),
         description: z.string().optional(),
 
-        conditionType: z.enum(["schedule"]),
+        conditionType: z.enum(["schedule", "http"]),
+
         conditionTimezone: z.string().optional(),
-        conditionCron: z.string(),
+        conditionCron: z.string().optional(),
         conditionTimeout: z.coerce.number().optional(),
+
+        conditionPath: z.string().optional(),
+        conditionMethod: z.string().optional(),
 
         actionKeepAlive: z
           .string()
@@ -137,16 +143,22 @@ export const createHonoApp = async (job: Job) => {
         path: ["request", "body"],
       });
 
-      await job.upsertJobScript({
+      await job.httpUpsertJobScript({
         name: body.name,
         version: body.version,
         description: body.description,
         execution: {
           conditions: [
             {
+              type: body.conditionType,
+
+              // Cron
               timezone: body.conditionTimezone,
               cron: body.conditionCron,
-              type: body.conditionType,
+
+              // Http
+              path: body.conditionPath,
+              method: body.conditionMethod,
             },
           ],
           action: {
@@ -200,7 +212,7 @@ export const createHonoApp = async (job: Job) => {
         writeStream
       );
 
-      const result = await job.upsertJobZip(archiveFilename);
+      const result = await job.httpUpsertJobZip(archiveFilename);
 
       if (!result.success) {
         return c.json(
@@ -219,6 +231,61 @@ export const createHonoApp = async (job: Job) => {
         200
       );
     }
+  });
+
+  app.use(async (c, next) => {
+    const bodyDirect = await c.req.arrayBuffer();
+
+    const headers = c.req.header();
+    const query = c.req.query();
+    const queries = c.req.queries();
+    const path = c.req.path;
+    const method = c.req.method;
+    const body = Buffer.from(bodyDirect);
+    const bodyLength = body.length;
+
+    const payload: SendHandleRequest = {
+      type: "http",
+      body: body.toString("base64"),
+      bodyLength,
+      method,
+      path,
+      queries,
+      query,
+      headers,
+    };
+
+    const response = await job.httpRouteHandler(payload);
+
+    if (!response) {
+      return await next();
+    }
+
+    if (!response.success) {
+      return c.json(
+        {
+          success: false,
+          message: `Jobber: ${response.error}`,
+        },
+        502
+      );
+    }
+
+    if (!response.http) {
+      return c.json(
+        {
+          success: false,
+          message: `Jobber: Job did not return a HTTP response`,
+        },
+        502
+      );
+    }
+
+    return c.body(
+      response.http.body,
+      response.http.status as StatusCode,
+      response.http.headers
+    );
   });
 
   return app;

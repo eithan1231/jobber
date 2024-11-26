@@ -1,6 +1,5 @@
 import { CronTime } from "cron";
 import { randomBytes } from "crypto";
-import EventEmitter from "events";
 
 type JobSchedule = {
   jobName: string;
@@ -13,46 +12,18 @@ type JobSchedule = {
   cron: string;
 };
 
-type JobSchedulerEvents = {
-  schedule: (jobName: string) => void;
-};
+export type JobSchedulerHandleEvent = (jobName: string) => void;
 
-export class JobScheduler extends EventEmitter {
-  public on<Event extends keyof JobSchedulerEvents>(
-    event: Event,
-    listener: JobSchedulerEvents[Event]
-  ): this {
-    return super.on(event as string, listener);
-  }
-
-  public once<Event extends keyof JobSchedulerEvents>(
-    event: Event,
-    listener: JobSchedulerEvents[Event]
-  ): this {
-    return super.once(event as string, listener);
-  }
-
-  public emit<Event extends keyof JobSchedulerEvents>(
-    event: Event,
-    ...args: Parameters<JobSchedulerEvents[Event]>
-  ): boolean {
-    return super.emit(event as string, ...args);
-  }
-
-  public off<Event extends keyof JobSchedulerEvents>(
-    event: Event,
-    listener: JobSchedulerEvents[Event]
-  ): this {
-    return super.off(event as string, listener);
-  }
-
-  constructor() {
-    super();
-  }
-
+export class JobScheduler {
   private interval: NodeJS.Timeout | null = null;
 
   private schedules: Map<string, JobSchedule> = new Map();
+
+  private onHandleEvent: null | JobSchedulerHandleEvent = null;
+
+  public registerHandleEvent(handler: JobSchedulerHandleEvent) {
+    this.onHandleEvent = handler;
+  }
 
   private onTick() {
     const timestamp = Date.now();
@@ -71,7 +42,9 @@ export class JobScheduler extends EventEmitter {
         runAt: schedule.cronTime.sendAt().toMillis(),
       });
 
-      this.emit("schedule", schedule.jobName);
+      if (this.onHandleEvent) {
+        this.onHandleEvent(schedule.jobName);
+      }
     }
   }
 

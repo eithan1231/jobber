@@ -12,7 +12,7 @@ const main = async () => {
   console.log("[main] Started job.");
 
   console.log("[main] Starting job controller...");
-  await timeout(1000);
+  await timeout(50);
   await jobController.listen();
   console.log("[main] Started job controller.");
 

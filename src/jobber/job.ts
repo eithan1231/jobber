@@ -1,4 +1,3 @@
-import { CronTime } from "cron";
 import { randomUUID } from "crypto";
 import { cp, mkdir, readdir, readFile, rm, writeFile } from "fs/promises";
 import path from "path";
@@ -11,8 +10,13 @@ import {
   sanitiseFilename,
   unzip,
 } from "~/util.js";
-import { JobController } from "./job-controller.js";
+import {
+  JobController,
+  SendHandleRequestHttp,
+  SendHandleResponse,
+} from "./job-controller.js";
 import { JobScheduler } from "./job-schedules.js";
+import { JobHttp } from "./job-http.js";
 
 const DIRECTORY_JOBS = path.join(process.cwd(), "./config/jobs");
 
@@ -24,11 +28,18 @@ export const registerJobSchema = z.object({
 
   execution: z.object({
     conditions: z.array(
-      z.object({
-        type: z.literal("schedule"),
-        timezone: z.string().optional(),
-        cron: z.string(),
-      })
+      z.union([
+        z.object({
+          type: z.literal("schedule"),
+          timezone: z.string().optional(),
+          cron: z.string(),
+        }),
+        z.object({
+          type: z.literal("http"),
+          method: z.string(),
+          path: z.string(),
+        }),
+      ])
     ),
 
     action: z.union([
@@ -52,6 +63,41 @@ export const registerJobSchema = z.object({
 });
 
 export type RegisterJobSchemaType = z.infer<typeof registerJobSchema>;
+
+type HttpGetJobsItem = {
+  version: string;
+  name: string;
+  description?: string;
+
+  execution: {
+    action:
+      | {
+          type: "script";
+          keepAlive: boolean;
+          refreshTimeout: number;
+          script: string;
+        }
+      | {
+          type: "zip";
+          keepAlive: boolean;
+          refreshTimeout: number;
+          entrypoint: string;
+        };
+
+    conditions: Array<
+      | {
+          type: "http";
+          method: string;
+          path: string;
+        }
+      | {
+          type: "schedule";
+          timezone?: string;
+          cron: string;
+        }
+    >;
+  };
+};
 
 const packageJsonSchema = z.object({
   name: z.string().max(32).min(3).regex(REGEX_ALPHA_NUMERIC_DASHES),
@@ -94,6 +140,8 @@ export class Job {
 
   private jobScheduler: JobScheduler;
 
+  private jobHttp: JobHttp;
+
   private jobs: Map<string, JobItem> = new Map();
 
   constructor(jobController: JobController) {
@@ -101,7 +149,13 @@ export class Job {
 
     this.jobScheduler = new JobScheduler();
 
-    this.jobScheduler.on("schedule", (name) => this.onScheduleEvent(name));
+    this.jobHttp = new JobHttp();
+
+    this.jobHttp.registerHandleEvent((jobName, payload) =>
+      this.onHttpEvent(jobName, payload)
+    );
+
+    this.jobScheduler.registerHandleEvent((name) => this.onScheduleEvent(name));
   }
 
   public async start() {
@@ -131,17 +185,64 @@ export class Job {
     }
   }
 
-  public async getJobs() {
-    const result: RegisterJobSchemaType[] = [];
+  public async httpGetJobs() {
+    const result: HttpGetJobsItem[] = [];
 
     for (const job of this.jobs.values()) {
-      result.push(job.base);
+      const action: HttpGetJobsItem["execution"]["action"] =
+        job.base.execution.action.type === "script"
+          ? {
+              type: "script",
+              keepAlive: job.base.execution.action.keepAlive,
+              refreshTimeout: job.base.execution.action.refreshTimeout,
+              script: job.base.execution.action.script,
+            }
+          : {
+              type: "zip",
+              keepAlive: job.base.execution.action.keepAlive,
+              refreshTimeout: job.base.execution.action.refreshTimeout,
+              entrypoint: job.base.execution.action.entrypoint,
+            };
+
+      const conditions: HttpGetJobsItem["execution"]["conditions"] =
+        job.base.execution.conditions.map((condition) => {
+          if (condition.type === "http") {
+            return {
+              type: "http",
+              method: condition.method,
+              path: condition.path,
+            };
+          }
+
+          if (condition.type === "schedule") {
+            return {
+              type: "schedule",
+              timezone: condition.timezone,
+              cron: condition.cron,
+            };
+          }
+
+          throw new Error("Unexpected condition type");
+        });
+
+      const item: HttpGetJobsItem = {
+        name: job.base.name,
+        description: job.base.description,
+
+        version: job.base.version,
+        execution: {
+          action,
+          conditions,
+        },
+      };
+
+      result.push(item);
     }
 
     return result;
   }
 
-  public async upsertJobScript(payload: unknown) {
+  public async httpUpsertJobScript(payload: unknown) {
     console.log(`[upsertJobScript] Started`);
 
     const job = await registerJobSchema.parseAsync(payload);
@@ -176,7 +277,7 @@ export class Job {
     console.log(`[upsertJobScript] Registered.`);
   }
 
-  public async upsertJobZip(archiveFile: string) {
+  public async httpUpsertJobZip(archiveFile: string) {
     console.log(`[Job/upsertJobZip] Started`);
 
     const filenames: string[] = [];
@@ -334,7 +435,35 @@ export class Job {
     }
   }
 
-  private async onScheduleEvent(jobName: string) {
+  public async httpRouteHandler(payload: SendHandleRequestHttp) {
+    return this.jobHttp.run(payload);
+  }
+
+  private async onHttpEvent(
+    jobName: string,
+    payload: SendHandleRequestHttp
+  ): Promise<SendHandleResponse> {
+    const job = this.jobs.get(jobName);
+
+    if (!job) {
+      throw new Error(`Failed to find job, job name ${jobName}`);
+    }
+
+    const response = await this.jobController.sendHandleRequest(
+      job.base.execution.action.id,
+      payload
+    );
+
+    console.log(
+      `[Job/onHttpEvent] Job finished in ${response.duration}ms ${
+        response.success ? "successfully" : "with errors"
+      }`
+    );
+
+    return response;
+  }
+
+  private async onScheduleEvent(jobName: string): Promise<SendHandleResponse> {
     const job = this.jobs.get(jobName);
 
     if (!job) {
@@ -346,15 +475,13 @@ export class Job {
       { type: "schedule" }
     );
 
-    if (!response.success) {
-      console.log(
-        `[Job/handleAction] Job failed in ${response.duration}ms with error ${response.error}`
-      );
+    console.log(
+      `[Job/onScheduleEvent] Job finished in ${response.duration}ms ${
+        response.success ? "successfully" : "with errors"
+      }`
+    );
 
-      return;
-    }
-
-    console.log(`[Job/handleAction] Job finished in ${response.duration}ms`);
+    return response;
   }
 
   private async registerJob(directory: string, payload: RegisterJobSchemaType) {
@@ -398,22 +525,41 @@ export class Job {
           timezone: condition.timezone,
         });
       }
+
+      if (condition.type === "http") {
+        console.log(
+          `[Job/registerJob] Condition for ${parsed.name}, method "${condition.method}", path ${condition.path}`
+        );
+
+        this.jobHttp.createRoute({
+          jobName: parsed.name,
+          method: condition.method,
+          path: condition.path,
+        });
+      }
     }
 
     const entrypointSecret = `entrypoint-top-secret-cant-find-me.js`;
 
-    let entrypointClient =
-      jobItem.base.execution.action.type === "zip"
-        ? jobItem.base.execution.action.entrypoint
-        : "./index.js";
+    const clientConfig = {
+      entrypointClient: "./index.js",
+    };
 
-    if (!entrypointClient.startsWith("./")) {
-      entrypointClient = `./${entrypointClient}`;
+    if (jobItem.base.execution.action.type === "zip") {
+      if (jobItem.base.execution.action.entrypoint.startsWith("./")) {
+        clientConfig.entrypointClient =
+          jobItem.base.execution.action.entrypoint;
+      } else {
+        clientConfig.entrypointClient = `./${jobItem.base.execution.action.entrypoint}`;
+      }
     }
 
     const entrypointSecretContent = (
       await readFile("./src/jobber/child-wrapper/entrypoint.js", "utf8")
-    ).replaceAll("<<entrypointClient>>", entrypointClient);
+    ).replaceAll(
+      "/*<<CLIENT_CONFIG>>*/",
+      JSON.stringify(clientConfig, null, 2)
+    );
 
     await writeFile(
       path.join(jobItem.directoryRuntime, entrypointSecret),
@@ -422,7 +568,7 @@ export class Job {
 
     if (jobItem.base.execution.action.type === "script") {
       await writeFile(
-        path.join(jobItem.directoryRuntime, entrypointClient),
+        path.join(jobItem.directoryRuntime, clientConfig.entrypointClient),
         jobItem.base.execution.action.script
       );
 
@@ -478,6 +624,7 @@ export class Job {
     }
 
     this.jobScheduler.deleteSchedulesByJobName(jobName);
+    this.jobHttp.deleteRoutesByJobName(jobName);
 
     if (
       job.base.execution.action.type === "script" ||

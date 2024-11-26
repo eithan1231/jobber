@@ -1,4 +1,11 @@
-import * as clientEntry from "<<entrypointClient>>";
+/**
+ * @type {{
+ *  entrypointClient: string
+ * }}
+ */
+const CLIENT_CONFIG = Object.freeze(/*<<CLIENT_CONFIG>>*/);
+
+import assert from "assert";
 import { randomBytes } from "crypto";
 import { Socket } from "net";
 
@@ -23,6 +30,331 @@ const getArgument = (name) => {
 const timeout = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const getUnixTimestamp = () => Math.round(Date.now() / 1000);
+
+class JobberHandlerRequest {
+  /**
+   * @param {{
+   *     type: "http" | "schedule";
+   *     headers: Record<string, string>;
+   *     query: Record<string, string>;
+   *     queries: Record<string, string[]>;
+   *     path: string;
+   *     method: string;
+   *     body: string;
+   *     bodyLength: number;
+   * }} data
+   */
+  constructor(data) {
+    /**
+     * @private
+     * @type {"http" | "schedule"}
+     */
+    this._type = data.type;
+
+    /**
+     * @private
+     * @type {Record<string, string>}
+     */
+    this._headers = data.query;
+
+    /**
+     * @private
+     * @type {Record<string, string>}
+     */
+    this._query = data.query;
+
+    /**
+     * @private
+     * @type {Record<string, string[]>}
+     */
+    this._queries = data.queries;
+
+    /**
+     * @private
+     * @type {string}
+     */
+    this._path = data.path;
+
+    /**
+     * @private
+     * @type {string}
+     */
+    this._method = data.method;
+
+    /**
+     * @private
+     * @type {Buffer}
+     */
+    this._body = Buffer.from(data.body, "base64");
+
+    /**
+     * @private
+     * @type {number}
+     */
+    this._bodyLength = data.bodyLength;
+  }
+
+  /**
+   * @param {string} name
+   * @returns {"schedule" | "http"}
+   */
+  type() {
+    return this._type;
+  }
+
+  /**
+   * @param {string} name
+   * @returns {string | null}
+   */
+  header(name) {
+    if (this._type !== "http") {
+      throw new Error("[JobberHandlerRequest/header] Expecting type of http");
+    }
+
+    const key = name.toLowerCase();
+
+    if (this._headers[key]) {
+      return this._headers[key];
+    }
+
+    return null;
+  }
+
+  /**
+   * @param {string} name
+   * @returns {string | null}
+   */
+  query(name) {
+    if (this._type !== "http") {
+      throw new Error("[JobberHandlerRequest/header] Expecting type of http");
+    }
+
+    const key = name.toLowerCase();
+
+    if (this.query[key]) {
+      return this.query[key];
+    }
+
+    return null;
+  }
+
+  /**
+   * @param {string} name
+   * @returns {string[] | null}
+   */
+  queries(name) {
+    if (this._type !== "http") {
+      throw new Error("[JobberHandlerRequest/header] Expecting type of http");
+    }
+
+    const key = name.toLowerCase();
+
+    if (this.queries[key]) {
+      return this.queries[key];
+    }
+
+    return null;
+  }
+
+  /**
+   * @returns {string}
+   */
+  method() {
+    if (this._type !== "http") {
+      throw new Error("[JobberHandlerRequest/header] Expecting type of http");
+    }
+
+    return this._method;
+  }
+
+  /**
+   * @returns {string}
+   */
+  path() {
+    if (this._type !== "http") {
+      throw new Error("[JobberHandlerRequest/header] Expecting type of http");
+    }
+
+    return this._path;
+  }
+
+  /**
+   * @returns {unknown}
+   */
+  json() {
+    if (this._type !== "http") {
+      throw new Error("[JobberHandlerRequest/header] Expecting type of http");
+    }
+
+    return JSON.parse(this._body.toString());
+  }
+
+  /**
+   * @returns {string}
+   */
+  text() {
+    if (this._type !== "http") {
+      throw new Error("[JobberHandlerRequest/header] Expecting type of http");
+    }
+
+    return this._body.toString();
+  }
+
+  /**
+   * @returns {Buffer}
+   */
+  data() {
+    if (this._type !== "http") {
+      throw new Error("[JobberHandlerRequest/header] Expecting type of http");
+    }
+
+    return this._body;
+  }
+}
+
+class JobberHandlerResponse {
+  /**
+   * @param {JobberHandlerRequest} request
+   */
+  constructor(request) {
+    /**
+     * @private
+     * @type {JobberHandlerRequest}
+     */
+    this._request = request;
+
+    /**
+     * @type {number}
+     */
+    this._status = 200;
+
+    /**
+     * @private
+     * @type {Record<string, string>}
+     */
+    this._headers = {};
+
+    /**
+     * @private
+     * @type {Buffer[]}
+     */
+    this._body = [];
+  }
+
+  /**
+   * @param {string} name
+   * @param {string} value
+   * @returns {this}
+   */
+  header(name, value) {
+    if (this._request.type() !== "http") {
+      throw new Error("Expecting request type of http");
+    }
+
+    assert(typeof name === "string");
+    assert(typeof value === "string");
+
+    this._headers[name] = value;
+
+    return this;
+  }
+
+  /**
+   * @param {number} status
+   * @returns {this}
+   */
+  status(status) {
+    if (this._request.type() !== "http") {
+      throw new Error("Expecting request type of http");
+    }
+
+    assert(typeof status === "number");
+
+    this._status = status;
+
+    return this;
+  }
+
+  /**
+   * @param {string} path
+   * @param {number} status
+   * @returns {this}
+   */
+  redirect(path, status = 303) {
+    if (this._request.type() !== "http") {
+      throw new Error("Expecting request type of http");
+    }
+
+    assert(typeof path === "string");
+    assert(typeof status === "number");
+
+    this._headers["Location"] = path;
+
+    this._status = status;
+
+    return this;
+  }
+
+  /**
+   * @param {any} data
+   * @param {number} status
+   * @returns {this}
+   */
+  json(data, status = 200) {
+    if (this._request.type() !== "http") {
+      throw new Error("Expecting request type of http");
+    }
+
+    assert(typeof status === "number");
+
+    this.header("Content-Type", "text/json");
+
+    this._body.push(Buffer.from(JSON.stringify(data)));
+
+    this._status = status;
+
+    return this;
+  }
+
+  /**
+   * @param {string} data
+   * @param {number} status
+   * @returns {this}
+   */
+  text(data, status = 200) {
+    if (this._request.type() !== "http") {
+      throw new Error("Expecting request type of http");
+    }
+
+    assert(typeof data === "string");
+    assert(typeof status === "number");
+
+    this.header("Content-Type", "text/plain");
+
+    this._body.push(Buffer.from(data));
+
+    this._status = status;
+
+    return this;
+  }
+
+  /**
+   * @param {string} data
+   * @param {number} status
+   * @returns {this}
+   */
+  chunk(data) {
+    if (this._request.type() !== "http") {
+      throw new Error("Expecting request type of http");
+    }
+
+    assert(data instanceof Buffer);
+
+    this._body.push(data);
+
+    return this;
+  }
+}
 
 class JobberSocket {
   /**
@@ -190,20 +522,45 @@ class JobberSocket {
     );
 
     try {
-      // TODO: Wrapping of data so handler has callable functions.
+      const clientModule = await import(CLIENT_CONFIG.entrypointClient);
 
-      const result = await clientEntry.handler(null);
+      const jobberRequest = new JobberHandlerRequest(data);
+      const jobberResponse = new JobberHandlerResponse(jobberRequest);
+
+      if (jobberRequest.type() === "http") {
+        console.log(
+          `[JobberSocket/onTransaction_Handle] HTTP ${jobberRequest.method()} ${jobberRequest.path()}`
+        );
+      }
+
+      if (jobberRequest.type() === "schedule") {
+        console.log(`[JobberSocket/onTransaction_Handle] Schedule`);
+      }
+
+      await clientModule.handler(jobberRequest, jobberResponse);
 
       console.log(
         `[JobberSocket/onTransaction_Handle] Handler completed, traceId ${traceId}`
       );
 
-      const metadata = {
+      const responseData = {
         success: true,
         duration: performance.now() - start,
       };
 
-      await this.writeJson("handle-response", traceId, metadata);
+      if (jobberRequest.type() === "http") {
+        responseData.http = {
+          status: jobberResponse._status,
+          headers: jobberResponse._headers,
+          body: Buffer.concat(jobberResponse._body).toString("base64"),
+        };
+      }
+
+      if (jobberRequest.type() === "schedule") {
+        //
+      }
+
+      await this.writeJson("handle-response", traceId, responseData);
 
       console.log(
         "[JobberSocket/onTransaction_Handle] Delivered response, traceId",
@@ -369,10 +726,6 @@ const main = async () => {
   const jobControllerHost = getArgument("job-controller-host");
   const jobControllerPort = Number(getArgument("job-controller-port"));
 
-  if (!clientEntry.handler) {
-    throw new Error("Handler is not present");
-  }
-
   const jobber = new JobberSocket(
     jobControllerHost,
     jobControllerPort,
@@ -384,7 +737,7 @@ const main = async () => {
   process.once("SIGINT", async () => {
     console.log("[main] Received SIGINT signal");
 
-    await jobber.onTransaction_Shutdown("fake", {});
+    await jobber.onTransaction_Shutdown(randomBytes(16).toString("hex"), {});
   });
 };
 
