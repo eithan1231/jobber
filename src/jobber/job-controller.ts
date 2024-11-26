@@ -38,6 +38,8 @@ type Action = {
   id: string;
   jobName: string;
 
+  environment: Record<string, string>;
+
   /**
    * Should child process be on standby all the time?
    */
@@ -163,6 +165,7 @@ export class JobController {
       ],
       {
         env: {
+          ...action.environment,
           PATH: process.env.PATH,
         },
         windowsHide: true,

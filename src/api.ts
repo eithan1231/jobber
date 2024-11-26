@@ -115,59 +115,74 @@ export const createHonoApp = async (job: Job) => {
     if (mode === "script") {
       console.log("[/api/job] Running in script mode");
 
-      const schema = z.object({
-        version: z.string(),
+      const schema = z
+        .object({
+          version: z.string(),
 
-        name: z.string().max(32).min(3).regex(REGEX_ALPHA_NUMERIC_DASHES),
-        description: z.string().optional(),
+          name: z.string().max(32).min(3).regex(REGEX_ALPHA_NUMERIC_DASHES),
+          description: z.string().optional(),
 
-        conditionType: z.enum(["schedule", "http"]),
+          conditionType: z.enum(["schedule", "http"]),
 
-        conditionTimezone: z.string().optional(),
-        conditionCron: z.string().optional(),
-        conditionTimeout: z.coerce.number().optional(),
+          conditionTimezone: z.string().optional(),
+          conditionCron: z.string().optional(),
+          conditionTimeout: z.coerce.number().optional(),
 
-        conditionPath: z.string().optional(),
-        conditionMethod: z.string().optional(),
+          conditionPath: z.string().optional(),
+          conditionMethod: z.string().optional(),
 
-        actionKeepAlive: z
-          .string()
-          .transform((val) => val.toLowerCase() === "true")
-          .pipe(z.boolean())
-          .optional(),
-        actionRefreshTimeout: z.coerce.number().optional(),
-        actionScript: z.string(),
-      });
+          actionKeepAlive: z
+            .string()
+            .transform((val) => val.toLowerCase() === "true")
+            .pipe(z.boolean())
+            .optional(),
+          actionRefreshTimeout: z.coerce.number().optional(),
+          actionScript: z.string(),
+        })
+        .passthrough();
 
       const body = await schema.parseAsync(await c.req.parseBody(), {
         path: ["request", "body"],
       });
 
+      const environment: Record<string, string> = {};
+
+      for (const key of Object.keys(body)) {
+        if (
+          key.startsWith("ENV_") &&
+          key in body &&
+          typeof body[key] === "string"
+        ) {
+          environment[key.substring(4)] = body[key];
+        }
+      }
+
       await job.httpUpsertJobScript({
         name: body.name,
         version: body.version,
         description: body.description,
-        execution: {
-          conditions: [
-            {
-              type: body.conditionType,
 
-              // Cron
-              timezone: body.conditionTimezone,
-              cron: body.conditionCron,
-
-              // Http
-              path: body.conditionPath,
-              method: body.conditionMethod,
-            },
-          ],
-          action: {
-            type: "script",
-            keepAlive: body.actionKeepAlive,
-            refreshTimeout: body.actionRefreshTimeout,
-            script: body.actionScript,
-          },
+        action: {
+          type: "script",
+          keepAlive: body.actionKeepAlive,
+          refreshTimeout: body.actionRefreshTimeout,
+          script: body.actionScript,
+          environment: environment,
         },
+
+        conditions: [
+          {
+            type: body.conditionType,
+
+            // Cron
+            timezone: body.conditionTimezone,
+            cron: body.conditionCron,
+
+            // Http
+            path: body.conditionPath,
+            method: body.conditionMethod,
+          },
+        ],
       });
 
       return c.json({

@@ -40,9 +40,11 @@ body:multipart-form {
   version: 1
   conditionType: http
   actionKeepAlive: true
-  actionScript: export const handler = (req, res) => res.json("test");
+  actionScript: export const handler = (req, res) => res.json(process.env.TEST);
   conditionPath: /test
   conditionMethod: get
   actionRefreshTimeout: 60
+  ENV_TEST: Experimenting with ENV variableS!
+  ENV_TEST2: 2
   ~conditionCron: * * * * *
 }

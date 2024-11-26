@@ -1,0 +1,35 @@
+meta {
+  name: Delete Job
+  type: http
+  seq: 5
+}
+
+delete {
+  url: http://127.0.0.1:3000/jobber/api/job/test-experiment
+  body: multipartForm
+  auth: none
+}
+
+headers {
+  Authorization: 1
+}
+
+body:json {
+  {
+    "name": "test",
+    "description": "I am a test",
+  
+    "version": "1",
+    
+    "conditionType": "schedule",
+    "conditionCron": "* * * * *",
+    
+    "actionKeepAlive": "true",
+    "actionScript": "export const handler = (payload) => 'just testing here bruv'"
+  }
+  
+}
+
+body:multipart-form {
+  archive: @file(test-v2.zip)
+}

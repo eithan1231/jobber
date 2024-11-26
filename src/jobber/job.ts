@@ -15,10 +15,18 @@ import {
   SendHandleRequestHttp,
   SendHandleResponse,
 } from "./job-controller.js";
-import { JobScheduler } from "./job-schedules.js";
 import { JobHttp } from "./job-http.js";
+import { JobScheduler } from "./job-schedules.js";
 
 const DIRECTORY_JOBS = path.join(process.cwd(), "./config/jobs");
+
+const registerJobSchemaActionBase = z.object({
+  id: z.string().default(() => randomUUID()),
+  keepAlive: z.boolean().default(false),
+  refreshTimeout: z.number().default(60 * 60),
+
+  environment: z.record(z.string().toUpperCase(), z.string()).default({}),
+});
 
 export const registerJobSchema = z.object({
   version: z.string(),
@@ -26,40 +34,32 @@ export const registerJobSchema = z.object({
   name: z.string().max(32).min(3).regex(REGEX_ALPHA_NUMERIC_DASHES),
   description: z.string().optional(),
 
-  execution: z.object({
-    conditions: z.array(
-      z.union([
-        z.object({
-          type: z.literal("schedule"),
-          timezone: z.string().optional(),
-          cron: z.string(),
-        }),
-        z.object({
-          type: z.literal("http"),
-          method: z.string(),
-          path: z.string(),
-        }),
-      ])
-    ),
+  action: z.union([
+    registerJobSchemaActionBase.extend({
+      type: z.literal("zip"),
+      entrypoint: z.string().default("index.js"),
+      archiveFileName: z.string(),
+    }),
+    registerJobSchemaActionBase.extend({
+      type: z.literal("script"),
+      script: z.string(),
+    }),
+  ]),
 
-    action: z.union([
+  conditions: z.array(
+    z.union([
       z.object({
-        id: z.string().default(() => randomUUID()),
-        type: z.literal("zip"),
-        keepAlive: z.boolean().default(false),
-        refreshTimeout: z.number().default(60 * 60),
-        entrypoint: z.string().default("index.js"),
-        archiveFileName: z.string(),
+        type: z.literal("schedule"),
+        timezone: z.string().optional(),
+        cron: z.string(),
       }),
       z.object({
-        id: z.string().default(() => randomUUID()),
-        type: z.literal("script"),
-        keepAlive: z.boolean().default(false),
-        refreshTimeout: z.number().default(60 * 60),
-        script: z.string(),
+        type: z.literal("http"),
+        method: z.string(),
+        path: z.string(),
       }),
-    ]),
-  }),
+    ])
+  ),
 });
 
 export type RegisterJobSchemaType = z.infer<typeof registerJobSchema>;
@@ -69,34 +69,32 @@ type HttpGetJobsItem = {
   name: string;
   description?: string;
 
-  execution: {
-    action:
-      | {
-          type: "script";
-          keepAlive: boolean;
-          refreshTimeout: number;
-          script: string;
-        }
-      | {
-          type: "zip";
-          keepAlive: boolean;
-          refreshTimeout: number;
-          entrypoint: string;
-        };
+  action:
+    | {
+        type: "script";
+        keepAlive: boolean;
+        refreshTimeout: number;
+        script: string;
+      }
+    | {
+        type: "zip";
+        keepAlive: boolean;
+        refreshTimeout: number;
+        entrypoint: string;
+      };
 
-    conditions: Array<
-      | {
-          type: "http";
-          method: string;
-          path: string;
-        }
-      | {
-          type: "schedule";
-          timezone?: string;
-          cron: string;
-        }
-    >;
-  };
+  conditions: Array<
+    | {
+        type: "http";
+        method: string;
+        path: string;
+      }
+    | {
+        type: "schedule";
+        timezone?: string;
+        cron: string;
+      }
+  >;
 };
 
 const packageJsonSchema = z.object({
@@ -109,6 +107,7 @@ const packageJsonSchema = z.object({
   jobber: z.object({
     action: z
       .object({
+        environment: z.record(z.string().toUpperCase(), z.string()).optional(),
         keepAlive: z.boolean().optional(),
         refreshTimeout: z.number().optional(),
       })
@@ -128,9 +127,8 @@ const packageJsonSchema = z.object({
 
 export type PackageJsonSchemaType = z.infer<typeof packageJsonSchema>;
 
-type JobItem = {
+type JobItem = RegisterJobSchemaType & {
   status: "active" | "closing";
-  base: RegisterJobSchemaType;
   directory: string;
   directoryRuntime: string;
 };
@@ -189,23 +187,23 @@ export class Job {
     const result: HttpGetJobsItem[] = [];
 
     for (const job of this.jobs.values()) {
-      const action: HttpGetJobsItem["execution"]["action"] =
-        job.base.execution.action.type === "script"
+      const action: HttpGetJobsItem["action"] =
+        job.action.type === "script"
           ? {
               type: "script",
-              keepAlive: job.base.execution.action.keepAlive,
-              refreshTimeout: job.base.execution.action.refreshTimeout,
-              script: job.base.execution.action.script,
+              keepAlive: job.action.keepAlive,
+              refreshTimeout: job.action.refreshTimeout,
+              script: job.action.script,
             }
           : {
               type: "zip",
-              keepAlive: job.base.execution.action.keepAlive,
-              refreshTimeout: job.base.execution.action.refreshTimeout,
-              entrypoint: job.base.execution.action.entrypoint,
+              keepAlive: job.action.keepAlive,
+              refreshTimeout: job.action.refreshTimeout,
+              entrypoint: job.action.entrypoint,
             };
 
-      const conditions: HttpGetJobsItem["execution"]["conditions"] =
-        job.base.execution.conditions.map((condition) => {
+      const conditions: HttpGetJobsItem["conditions"] = job.conditions.map(
+        (condition) => {
           if (condition.type === "http") {
             return {
               type: "http",
@@ -223,17 +221,16 @@ export class Job {
           }
 
           throw new Error("Unexpected condition type");
-        });
+        }
+      );
 
       const item: HttpGetJobsItem = {
-        name: job.base.name,
-        description: job.base.description,
+        name: job.name,
+        description: job.description,
 
-        version: job.base.version,
-        execution: {
-          action,
-          conditions,
-        },
+        version: job.version,
+        action,
+        conditions,
       };
 
       result.push(item);
@@ -392,7 +389,7 @@ export class Job {
       // A bit of cleanup of the original job.
       if (existingJob) {
         console.log(
-          `[Job/upsertJobZip] Deregistering existing job ${existingJob.base.name}.`
+          `[Job/upsertJobZip] Deregistering existing job ${existingJob.name}.`
         );
 
         await this.deregisterJob(packageContentPared.data.name);
@@ -411,26 +408,24 @@ export class Job {
         name: packageContentPared.data.name,
         version: packageContentPared.data.version,
         description: packageContentPared.data.description,
-        execution: {
-          action: {
-            type: "zip",
-            archiveFileName: archiveFilenameInternal,
-            entrypoint: packageContentPared.data.main,
-            keepAlive: packageContentPared.data.jobber?.action?.keepAlive,
-            refreshTimeout:
-              packageContentPared.data.jobber.action?.refreshTimeout,
-          },
 
-          conditions: packageContentPared.data.jobber.conditions.map(
-            (condition) => {
-              return {
-                type: condition.type,
-                timezone: condition.timezone,
-                cron: condition.cron,
-              };
-            }
-          ),
+        action: {
+          type: "zip",
+          archiveFileName: archiveFilenameInternal,
+          entrypoint: packageContentPared.data.main,
+          keepAlive: packageContentPared.data.jobber?.action?.keepAlive,
+          refreshTimeout:
+            packageContentPared.data.jobber.action?.refreshTimeout,
+          environment: packageContentPared.data.jobber.action?.environment,
         },
+
+        conditions: packageContentPared.data.jobber.conditions.map(
+          (condition) => ({
+            type: condition.type,
+            timezone: condition.timezone,
+            cron: condition.cron,
+          })
+        ),
       });
 
       await writeFile(directoryJobConfig, JSON.stringify(job, null, 2));
@@ -441,15 +436,10 @@ export class Job {
 
       console.log(`[Job/upsertJobZip] Registered`);
 
-      if (existingJob && existingJob.base.execution.action.type === "zip") {
+      if (existingJob && existingJob.action.type === "zip") {
         console.log(`[Job/upsertJobZip] Removing legacy zip fle.`);
 
-        await rm(
-          path.join(
-            directoryJob,
-            existingJob.base.execution.action.archiveFileName
-          )
-        );
+        await rm(path.join(directoryJob, existingJob.action.archiveFileName));
       }
 
       console.log(`[Job/upsertJobZip] Finished`);
@@ -482,7 +472,7 @@ export class Job {
     }
 
     const response = await this.jobController.sendHandleRequest(
-      job.base.execution.action.id,
+      job.action.id,
       payload
     );
 
@@ -502,10 +492,9 @@ export class Job {
       throw new Error(`Failed to find job, job name ${jobName}`);
     }
 
-    const response = await this.jobController.sendHandleRequest(
-      job.base.execution.action.id,
-      { type: "schedule" }
-    );
+    const response = await this.jobController.sendHandleRequest(job.action.id, {
+      type: "schedule",
+    });
 
     console.log(
       `[Job/onScheduleEvent] Job finished in ${response.duration}ms ${
@@ -540,8 +529,8 @@ export class Job {
     );
 
     const jobItem: JobItem = {
+      ...parsed,
       status: "active",
-      base: parsed,
       directory,
       directoryRuntime: path.join(directory, "runtime"),
     };
@@ -552,12 +541,11 @@ export class Job {
       entrypointClient: "./index.js",
     };
 
-    if (jobItem.base.execution.action.type === "zip") {
-      if (jobItem.base.execution.action.entrypoint.startsWith("./")) {
-        clientConfig.entrypointClient =
-          jobItem.base.execution.action.entrypoint;
+    if (jobItem.action.type === "zip") {
+      if (jobItem.action.entrypoint.startsWith("./")) {
+        clientConfig.entrypointClient = jobItem.action.entrypoint;
       } else {
-        clientConfig.entrypointClient = `./${jobItem.base.execution.action.entrypoint}`;
+        clientConfig.entrypointClient = `./${jobItem.action.entrypoint}`;
       }
     }
 
@@ -577,60 +565,46 @@ export class Job {
 
     console.log(`[Job/registerJob] Created baseline files and folders!`);
 
-    if (jobItem.base.execution.action.type === "script") {
+    if (jobItem.action.type === "script") {
       await writeFile(
         path.join(jobItem.directoryRuntime, clientConfig.entrypointClient),
-        jobItem.base.execution.action.script
+        jobItem.action.script
       );
-
-      this.jobController.registerAction({
-        id: jobItem.base.execution.action.id,
-        jobName: parsed.name,
-
-        keepAlive: jobItem.base.execution.action.keepAlive,
-        refreshTimeout: jobItem.base.execution.action.refreshTimeout,
-
-        runtime: {
-          directory: jobItem.directoryRuntime,
-          entrypoint: entrypointSecret,
-        },
-      });
-
-      console.log(`[Job/registerJob] Registered action ${parsed.name}`);
     }
 
-    if (jobItem.base.execution.action.type === "zip") {
+    if (jobItem.action.type === "zip") {
       await unzip(
-        path.join(
-          jobItem.directory,
-          jobItem.base.execution.action.archiveFileName
-        ),
+        path.join(jobItem.directory, jobItem.action.archiveFileName),
         jobItem.directoryRuntime
       );
-
-      this.jobController.registerAction({
-        id: parsed.execution.action.id,
-        jobName: parsed.name,
-
-        keepAlive: parsed.execution.action.keepAlive,
-        refreshTimeout: parsed.execution.action.refreshTimeout,
-
-        runtime: {
-          directory: jobItem.directoryRuntime,
-          entrypoint: entrypointSecret,
-        },
-      });
-
-      console.log(`[Job/registerJob] Registered action ${parsed.name}`);
     }
 
+    await this.jobController.registerAction({
+      id: jobItem.action.id,
+      jobName: jobItem.name,
+
+      environment: jobItem.action.environment,
+
+      keepAlive: jobItem.action.keepAlive,
+      refreshTimeout: jobItem.action.refreshTimeout,
+
+      runtime: {
+        directory: jobItem.directoryRuntime,
+        entrypoint: entrypointSecret,
+      },
+    });
+
+    console.log(`[Job/registerJob] Registered action ${parsed.name}`);
+
     console.log(`[Job/registerJob] Creating job...`);
-    this.jobs.set(jobItem.base.name, jobItem);
+
+    this.jobs.set(jobItem.name, jobItem);
+
     console.log(`[Job/registerJob] Creating job!`);
 
     console.log(`[Job/registerJob] Creating and registering conditions...`);
 
-    for (const condition of parsed.execution.conditions) {
+    for (const condition of parsed.conditions) {
       if (condition.type === "schedule") {
         console.log(
           `[Job/registerJob] Condition for ${parsed.name}, cron "${condition.cron}", tz ${condition.timezone}`
@@ -672,11 +646,8 @@ export class Job {
     this.jobScheduler.deleteSchedulesByJobName(jobName);
     this.jobHttp.deleteRoutesByJobName(jobName);
 
-    if (
-      job.base.execution.action.type === "script" ||
-      job.base.execution.action.type === "zip"
-    ) {
-      await this.jobController.deregisterAction(job.base.execution.action.id);
+    if (job.action.type === "script" || job.action.type === "zip") {
+      await this.jobController.deregisterAction(job.action.id);
 
       await rm(job.directoryRuntime, {
         recursive: true,
