@@ -519,7 +519,7 @@ export class Job {
   private async registerJob(directory: string, payload: RegisterJobSchemaType) {
     const parsed = await registerJobSchema.parseAsync(payload);
 
-    console.log(`[Job/registerJob] Starting ${parsed.name}`);
+    console.log(`[Job/registerJob] Registering ${parsed.name}...`);
 
     if (this.jobs.has(parsed.name)) {
       const job = this.jobs.get(parsed.name);
@@ -535,41 +535,16 @@ export class Job {
       throw new Error("Cannot register job");
     }
 
+    console.log(
+      `[Job/registerJob] Creating baseline configuration files and folders..`
+    );
+
     const jobItem: JobItem = {
       status: "active",
       base: parsed,
       directory,
       directoryRuntime: path.join(directory, "runtime"),
     };
-
-    await mkdir(jobItem.directoryRuntime, { recursive: true });
-
-    for (const condition of parsed.execution.conditions) {
-      if (condition.type === "schedule") {
-        console.log(
-          `[Job/registerJob] Condition for ${parsed.name}, cron "${condition.cron}", tz ${condition.timezone}`
-        );
-
-        this.jobScheduler.createSchedule({
-          jobName: parsed.name,
-
-          cron: condition.cron,
-          timezone: condition.timezone,
-        });
-      }
-
-      if (condition.type === "http") {
-        console.log(
-          `[Job/registerJob] Condition for ${parsed.name}, method "${condition.method}", path ${condition.path}`
-        );
-
-        this.jobHttp.createRoute({
-          jobName: parsed.name,
-          method: condition.method,
-          path: condition.path,
-        });
-      }
-    }
 
     const entrypointSecret = `entrypoint-top-secret-cant-find-me.js`;
 
@@ -593,10 +568,14 @@ export class Job {
       JSON.stringify(clientConfig, null, 2)
     );
 
+    await mkdir(jobItem.directoryRuntime, { recursive: true });
+
     await writeFile(
       path.join(jobItem.directoryRuntime, entrypointSecret),
       entrypointSecretContent
     );
+
+    console.log(`[Job/registerJob] Created baseline files and folders!`);
 
     if (jobItem.base.execution.action.type === "script") {
       await writeFile(
@@ -645,7 +624,42 @@ export class Job {
       console.log(`[Job/registerJob] Registered action ${parsed.name}`);
     }
 
+    console.log(`[Job/registerJob] Creating job...`);
     this.jobs.set(jobItem.base.name, jobItem);
+    console.log(`[Job/registerJob] Creating job!`);
+
+    console.log(`[Job/registerJob] Creating and registering conditions...`);
+
+    for (const condition of parsed.execution.conditions) {
+      if (condition.type === "schedule") {
+        console.log(
+          `[Job/registerJob] Condition for ${parsed.name}, cron "${condition.cron}", tz ${condition.timezone}`
+        );
+
+        this.jobScheduler.createSchedule({
+          jobName: parsed.name,
+
+          cron: condition.cron,
+          timezone: condition.timezone,
+        });
+      }
+
+      if (condition.type === "http") {
+        console.log(
+          `[Job/registerJob] Condition for ${parsed.name}, method "${condition.method}", path ${condition.path}`
+        );
+
+        this.jobHttp.createRoute({
+          jobName: parsed.name,
+          method: condition.method,
+          path: condition.path,
+        });
+      }
+    }
+
+    console.log(`[Job/registerJob] Conditions Finished!`);
+
+    console.log(`[Job/registerJob] Finished ${parsed.name}!`);
   }
 
   private async deregisterJob(jobName: string) {
