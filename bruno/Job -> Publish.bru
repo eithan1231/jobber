@@ -1,17 +1,13 @@
 meta {
-  name: Create Job (zip)
+  name: Job -> Publish
   type: http
   seq: 3
 }
 
 post {
-  url: http://127.0.0.1:3000/jobber/api/job?mode=zip
+  url: http://127.0.0.1:3000/api/job/publish/
   body: multipartForm
   auth: none
-}
-
-params:query {
-  mode: zip
 }
 
 headers {

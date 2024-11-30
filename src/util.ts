@@ -1,10 +1,12 @@
 import path from "path";
 import { spawn } from "child_process";
 import { tmpdir } from "os";
-import { randomBytes } from "crypto";
+import { publicDecrypt, randomBytes } from "crypto";
 import { Readable, Writable } from "stream";
 import { ReadableStream } from "stream/web";
-import { stat } from "fs/promises";
+import { readFile, rm, stat } from "fs/promises";
+import { PATH_CONFIG_JOBS } from "./constants.js";
+import { z } from "zod";
 
 export const getUnixTimestamp = () => Math.round(Date.now() / 1000);
 
@@ -30,16 +32,24 @@ export const awaitTruthy = async (
       return true;
     }
 
-    if (index++ > 30) {
-      await timeout(100);
-    } else {
+    index++;
+
+    if (index <= 10) {
+      await timeout(10);
+    }
+
+    if (index > 10 && index <= 20) {
       await timeout(20);
+    }
+
+    if (index > 20) {
+      await timeout(100);
     }
   }
 };
 
 export const sanitiseFilename = (filename: string) => {
-  return filename.replaceAll(/[^0-9a-z-_ ]/gi, "");
+  return filename.replaceAll(/[^0-9a-z-_ .]/gi, "").substring(0, 255);
 };
 
 export const unzip = (
@@ -48,7 +58,11 @@ export const unzip = (
   timeout: number = 60
 ) => {
   return new Promise((resolve, reject) => {
-    console.log(`[unzip] Started, source ${source} destination ${destination}`);
+    console.log(
+      `[unzip] Extracting, source ${presentablePath(
+        source
+      )} destination ${presentablePath(destination)}`
+    );
 
     const logs: string[] = [];
 
@@ -107,6 +121,8 @@ export const unzip = (
 
         return resolve(true);
       }
+
+      console.log(logs);
 
       throw new Error(`[unzip] Failed with exit code ${code}`);
     });
@@ -189,4 +205,39 @@ export const fileExists = async (filename: string) => {
 
     throw err;
   }
+};
+
+export const createToken = (options: { prefix?: string; length?: number }) => {
+  if (options.prefix) {
+    return `${options.prefix}-${randomBytes(options.length ?? 16).toString(
+      "hex"
+    )}`;
+  }
+
+  return randomBytes(options.length ?? 16).toString("hex");
+};
+
+export const shortenString = (input: string, maxLength = 16) => {
+  if (input.length > maxLength) {
+    return `${input.substring(0, maxLength)}...`;
+  }
+
+  return input;
+};
+
+export const presentablePath = (path: string) => {
+  const cwd = process.cwd();
+
+  let result = path;
+
+  if (result.startsWith(cwd)) {
+    result = `.${result.substring(cwd.length)}`;
+  }
+
+  result = result
+    .split("/")
+    .map((segment) => shortenString(segment))
+    .join("/");
+
+  return result;
 };

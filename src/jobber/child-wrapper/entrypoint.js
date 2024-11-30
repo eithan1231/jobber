@@ -1,12 +1,6 @@
-/**
- * @type {{
- *  entrypointClient: string
- * }}
- */
-const CLIENT_CONFIG = Object.freeze(/*<<CLIENT_CONFIG>>*/);
-
 import assert from "assert";
 import { randomBytes } from "crypto";
+import { readFile } from "fs/promises";
 import { Socket } from "net";
 
 /**
@@ -85,7 +79,7 @@ class JobberHandlerRequest {
      * @private
      * @type {Buffer}
      */
-    this._body = Buffer.from(data.body, "base64");
+    this._body = data.body ? Buffer.from(data.body, "base64") : Buffer.alloc(0);
 
     /**
      * @private
@@ -494,6 +488,32 @@ class JobberSocket {
         throw new Error(`Expected encoding to be json, got ${encoding}`);
       }
 
+      if (this.isShuttingDown) {
+        console.warn(
+          `[JobberSocket/onTransaction] ${name} event received while shutting down`
+        );
+
+        return;
+      }
+
+      this.onTransaction_Handle(traceId, JSON.parse(buffer));
+
+      return;
+    }
+
+    if (name === "handle-setup") {
+      if (encoding !== "json") {
+        throw new Error(`Expected encoding to be json, got ${encoding}`);
+      }
+
+      if (this.isShuttingDown) {
+        console.warn(
+          `[JobberSocket/onTransaction] ${name} event received while shutting down`
+        );
+
+        return;
+      }
+
       this.onTransaction_Handle(traceId, JSON.parse(buffer));
 
       return;
@@ -522,7 +542,17 @@ class JobberSocket {
     );
 
     try {
-      const clientModule = await import(CLIENT_CONFIG.entrypointClient);
+      const packageJson = JSON.parse(await readFile("./package.json"));
+
+      if (typeof packageJson.main !== "string") {
+        throw new Error(
+          "Failed to load package.json, property 'main' is not present or not a string"
+        );
+      }
+
+      const clientModule = await import(packageJson.main);
+
+      console.log(data);
 
       const jobberRequest = new JobberHandlerRequest(data);
       const jobberResponse = new JobberHandlerResponse(jobberRequest);
@@ -574,13 +604,11 @@ class JobberSocket {
 
       console.error(err);
 
-      const metadata = {
+      await this.writeJson("handle-response", traceId, {
         success: false,
         duration: performance.now() - start,
         error: err.toString(),
-      };
-
-      await this.writeJson("handle-response", traceId, metadata);
+      });
     } finally {
       this.handleRequestsProcessing--;
     }
@@ -597,11 +625,7 @@ class JobberSocket {
       "[JobberSocket/onTransaction_Shutdown] Starting shutdown routine"
     );
 
-    for (let i = 0; i < 1000; i++) {
-      if (this.handleRequestsProcessing === 0) {
-        break;
-      }
-
+    while (this.handleRequestsProcessing > 0) {
       await timeout(100);
     }
 
