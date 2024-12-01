@@ -80,6 +80,20 @@ const readArchiveFile = async (
 export const createRouteJob = async (job: Job) => {
   const app = new Hono();
 
+  app.use(async (c, next) => {
+    const start = performance.now();
+
+    await next();
+
+    const duration = (performance.now() - start).toFixed(2);
+
+    console.log(
+      `HTTP ${duration}ms ${c.res.status} ${c.req.method.toUpperCase()} ${
+        c.req.path
+      }`
+    );
+  });
+
   app.get("/:jobName", async (c, next) => {
     const jobItem = job.getJob(c.req.param("jobName"));
 
@@ -92,6 +106,228 @@ export const createRouteJob = async (job: Job) => {
       name: jobItem.name,
       version: jobItem.version,
     });
+  });
+
+  app.delete("/:jobName", async (c, next) => {
+    const jobItem = job.getJob(c.req.param("jobName"));
+
+    if (!jobItem) {
+      return await next();
+    }
+
+    await job.deleteJob(jobItem.name);
+
+    return c.json(jobItem);
+  });
+
+  app.get("/:jobName/logs", async (c, next) => {
+    const querySchema = z.object({
+      runnerId: z.string().optional(),
+      actionId: z.string().optional(),
+      jobName: z.string().optional(),
+      jobVersion: z.string().optional(),
+      source: z.enum(["STDOUT", "STDERR"]).optional(),
+      timestamp: z.coerce.number().optional(),
+      message: z.string().optional(),
+    });
+
+    const filter = await querySchema.parseAsync(c.req.query(), {
+      path: ["request", "query"],
+    });
+
+    const jobItem = job.getJob(c.req.param("jobName"));
+
+    if (!jobItem) {
+      return await next();
+    }
+
+    return c.json(await job.findLogs(jobItem.name, filter));
+  });
+
+  app.get("/:jobName/environment", async (c, next) => {
+    const jobItem = job.getJob(c.req.param("jobName"));
+
+    if (!jobItem) {
+      return await next();
+    }
+
+    const vars: Record<
+      string,
+      {
+        type: "secret" | "text";
+        value?: string;
+      }
+    > = job.getEnvironmentVariables(jobItem.name);
+
+    for (const key of Object.keys(vars)) {
+      if (vars[key].type === "secret") {
+        delete vars[key].value;
+      }
+    }
+
+    return c.json(vars);
+  });
+
+  app.post("/:jobName/environment/:name", async (c, next) => {
+    const nameSchema = z.string().min(1).max(128);
+
+    const schema = z.object({
+      type: z.enum(["secret", "text"]),
+      value: z.string().max(512),
+    });
+
+    const jobItem = job.getJob(c.req.param("jobName"));
+
+    if (!jobItem) {
+      return await next();
+    }
+
+    const name = await nameSchema.parseAsync(c.req.param("name"), {
+      path: ["request", "param"],
+    });
+
+    const body = await schema.parseAsync(await c.req.parseBody(), {
+      path: ["request", "body"],
+    });
+
+    await job.upsertEnvironmentVariable(jobItem.name, name, body);
+
+    return c.json({});
+  });
+
+  app.delete("/:jobName/environment/:name", async (c, next) => {
+    const nameSchema = z.string().min(1).max(128);
+
+    const jobItem = job.getJob(c.req.param("jobName"));
+
+    if (!jobItem) {
+      return await next();
+    }
+
+    const name = await nameSchema.parseAsync(c.req.param("name"), {
+      path: ["request", "param"],
+    });
+
+    await job.deleteEnvironmentVariable(jobItem.name, name);
+
+    return c.json({});
+  });
+
+  app.get("/:jobName/action", async (c, next) => {
+    const jobItem = job.getJob(c.req.param("jobName"));
+
+    if (!jobItem) {
+      console.log("not found");
+      return await next();
+    }
+
+    const actions = job.getJobActionsByJobName(jobItem.name);
+
+    return c.json(actions);
+  });
+
+  app.get("/:jobName/action:latest", async (c, next) => {
+    const jobItem = job.getJob(c.req.param("jobName"));
+
+    if (!jobItem) {
+      return await next();
+    }
+
+    const actions = job.getJobActionsByJobName(jobItem.name);
+
+    const action = actions.find((index) => index.version === jobItem.version);
+
+    if (!action) {
+      return await next();
+    }
+
+    return c.json(action);
+  });
+
+  app.get("/:jobName/trigger", async (c, next) => {
+    const jobItem = job.getJob(c.req.param("jobName"));
+
+    if (!jobItem) {
+      return await next();
+    }
+
+    const triggers = job.getJobTriggersByJobName(jobItem.name);
+
+    return c.json(triggers);
+  });
+
+  app.get("/:jobName/trigger:latest", async (c, next) => {
+    const jobItem = job.getJob(c.req.param("jobName"));
+
+    if (!jobItem) {
+      return await next();
+    }
+
+    const triggers = job.getJobTriggersByJobName(jobItem.name);
+
+    const latestTriggers = triggers.filter(
+      (index) => index.version === jobItem.version
+    );
+
+    return c.json(latestTriggers);
+  });
+
+  app.all("/:jobName/run", async (c, next) => {
+    const bodyDirect = await c.req.arrayBuffer();
+
+    const headers = c.req.header();
+    const query = c.req.query();
+    const queries = c.req.queries();
+    const path = c.req.path;
+    const method = c.req.method;
+    const body = Buffer.from(bodyDirect);
+    const bodyLength = body.length;
+
+    const payload: SendHandleRequestHttp = {
+      type: "http",
+      body: body.toString("base64"),
+      bodyLength,
+      method,
+      path,
+      queries,
+      query,
+      headers,
+    };
+
+    const response = await job.runJobHttpTrigger(
+      c.req.param("jobName"),
+      payload
+    );
+
+    if (!response) {
+      return await next();
+    }
+
+    if (!response.success) {
+      return c.json(
+        {
+          success: false,
+          message: `Jobber: ${response.error}`,
+        },
+        502
+      );
+    }
+
+    if (!response.http) {
+      return c.json(
+        {
+          success: false,
+          message: `Jobber: Job did not return a HTTP response`,
+        },
+        502
+      );
+    }
+
+    return c.body(
+      response.http.body,
+      response.http.status as StatusCode,
+      response.http.headers
+    );
   });
 
   app.get("/", async (c, next) => {
@@ -241,64 +477,6 @@ export const createRouteJob = async (job: Job) => {
       success: true,
       message: "ok",
     });
-  });
-
-  app.all("/run/:jobName", async (c, next) => {
-    const bodyDirect = await c.req.arrayBuffer();
-
-    const headers = c.req.header();
-    const query = c.req.query();
-    const queries = c.req.queries();
-    const path = c.req.path;
-    const method = c.req.method;
-    const body = Buffer.from(bodyDirect);
-    const bodyLength = body.length;
-
-    const payload: SendHandleRequestHttp = {
-      type: "http",
-      body: body.toString("base64"),
-      bodyLength,
-      method,
-      path,
-      queries,
-      query,
-      headers,
-    };
-
-    const response = await job.runJobHttpTrigger(
-      c.req.param("jobName"),
-      payload
-    );
-
-    if (!response) {
-      return await next();
-    }
-
-    if (!response.success) {
-      return c.json(
-        {
-          success: false,
-          message: `Jobber: ${response.error}`,
-        },
-        502
-      );
-    }
-
-    if (!response.http) {
-      return c.json(
-        {
-          success: false,
-          message: `Jobber: Job did not return a HTTP response`,
-        },
-        502
-      );
-    }
-
-    return c.body(
-      response.http.body,
-      response.http.status as StatusCode,
-      response.http.headers
-    );
   });
 
   return app;

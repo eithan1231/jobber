@@ -552,8 +552,6 @@ class JobberSocket {
 
       const clientModule = await import(packageJson.main);
 
-      console.log(data);
-
       const jobberRequest = new JobberHandlerRequest(data);
       const jobberResponse = new JobberHandlerResponse(jobberRequest);
 

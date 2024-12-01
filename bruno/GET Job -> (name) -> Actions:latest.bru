@@ -1,0 +1,15 @@
+meta {
+  name: GET Job -> (name) -> Actions:latest
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{hostname}}/api/job/:jobName/action:latest
+  body: none
+  auth: none
+}
+
+params:path {
+  jobName: {{get_jobs_first_jobName}}
+}

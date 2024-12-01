@@ -12,7 +12,10 @@ const createHonoApp = async (job: Job) => {
       if (
         err.errors.every(
           (issue) =>
-            issue.path.at(0) === "request" && issue.path.at(1) === "body"
+            issue.path.at(0) === "request" &&
+            (issue.path.at(1) === "body" ||
+              issue.path.at(1) === "query" ||
+              issue.path.at(1) === "param")
         )
       ) {
         return c.json({

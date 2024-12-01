@@ -1,11 +1,11 @@
 meta {
-  name: Job -> Publish
+  name: POST Jobs -> Publish
   type: http
-  seq: 3
+  seq: 12
 }
 
 post {
-  url: http://127.0.0.1:3000/api/job/publish/
+  url: {{hostname}}/api/job/publish/
   body: multipartForm
   auth: none
 }
@@ -31,5 +31,5 @@ body:json {
 }
 
 body:multipart-form {
-  archive: @file(test-v2.zip)
+  archive: @file(/home/eithan/projects/jobber/experiment/experiment-v5.zip)
 }

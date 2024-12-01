@@ -4,6 +4,7 @@ import path from "path";
 import { z } from "zod";
 import { DURATION_HOUR, DURATION_MINUTE } from "~/constants.js";
 import {
+  getPathJobActionRunnerDirectory,
   getPathJobActionsArchiveFile,
   getPathJobActionsDirectory,
   getPathJobActionsFile,
@@ -192,6 +193,8 @@ export class Actions {
 
     assert(action);
 
+    await this.runners.deleteRunnersByActionId(actionId);
+
     this.removeAction(actionId);
 
     await Promise.all([
@@ -201,9 +204,15 @@ export class Actions {
   }
 
   public async deleteActionsByJobName(jobName: string) {
+    if (this.status !== "started") {
+      throw new Error("Class has to be started");
+    }
+
     assert(this.actionsIndexJobName[jobName]);
 
-    for (const id of this.actionsIndexJobName[jobName]) {
+    const actionIds = [...this.actionsIndexJobName[jobName]];
+
+    for (const id of actionIds) {
       await this.deleteAction(id);
     }
   }

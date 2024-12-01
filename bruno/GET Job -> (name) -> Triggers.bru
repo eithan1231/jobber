@@ -1,0 +1,15 @@
+meta {
+  name: GET Job -> (name) -> Triggers
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{hostname}}/api/job/:jobName/trigger
+  body: none
+  auth: none
+}
+
+params:path {
+  jobName: {{get_jobs_first_jobName}}
+}

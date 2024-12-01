@@ -1,14 +1,14 @@
 import assert from "assert";
 import { ChildProcessWithoutNullStreams, spawn } from "child_process";
 import { randomBytes } from "crypto";
-import { appendFile, copyFile, mkdir, rm } from "fs/promises";
+import { copyFile, mkdir, rm } from "fs/promises";
 import path from "path";
 import {
   getPathJobActionRunnerDirectory,
   getPathJobActionsArchiveFile,
-  getPathJobLogsFile,
 } from "~/paths.js";
 import {
+  awaitTruthy,
   createToken,
   getUnixTimestamp,
   shortenString,
@@ -41,15 +41,6 @@ type RunnerItem = {
   closedAt?: number;
 };
 
-type LogLine = {
-  runnerId: string;
-  actionId: string;
-  actionVersion: string;
-  level: "STDOUT" | "STDERR";
-  timestamp: number;
-  message: string;
-};
-
 /**
  * Manages the lifecycle of runners, from beginning of their process to end.
  * - Starts runners
@@ -64,17 +55,11 @@ export class Runners {
 
   private runnersIndexActionId: Record<string, string[]> = {};
 
-  private runnersLogs: {
-    [jobName: string]: LogLine[];
-  } = {};
-
   private job: Job;
 
   private actions: Actions;
 
   private status: StatusLifecycle = "neutral";
-
-  private intervalLogFlush: NodeJS.Timeout | null = null;
 
   constructor(job: Job, actions: Actions) {
     this.runnerServer = new RunnerServer();
@@ -154,8 +139,6 @@ export class Runners {
 
     await this.runnerServer.start();
 
-    this.intervalLogFlush = setInterval(() => this.tickLogFlush(), 1000);
-
     setImmediate(() => this.integrityLoop());
 
     this.status = "started";
@@ -175,10 +158,6 @@ export class Runners {
     this.status = "stopping";
 
     await this.runnerServer.stop();
-
-    if (this.intervalLogFlush) {
-      clearInterval(this.intervalLogFlush);
-    }
 
     this.status = "neutral";
   }
@@ -212,6 +191,13 @@ export class Runners {
 
     this.runnerServer.registerConnection(id);
 
+    const env: Record<string, string> = {};
+    for (const [name, value] of Object.entries(
+      this.job.getEnvironmentVariables(action.jobName)
+    )) {
+      env[name] = value.value;
+    }
+
     const child = spawn(
       "node",
       [
@@ -225,7 +211,7 @@ export class Runners {
       ],
       {
         env: {
-          // ...action.environment,
+          ...env,
           PATH: process.env.PATH,
         },
         windowsHide: true,
@@ -251,22 +237,24 @@ export class Runners {
     });
 
     child.stderr.on("data", (chunk: Buffer) =>
-      this.addLog(action.jobName, {
+      this.job.addLog(action.jobName, {
         runnerId: id,
-        level: "STDERR",
         actionId: action.id,
-        actionVersion: action.version,
+        jobName: action.jobName,
+        jobVersion: action.version,
+        source: "STDERR",
         timestamp: getUnixTimestamp(),
         message: chunk.toString(),
       })
     );
 
     child.stdout.on("data", (chunk) =>
-      this.addLog(action.jobName, {
+      this.job.addLog(action.jobName, {
         runnerId: id,
-        level: "STDOUT",
         actionId: action.id,
-        actionVersion: action.version,
+        jobName: action.jobName,
+        jobVersion: action.version,
+        source: "STDOUT",
         timestamp: getUnixTimestamp(),
         message: chunk.toString(),
       })
@@ -284,6 +272,62 @@ export class Runners {
     });
 
     return id;
+  }
+
+  private async deleteRunner(runnerId: string) {
+    console.log(
+      `[Runners/deleteRunner] Deleting runner ${shortenString(runnerId)}`
+    );
+
+    const runner = this.runners.get(runnerId);
+
+    assert(runner);
+
+    if (runner.status === "starting") {
+      console.log(
+        `[Runners/deleteRunner] Awaiting for runner to start before closing... ${shortenString(
+          runnerId
+        )}`
+      );
+
+      if (
+        !(await this.runnerServer.awaitConnectionStatus(runner.id, "connected"))
+      ) {
+        throw new Error(
+          `[Runners/deleteRunner] Failed to wait for runner to connect during deletion`
+        );
+      }
+    }
+
+    if (runner.status === "started") {
+      console.log(
+        `[Runners/deleteRunner] Sending shutdown to runner ${shortenString(
+          runnerId
+        )}`
+      );
+
+      await this.runnerServer.sendShutdownRequest(runnerId);
+    }
+
+    console.log(
+      `[Runners/deleteRunner] Awaiting for runner to be removed... ${shortenString(
+        runnerId
+      )}`
+    );
+
+    await awaitTruthy(async () => {
+      return !this.runners.has(runnerId);
+    });
+
+    console.log(
+      `[Runners/deleteRunner] Runner deleted ${shortenString(runnerId)}`
+    );
+  }
+
+  public async deleteRunnersByActionId(actionId: string) {
+    const runners = this.getRunnersByActionId(actionId);
+
+    await Promise.all(runners.map((runner) => this.deleteRunner(runner.id)));
   }
 
   public async sendHandleRequest(
@@ -485,46 +529,6 @@ export class Runners {
     }
 
     delete this.runnersCurrentLoad[runnerId];
-  }
-
-  private addLog(jobName: string, line: LogLine) {
-    if (this.runnersLogs[jobName]) {
-      this.runnersLogs[jobName].push(line);
-    } else {
-      this.runnersLogs[jobName] = [line];
-    }
-  }
-
-  private async tickLogFlush() {
-    const jobs = this.job.getJobs();
-
-    const jobNames = Object.keys(this.runnersLogs);
-
-    for (const jobName of jobNames) {
-      if (!jobs.find((job) => job.name === jobName)) {
-        delete this.runnersLogs[jobName];
-
-        continue;
-      }
-
-      const logs = this.runnersLogs[jobName].splice(
-        0,
-        this.runnersLogs[jobName].length
-      );
-
-      if (logs.length <= 0) {
-        continue;
-      }
-
-      const filename = getPathJobLogsFile(jobName);
-
-      let appendContent = "";
-      for (const log of logs) {
-        appendContent += JSON.stringify(log) + "\n";
-      }
-
-      await appendFile(filename, appendContent, "utf8");
-    }
   }
 
   private async integrityLoop() {

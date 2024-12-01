@@ -1,0 +1,21 @@
+meta {
+  name: POST Job -> (name) -> Environment -> (name)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{hostname}}/api/job/:jobName/environment/:name
+  body: multipartForm
+  auth: none
+}
+
+params:path {
+  name: NODE_ENV
+  jobName: {{get_jobs_first_jobName}}
+}
+
+body:multipart-form {
+  type: secret
+  value: I am a hidden value :))
+}

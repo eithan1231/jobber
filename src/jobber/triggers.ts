@@ -6,7 +6,7 @@ import {
   getPathJobTriggersDirectory,
   getPathJobTriggersFile,
 } from "~/paths.js";
-import { createToken } from "~/util.js";
+import { createToken, presentablePath } from "~/util.js";
 import { Job } from "./job.js";
 import { StatusLifecycle } from "./types.js";
 import { CronTime } from "cron";
@@ -103,7 +103,7 @@ export class Triggers {
       this.status === "stopping"
     ) {
       throw new Error(
-        `[Triggers/start] Cannot stop with status of ${this.status}`
+        `[Triggers/stop] Cannot stop with status of ${this.status}`
       );
     }
 
@@ -154,19 +154,31 @@ export class Triggers {
     return await this.onHandleEvent(jobName, request);
   }
 
-  public getTrigger(triggerId: string) {
-    const action = this.triggers.get(triggerId);
+  public getTrigger(triggerId: string): ConfigSchemaType {
+    const trigger = this.triggers.get(triggerId);
 
-    assert(action);
+    assert(trigger);
 
-    return action;
+    return {
+      id: trigger.id,
+      jobName: trigger.jobName,
+      version: trigger.version,
+      context: trigger.context,
+    };
   }
 
-  public getTriggers() {
-    return Array.from(this.triggers.values());
+  public getTriggers(): ConfigSchemaType[] {
+    return Array.from(this.triggers).map(([, trigger]) => {
+      return {
+        id: trigger.id,
+        jobName: trigger.jobName,
+        version: trigger.version,
+        context: trigger.context,
+      };
+    });
   }
 
-  public getTriggersByJobName(jobName: string) {
+  public getTriggersByJobName(jobName: string): ConfigSchemaType[] {
     if (!this.triggersIndexJobName[jobName]) {
       return [];
     }
@@ -191,7 +203,7 @@ export class Triggers {
 
     this.addTrigger(data);
 
-    await Triggers.writeConfigFile(data.jobName, data);
+    await Triggers.writeConfigFile(data.jobName, id, data);
   }
 
   public async deleteTrigger(triggerId: string) {
@@ -215,8 +227,10 @@ export class Triggers {
 
     assert(this.triggersIndexJobName[jobName]);
 
-    for (const id of this.triggersIndexJobName[jobName]) {
-      await this.deleteTrigger(id);
+    const triggerIds = [...this.triggersIndexJobName[jobName]];
+
+    for (const triggerId of triggerIds) {
+      await this.deleteTrigger(triggerId);
     }
   }
 
@@ -244,28 +258,27 @@ export class Triggers {
   }
 
   private removeTrigger(triggerId: string) {
-    const action = this.triggers.get(triggerId);
+    const trigger = this.triggers.get(triggerId);
 
-    assert(action);
+    assert(trigger);
 
     this.triggers.delete(triggerId);
 
-    assert(this.triggersIndexJobName[action.jobName]);
+    assert(this.triggersIndexJobName[trigger.jobName]);
 
-    const index = this.triggersIndexJobName[action.jobName].indexOf(triggerId);
+    const index = this.triggersIndexJobName[trigger.jobName].indexOf(triggerId);
 
     assert(index >= 0);
 
-    const removedIds = this.triggersIndexJobName[action.jobName].splice(
+    const removedIds = this.triggersIndexJobName[trigger.jobName].splice(
       index,
       1
     );
-
     assert(removedIds.length === 1);
     assert(removedIds[0] === triggerId);
 
-    if (this.triggersIndexJobName[action.jobName].length === 0) {
-      delete this.triggersIndexJobName[action.jobName];
+    if (this.triggersIndexJobName[trigger.jobName].length === 0) {
+      delete this.triggersIndexJobName[trigger.jobName];
     }
   }
 
@@ -336,6 +349,7 @@ export class Triggers {
 
   private static async writeConfigFile(
     jobName: string,
+    triggerId: string,
     content: ConfigSchemaType
   ) {
     const contentValidated = await configSchema.parseAsync(content);
@@ -344,7 +358,7 @@ export class Triggers {
 
     await mkdir(directory, { recursive: true });
 
-    const filename = getPathJobTriggersFile(jobName, contentValidated.id);
+    const filename = getPathJobTriggersFile(jobName, triggerId);
 
     await writeFile(filename, JSON.stringify(contentValidated, null, 2));
   }
@@ -353,5 +367,6 @@ export class Triggers {
     const filename = getPathJobTriggersFile(jobName, triggerId);
 
     await rm(filename);
+    console.log("deleting file ", presentablePath(filename));
   }
 }

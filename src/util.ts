@@ -7,6 +7,7 @@ import { ReadableStream } from "stream/web";
 import { readFile, rm, stat } from "fs/promises";
 import { PATH_CONFIG_JOBS } from "./constants.js";
 import { z } from "zod";
+import { createReadStream } from "fs";
 
 export const getUnixTimestamp = () => Math.round(Date.now() / 1000);
 
@@ -217,9 +218,11 @@ export const createToken = (options: { prefix?: string; length?: number }) => {
   return randomBytes(options.length ?? 16).toString("hex");
 };
 
-export const shortenString = (input: string, maxLength = 16) => {
+export const shortenString = (input: string, maxLength = 20) => {
   if (input.length > maxLength) {
-    return `${input.substring(0, maxLength)}...`;
+    return `${input.substring(0, maxLength - 5)}...${input.substring(
+      input.length - 5
+    )}`;
   }
 
   return input;
@@ -240,4 +243,37 @@ export const presentablePath = (path: string) => {
     .join("/");
 
   return result;
+};
+
+export const readFileLines = (
+  filename: string,
+  callbackLine: (line: string) => void
+) => {
+  return new Promise((resolve, reject) => {
+    const stream = createReadStream(filename);
+    let leftover = "";
+
+    stream.on("data", (chunk) => {
+      const data = leftover + chunk.toString();
+      const lines = data.split("\n");
+
+      for (let i = 0; i < lines.length - 1; i++) {
+        callbackLine(lines[i]);
+      }
+
+      leftover = lines[lines.length - 1];
+    });
+
+    stream.on("end", () => {
+      if (leftover) {
+        callbackLine(leftover);
+      }
+
+      resolve(true);
+    });
+
+    stream.on("error", (err) => {
+      reject(err);
+    });
+  });
 };

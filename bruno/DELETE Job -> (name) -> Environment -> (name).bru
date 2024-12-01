@@ -1,0 +1,16 @@
+meta {
+  name: DELETE Job -> (name) -> Environment -> (name)
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{hostname}}/api/job/:jobName/environment/:name
+  body: none
+  auth: none
+}
+
+params:path {
+  name: NODE_ENV
+  jobName: {{get_jobs_first_jobName}}
+}

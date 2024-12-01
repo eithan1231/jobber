@@ -13,6 +13,8 @@ import {
 import { Actions } from "./actions.js";
 import { Triggers } from "./triggers.js";
 import { StatusLifecycle } from "./types.js";
+import { Logs } from "./logs.js";
+import { Environment } from "./environment.js";
 
 const configSchema = z.object({
   name: z.string(),
@@ -36,6 +38,10 @@ export class Job {
 
   private triggers = new Triggers(this);
 
+  private logs = new Logs(this);
+
+  private environment = new Environment(this);
+
   constructor() {
     this.triggers.registerHandleEvent((jobName, request) =>
       this.actions.sendHandleRequest(jobName, request)
@@ -52,9 +58,7 @@ export class Job {
       this.status === "started" ||
       this.status === "stopping"
     ) {
-      throw new Error(
-        `[Actions/start] Cannot start with status of ${this.status}`
-      );
+      throw new Error(`[Job/start] Cannot start with status of ${this.status}`);
     }
 
     this.status = "starting";
@@ -76,6 +80,10 @@ export class Job {
       });
     }
 
+    await this.environment.start();
+
+    await this.logs.start();
+
     await this.actions.start();
 
     await this.triggers.start();
@@ -89,9 +97,7 @@ export class Job {
       this.status === "starting" ||
       this.status === "stopping"
     ) {
-      throw new Error(
-        `[Actions/start] Cannot stop with status of ${this.status}`
-      );
+      throw new Error(`[Job/start] Cannot stop with status of ${this.status}`);
     }
 
     this.status = "stopping";
@@ -99,6 +105,10 @@ export class Job {
     await this.triggers.stop();
 
     await this.actions.stop();
+
+    await this.logs.stop();
+
+    await this.environment.stop();
 
     for (const [jobName] of this.jobs) {
       await this.removeJob(jobName);
@@ -144,6 +154,8 @@ export class Job {
     });
 
     await Job.writeConfigFile(payloadFull.name, payloadFull);
+
+    await this.environment.createEnvironment(payloadFull.name);
   }
 
   public async updateJob(jobName: string, payload: Partial<ConfigSchemaType>) {
@@ -166,12 +178,17 @@ export class Job {
 
     assert(job);
 
+    // Setting version to null will prevent triggers, actions, and runners from their standard routine.
+    await this.updateJob(jobName, {
+      version: null,
+    });
+
     await this.triggers.deleteTriggersByJobName(jobName);
     await this.actions.deleteActionsByJobName(jobName);
 
     this.removeJob(jobName);
 
-    await Job.deleteConfigFile(jobName);
+    await rm(getPathJobDirectory(jobName), { recursive: true });
   }
 
   public createJobAction = this.actions.createAction.bind(this.actions);
@@ -183,9 +200,19 @@ export class Job {
   public runJobHttpTrigger = this.triggers.runHttpTrigger.bind(this.triggers);
   public createJobTrigger = this.triggers.createTrigger.bind(this.triggers);
   public deleteJobTrigger = this.triggers.deleteTrigger.bind(this.triggers);
-  public getJobTriggersByJobName = this.triggers.deleteTriggersByJobName.bind(
-    this.actions
+  public getJobTriggersByJobName = this.triggers.getTriggersByJobName.bind(
+    this.triggers
   );
+
+  public addLog = this.logs.addLog.bind(this.logs);
+  public findLogs = this.logs.findLogs.bind(this.logs);
+
+  public upsertEnvironmentVariable =
+    this.environment.upsertEnvironmentVariable.bind(this.environment);
+  public deleteEnvironmentVariable =
+    this.environment.deleteEnvironmentVariable.bind(this.environment);
+  public getEnvironmentVariables =
+    this.environment.getEnvironmentVariables.bind(this.environment);
 
   private async addJob(job: JobItem) {
     this.jobs.set(job.name, job);

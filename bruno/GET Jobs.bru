@@ -1,0 +1,19 @@
+meta {
+  name: GET Jobs
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{hostname}}/api/job/
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: 1
+}
+
+vars:post-response {
+  get_jobs_first_jobName: res('0.name')
+}
