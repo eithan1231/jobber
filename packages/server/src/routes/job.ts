@@ -102,9 +102,12 @@ export const createRouteJob = async (job: Job) => {
     }
 
     return c.json({
-      description: jobItem.description,
-      name: jobItem.name,
-      version: jobItem.version,
+      success: true,
+      data: {
+        description: jobItem.description,
+        name: jobItem.name,
+        version: jobItem.version,
+      },
     });
   });
 
@@ -117,7 +120,10 @@ export const createRouteJob = async (job: Job) => {
 
     await job.deleteJob(jobItem.name);
 
-    return c.json(jobItem);
+    return c.json({
+      success: true,
+      message: `Deleted ${jobItem.name}`,
+    });
   });
 
   app.get("/:jobName/logs", async (c, next) => {
@@ -141,7 +147,13 @@ export const createRouteJob = async (job: Job) => {
       return await next();
     }
 
-    return c.json(await job.findLogs(jobItem.name, filter));
+    const logs = await job.findLogs(jobItem.name, filter);
+
+    return c.json({
+      success: true,
+      message: `Returned result`,
+      data: logs,
+    });
   });
 
   app.get("/:jobName/environment", async (c, next) => {
@@ -165,7 +177,11 @@ export const createRouteJob = async (job: Job) => {
       }
     }
 
-    return c.json(vars);
+    return c.json({
+      success: true,
+      message: "Fetched environment",
+      data: vars,
+    });
   });
 
   app.post("/:jobName/environment/:name", async (c, next) => {
@@ -192,7 +208,10 @@ export const createRouteJob = async (job: Job) => {
 
     await job.upsertEnvironmentVariable(jobItem.name, name, body);
 
-    return c.json({});
+    return c.json({
+      success: true,
+      message: "Upserted new variable",
+    });
   });
 
   app.delete("/:jobName/environment/:name", async (c, next) => {
@@ -210,20 +229,25 @@ export const createRouteJob = async (job: Job) => {
 
     await job.deleteEnvironmentVariable(jobItem.name, name);
 
-    return c.json({});
+    return c.json({
+      success: true,
+      message: `Deleted ${jobItem.name}`,
+    });
   });
 
   app.get("/:jobName/action", async (c, next) => {
     const jobItem = job.getJob(c.req.param("jobName"));
 
     if (!jobItem) {
-      console.log("not found");
       return await next();
     }
 
     const actions = job.getJobActionsByJobName(jobItem.name);
 
-    return c.json(actions);
+    return c.json({
+      success: true,
+      data: actions,
+    });
   });
 
   app.get("/:jobName/action:latest", async (c, next) => {
@@ -241,7 +265,10 @@ export const createRouteJob = async (job: Job) => {
       return await next();
     }
 
-    return c.json(action);
+    return c.json({
+      success: true,
+      data: action,
+    });
   });
 
   app.get("/:jobName/trigger", async (c, next) => {
@@ -269,7 +296,10 @@ export const createRouteJob = async (job: Job) => {
       (index) => index.version === jobItem.version
     );
 
-    return c.json(latestTriggers);
+    return c.json({
+      success: true,
+      data: latestTriggers,
+    });
   });
 
   app.all("/:jobName/run", async (c, next) => {
@@ -332,11 +362,14 @@ export const createRouteJob = async (job: Job) => {
 
   app.get("/", async (c, next) => {
     return c.json(
-      job.getJobs().map((jobItem) => ({
-        name: jobItem.name,
-        description: jobItem.description,
-        version: jobItem.version,
-      })),
+      {
+        success: true,
+        data: job.getJobs().map((jobItem) => ({
+          name: jobItem.name,
+          description: jobItem.description,
+          version: jobItem.version,
+        })),
+      },
       200
     );
   });
@@ -475,7 +508,7 @@ export const createRouteJob = async (job: Job) => {
 
     return c.json({
       success: true,
-      message: "ok",
+      message: "Ok",
     });
   });
 

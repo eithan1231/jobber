@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { Job } from "./jobber/job.js";
 import { createRouteJob } from "./routes/job.js";
 import { ZodError } from "zod";
+import { serveStatic } from "@hono/node-server/serve-static";
 
 const createHonoApp = async (job: Job) => {
   const honoApp = new Hono();
@@ -43,13 +44,32 @@ const createHonoApp = async (job: Job) => {
     return c.json(
       {
         success: false,
-        message: "Page not found",
+        message: "Not Found",
       },
       404
     );
   });
 
   honoApp.route("/api/job/", await createRouteJob(job));
+
+  honoApp.all("/", async (c) => {
+    return c.redirect("/jobber/");
+  });
+
+  honoApp.use(
+    "/*",
+    serveStatic({
+      root: "./public",
+    })
+  );
+
+  honoApp.use(
+    "*",
+    serveStatic({
+      path: "index.html",
+      root: "./public/",
+    })
+  );
 
   return honoApp;
 };

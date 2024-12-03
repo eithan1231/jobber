@@ -1,0 +1,19 @@
+{
+  "name": "experiment",
+  "version": "1.0.0",
+  "description": "Jobber, a wanna-be lambda",
+  "main": "./index.js",
+  "action": {
+    "runnerMinCount": 1
+  },
+  "triggers": [
+    {
+      "type": "schedule",
+      "cron": "0,15,30,45 * * * * *"
+    },
+    {
+      "type": "http"
+    }
+  ],
+  "type": "module"
+}

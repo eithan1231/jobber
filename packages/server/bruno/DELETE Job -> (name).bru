@@ -1,13 +1,17 @@
 meta {
-  name: POST Jobs -> Publish
+  name: DELETE Job -> (name)
   type: http
   seq: 12
 }
 
-post {
-  url: {{hostname}}/api/job/publish/
+delete {
+  url: {{hostname}}/api/job/:jobName
   body: multipartForm
   auth: none
+}
+
+params:path {
+  jobName: {{get_jobs_first_jobName}}
 }
 
 headers {
@@ -31,5 +35,5 @@ body:json {
 }
 
 body:multipart-form {
-  archive: @file(/home/eithan/projects/jobber/experiment/experiment-v5.zip)
+  archive: @file(test-v2.zip)
 }

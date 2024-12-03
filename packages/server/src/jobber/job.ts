@@ -185,6 +185,7 @@ export class Job {
 
     await this.triggers.deleteTriggersByJobName(jobName);
     await this.actions.deleteActionsByJobName(jobName);
+    await this.environment.deleteEnvironment(jobName);
 
     this.removeJob(jobName);
 
