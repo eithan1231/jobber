@@ -15,7 +15,7 @@ WORKDIR /repo
 RUN pnpm install --frozen-lockfile
 RUN pnpm run -r build
 RUN pnpm deploy --filter=@jobber/server --prod /app
-COPY --from=build /repo/packages/web/dist /app/public
+RUN cp /repo/packages/web/dist /app/public
 
 
 
