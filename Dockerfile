@@ -12,9 +12,9 @@ RUN rm -rf /var/lib/apt/lists/*
 FROM base AS build
 COPY . /repo
 WORKDIR /repo
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm run -r build
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm deploy --filter=@jobber/server --prod /app
+RUN pnpm install --frozen-lockfile
+RUN pnpm run -r build
+RUN pnpm deploy --filter=@jobber/server --prod /app
 COPY packages/web/dist /app/public
 
 
