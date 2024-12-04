@@ -5,7 +5,7 @@ import {
   JobberTrigger,
 } from "../../../api/jobber.js";
 import { useEffect, useState } from "react";
-import { Link, RouteObject, useParams } from "react-router-dom";
+import { RouteObject, useParams } from "react-router-dom";
 import { JobHeaderComponent } from "../../../components/job-header.js";
 
 const Component = () => {
