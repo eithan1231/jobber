@@ -280,7 +280,10 @@ export const createRouteJob = async (job: Job) => {
 
     const triggers = job.getJobTriggersByJobName(jobItem.name);
 
-    return c.json(triggers);
+    return c.json({
+      success: true,
+      data: triggers,
+    });
   });
 
   app.get("/:jobName/trigger:latest", async (c, next) => {

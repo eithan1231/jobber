@@ -8,38 +8,7 @@ import {
 } from "../../../api/jobber.js";
 import { useEffect, useState } from "react";
 import { Link, RouteObject, useParams } from "react-router-dom";
-
-const JobHeaderComponent = ({ job }: { job: JobberJob }) => {
-  return (
-    <div className="container mx-auto p-4 border-b border-gray-300 mb-6">
-      <div className="flex flex-col h-full">
-        <div>
-          <h1 className="text-2xl font-semibold">{job.name}</h1>
-          <p className="text-sm text-gray-600 mt-1">{job.description}</p>
-          {job.version && (
-            <p className="text-sm text-gray-500 mt-1">
-              Version: <span className="font-medium">{job.version}</span>
-            </p>
-          )}
-        </div>
-        <div className="mt-auto flex gap-4 pt-4">
-          <Link
-            to="./logs"
-            className="text-blue-600 hover:text-blue-800 text-sm"
-          >
-            View Logs
-          </Link>
-          <Link
-            to="./environment"
-            className="text-green-600 hover:text-green-800 text-sm"
-          >
-            View Environment Variables
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-};
+import { JobHeaderComponent } from "../../../components/job-header.js";
 
 const ActionSectionComponent = ({
   action,
@@ -77,27 +46,33 @@ const ActionSectionComponent = ({
               <dl className="text-sm">
                 <div className="flex justify-between border-b py-2">
                   <dt className="font-medium text-gray-700">Asynchronous:</dt>
-                  <dd>{action.runnerAsynchronous ? "Yes" : "No"}</dd>
+                  <dd className="text-gray-700">
+                    {action.runnerAsynchronous ? "Yes" : "No"}
+                  </dd>
                 </div>
                 <div className="flex justify-between border-b py-2">
                   <dt className="font-medium text-gray-700">Min Count:</dt>
-                  <dd>{action.runnerMinCount}</dd>
+                  <dd className="text-gray-700">{action.runnerMinCount}</dd>
                 </div>
                 <div className="flex justify-between border-b py-2">
                   <dt className="font-medium text-gray-700">Max Count:</dt>
-                  <dd>{action.runnerMaxCount}</dd>
+                  <dd className="text-gray-700">{action.runnerMaxCount}</dd>
                 </div>
                 <div className="flex justify-between border-b py-2">
                   <dt className="font-medium text-gray-700">Max Age:</dt>
-                  <dd>{action.runnerMaxAge} seconds</dd>
+                  <dd className="text-gray-700">
+                    {action.runnerMaxAge} seconds
+                  </dd>
                 </div>
                 <div className="flex justify-between border-b py-2">
                   <dt className="font-medium text-gray-700">Max Age (Hard):</dt>
-                  <dd>{action.runnerMaxAgeHard} seconds</dd>
+                  <dd className="text-gray-700">
+                    {action.runnerMaxAgeHard} seconds
+                  </dd>
                 </div>
                 <div className="flex justify-between py-2">
                   <dt className="font-medium text-gray-700">Mode:</dt>
-                  <dd>{action.runnerMode}</dd>
+                  <dd className="text-gray-700">{action.runnerMode}</dd>
                 </div>
               </dl>
             </div>
@@ -167,7 +142,7 @@ const TriggersSectionComponent = ({
   );
 };
 
-const pagesJobberLandingComponent = () => {
+const Component = () => {
   const params = useParams();
 
   const [jobError, setJobError] = useState<string>();
@@ -222,12 +197,12 @@ const pagesJobberLandingComponent = () => {
   }, [params.jobName]);
 
   return (
-    <div className="mt-10">
+    <div>
       {jobError}
 
       {job && (
         <>
-          {JobHeaderComponent({ job })}
+          <JobHeaderComponent job={job} />
 
           {ActionSectionComponent({ action, error: actionError })}
           {TriggersSectionComponent({ triggers, error: triggersError })}
@@ -239,5 +214,5 @@ const pagesJobberLandingComponent = () => {
 
 export const pagesJobberJobRoute: RouteObject = {
   path: "/jobber/:jobName/",
-  Component: pagesJobberLandingComponent,
+  Component: Component,
 };
