@@ -41,7 +41,6 @@ const configSchema = z.object({
     z.object({
       type: z.literal("mqtt"),
       topics: z.array(z.string()),
-      // allowPublish: z.boolean().default(true),
       connection: z.object({
         protocol: z.enum(["wss", "ws", "mqtt", "mqtts"]).optional(),
         protocolVariable: z.string().optional(),

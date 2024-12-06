@@ -1,8 +1,10 @@
 import {
   getJob,
   getJobActionLatest,
+  getJobEnvironment,
   getJobTriggerLatest,
   JobberAction,
+  JobberEnvironment,
   JobberJob,
   JobberTrigger,
 } from "../../../api/jobber.js";
@@ -84,12 +86,57 @@ const ActionSectionComponent = ({
 };
 
 const TriggersSectionComponent = ({
+  environment,
   triggers,
   error,
 }: {
+  environment?: JobberEnvironment;
   triggers?: JobberTrigger[];
   error?: string;
 }) => {
+  const EnvironmentParameter = (params: {
+    displayName: string;
+    variableName?: string;
+    variableFallbackValue?: string;
+  }) => {
+    if (params.variableFallbackValue) {
+      return (
+        <p className="text-sm text-gray-600">
+          {params.displayName}: {params.variableFallbackValue}
+        </p>
+      );
+    }
+
+    if (!environment || !params.variableName) {
+      return null;
+    }
+
+    if (!environment[params.variableName]) {
+      return (
+        <p className="text-sm text-gray-600 ">
+          {params.displayName}:{" "}
+          <span className="text-red-700">Missing "{params.variableName}"</span>
+        </p>
+      );
+    }
+
+    const variable = environment[params.variableName];
+
+    if (variable.type === "secret") {
+      return (
+        <p className="text-sm text-gray-600">{params.displayName}: *****</p>
+      );
+    }
+
+    if (variable.type === "text") {
+      return (
+        <p className="text-sm text-gray-600">
+          {params.displayName}: {variable.value}
+        </p>
+      );
+    }
+  };
+
   return (
     <div className="container mx-auto my-8 p-4">
       <div className="flex justify-between items-center mb-4">
@@ -121,7 +168,7 @@ const TriggersSectionComponent = ({
               <p className="text-sm text-gray-600">ID: {trigger.id}</p>
               <div className="mt-2">
                 <p className="text-sm font-semibold">Trigger Context:</p>
-                {trigger.context.type === "schedule" ? (
+                {trigger.context.type === "schedule" && (
                   <div>
                     <p className="text-sm">Type: Schedule</p>
                     <p className="text-sm">Cron: {trigger.context.cron}</p>
@@ -131,8 +178,63 @@ const TriggersSectionComponent = ({
                       </p>
                     )}
                   </div>
-                ) : (
+                )}
+
+                {trigger.context.type === "http" && (
                   <p className="text-sm">Type: HTTP</p>
+                )}
+
+                {trigger.context.type === "mqtt" && (
+                  <div>
+                    <p className="text-sm mb-2 ">Type: MQTT</p>
+                    <p className="text-sm mb-2">
+                      Topics: {trigger.context.topics.join(",")}
+                    </p>
+
+                    <EnvironmentParameter
+                      displayName="Protocol"
+                      variableFallbackValue={
+                        trigger.context.connection.protocol
+                      }
+                      variableName={trigger.context.connection.protocolVariable}
+                    />
+
+                    <EnvironmentParameter
+                      displayName="Username"
+                      variableFallbackValue={
+                        trigger.context.connection.username
+                      }
+                      variableName={trigger.context.connection.usernameVariable}
+                    />
+
+                    <EnvironmentParameter
+                      displayName="Password"
+                      variableFallbackValue={
+                        trigger.context.connection.password
+                      }
+                      variableName={trigger.context.connection.passwordVariable}
+                    />
+
+                    <EnvironmentParameter
+                      displayName="Host"
+                      variableFallbackValue={trigger.context.connection.host}
+                      variableName={trigger.context.connection.hostVariable}
+                    />
+
+                    <EnvironmentParameter
+                      displayName="Port"
+                      variableFallbackValue={trigger.context.connection.port}
+                      variableName={trigger.context.connection.portVariable}
+                    />
+
+                    <EnvironmentParameter
+                      displayName="Client ID"
+                      variableFallbackValue={
+                        trigger.context.connection.clientId
+                      }
+                      variableName={trigger.context.connection.clientIdVariable}
+                    />
+                  </div>
                 )}
               </div>
             </div>
@@ -153,6 +255,9 @@ const Component = () => {
 
   const [triggers, setTriggers] = useState<JobberTrigger[]>();
   const [triggersError, setTriggersError] = useState<string>();
+
+  const [environment, setEnvironment] = useState<JobberEnvironment>();
+  const [environmentError, setEnvironmentError] = useState<string>();
 
   useEffect(() => {
     if (!params.jobName) {
@@ -194,6 +299,19 @@ const Component = () => {
 
       setTriggers(result.data);
     });
+
+    getJobEnvironment(params.jobName).then((result) => {
+      if (!result.success) {
+        setEnvironmentError(
+          result.message ??
+            "Failed to get environment variables due to unknown error"
+        );
+
+        return;
+      }
+
+      setEnvironment(result.data);
+    });
   }, [params.jobName]);
 
   return (
@@ -204,8 +322,12 @@ const Component = () => {
         <>
           <JobHeaderComponent job={job} />
 
-          {ActionSectionComponent({ action, error: actionError })}
-          {TriggersSectionComponent({ triggers, error: triggersError })}
+          <ActionSectionComponent action={action} error={actionError} />
+          <TriggersSectionComponent
+            triggers={triggers}
+            error={triggersError}
+            environment={environment}
+          />
         </>
       )}
     </div>

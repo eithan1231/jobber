@@ -40,6 +40,29 @@ const archiveFileSchema = z.object({
       z.object({
         type: z.literal("http"),
       }),
+      z.object({
+        type: z.literal("mqtt"),
+        topics: z.array(z.string()),
+        connection: z.object({
+          protocol: z.string().optional(),
+          protocolVariable: z.string().optional(),
+
+          port: z.string().optional(),
+          portVariable: z.string().optional(),
+
+          host: z.string().optional(),
+          hostVariable: z.string().optional(),
+
+          username: z.string().optional(),
+          usernameVariable: z.string().optional(),
+
+          password: z.string().optional(),
+          passwordVariable: z.string().optional(),
+
+          clientId: z.string().optional(),
+          clientIdVariable: z.string().optional(),
+        }),
+      }),
     ])
   ),
 });
@@ -501,6 +524,21 @@ export const createRouteJob = async (job: Job) => {
           jobName: archiveContent.name,
           version: archiveContent.version,
           context: trigger,
+        });
+      }
+
+      if (trigger.type === "mqtt") {
+        await job.createJobTrigger({
+          jobName: archiveContent.name,
+          version: archiveContent.version,
+          context: {
+            type: "mqtt",
+            topics: trigger.topics,
+            connection: {
+              ...trigger.connection,
+              protocol: trigger.connection.protocol as any,
+            },
+          },
         });
       }
     }

@@ -60,6 +60,29 @@ export type JobberTrigger = {
       }
     | {
         type: "http";
+      }
+    | {
+        type: "mqtt";
+        topics: string[];
+        connection: {
+          protocol?: string;
+          protocolVariable?: string;
+
+          port?: string;
+          portVariable?: string;
+
+          host?: string;
+          hostVariable?: string;
+
+          username?: string;
+          usernameVariable?: string;
+
+          password?: string;
+          passwordVariable?: string;
+
+          clientId?: string;
+          clientIdVariable?: string;
+        };
       };
 };
 
