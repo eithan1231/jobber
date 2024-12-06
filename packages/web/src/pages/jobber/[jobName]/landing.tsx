@@ -325,7 +325,7 @@ const Component = () => {
           <ActionSectionComponent action={action} error={actionError} />
           <TriggersSectionComponent
             triggers={triggers}
-            error={triggersError}
+            error={triggersError ?? environmentError}
             environment={environment}
           />
         </>

@@ -174,7 +174,11 @@ export class RunnerServer {
       const timeoutInterval = setTimeout(() => {
         this.socketTraceIdResponses.delete(traceId);
 
-        reject(new Error("[RunnerServer/sendHandleRequest] Timeout error"));
+        resolve({
+          success: false,
+          duration: -1,
+          error: "Jobber: Timeout Error",
+        });
       }, 60_000);
 
       this.socketTraceIdResponses.set(traceId, (traceId, data) => {
