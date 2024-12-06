@@ -212,14 +212,14 @@ class JobberHandlerRequest {
       throw new Error("[JobberHandlerRequest/header] Expecting type of mqtt");
     }
 
-    return this._path;
+    return this._topic;
   }
 
   /**
    * @returns {unknown}
    */
   json() {
-    if (this._type !== "http" || this._type !== "mqtt") {
+    if (this._type !== "http" && this._type !== "mqtt") {
       throw new Error("[JobberHandlerRequest/header] Expecting type of http");
     }
 
@@ -230,7 +230,7 @@ class JobberHandlerRequest {
    * @returns {string}
    */
   text() {
-    if (this._type !== "http" || this._type !== "mqtt") {
+    if (this._type !== "http" && this._type !== "mqtt") {
       throw new Error("[JobberHandlerRequest/header] Expecting type of http");
     }
 
@@ -241,7 +241,7 @@ class JobberHandlerRequest {
    * @returns {Buffer}
    */
   data() {
-    if (this._type !== "http" || this._type !== "mqtt") {
+    if (this._type !== "http" && this._type !== "mqtt") {
       throw new Error("[JobberHandlerRequest/header] Expecting type of http");
     }
 
@@ -306,7 +306,7 @@ class JobberHandlerResponse {
     assert(typeof name === "string");
     assert(typeof value === "string");
 
-    this._headers[name] = value;
+    this._headers[name.toLowerCase()] = value;
 
     return this;
   }
@@ -396,7 +396,7 @@ class JobberHandlerResponse {
 
   /**
    * HTTP Chunk of a response body
-   * @param {string} data
+   * @param {Buffer} data
    * @param {number} status
    * @returns {this}
    */
@@ -508,6 +508,7 @@ class JobberSocket {
     this.socket.connect({
       host: this.hostname,
       port: this.port,
+      noDelay: true,
     });
 
     this.socket.once("connect", () => {

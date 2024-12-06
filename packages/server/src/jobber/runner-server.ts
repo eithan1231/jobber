@@ -83,7 +83,9 @@ export class RunnerServer {
   private onOpenEvent: null | RunnerServeOpenEvent = null;
 
   constructor() {
-    this.server = new Server();
+    this.server = new Server({
+      noDelay: true,
+    });
   }
 
   public async start() {

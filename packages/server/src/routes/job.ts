@@ -468,6 +468,10 @@ export const createRouteJob = async (job: Job) => {
     const existingJob = job.getJob(archiveContent.name);
 
     if (!existingJob) {
+      console.log(
+        `[/publish/] creating new job, name ${archiveContent.name}, description ${archiveContent.description}`
+      );
+
       await job.createJob({
         name: archiveContent.name,
         description: archiveContent.description,
@@ -479,22 +483,38 @@ export const createRouteJob = async (job: Job) => {
         .getJobActionsByJobName(archiveContent.name)
         .some((action) => action.version === archiveContent.version)
     ) {
-      return c.json({
-        success: false,
-        message: "version has already been published",
-      });
+      console.log(
+        `[/publish/] Failed due to pre-existing actions with the same version`
+      );
+
+      return c.json(
+        {
+          success: false,
+          message: "version has already been published",
+        },
+        400
+      );
     }
 
     if (
       job
-        .getJobActionsByJobName(archiveContent.name)
+        .getJobTriggersByJobName(archiveContent.name)
         .some((trigger) => trigger.version === archiveContent.version)
     ) {
-      return c.json({
-        success: false,
-        message: "version has already been published",
-      });
+      console.log(
+        `[/publish/] Failed due to pre-existing triggers with the same version`
+      );
+
+      return c.json(
+        {
+          success: false,
+          message: "version has already been published",
+        },
+        400
+      );
     }
+
+    console.log(`[/publish/] Creating action...`);
 
     await job.createJobAction(
       {
@@ -509,6 +529,10 @@ export const createRouteJob = async (job: Job) => {
       },
       archiveFilename
     );
+
+    console.log(`[/publish/] Creating action... done`);
+
+    console.log(`[/publish/] Creating triggers...`);
 
     for (const trigger of archiveContent.triggers) {
       if (trigger.type === "schedule") {
@@ -543,9 +567,17 @@ export const createRouteJob = async (job: Job) => {
       }
     }
 
+    console.log(`[/publish/] Creating triggers... done`);
+
+    console.log(`[/publish/] Updating job version...`);
+
     await job.updateJob(archiveContent.name, {
       version: archiveContent.version,
     });
+
+    console.log(`[/publish/] Updating job version... done`);
+
+    console.log(`[/publish/] Successful!`);
 
     return c.json({
       success: true,
