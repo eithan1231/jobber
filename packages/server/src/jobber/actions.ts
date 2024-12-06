@@ -4,7 +4,6 @@ import path from "path";
 import { z } from "zod";
 import { DURATION_HOUR, DURATION_MINUTE } from "~/constants.js";
 import {
-  getPathJobActionRunnerDirectory,
   getPathJobActionsArchiveFile,
   getPathJobActionsDirectory,
   getPathJobActionsFile,
@@ -113,9 +112,13 @@ export class Actions {
 
     this.status = "stopping";
 
+    console.log("[Actions/stop] stopping actions");
+
     await this.runners.stop();
 
     this.status = "neutral";
+
+    console.log("[Actions/stop] actions stopped");
   }
 
   public async sendHandleRequest(

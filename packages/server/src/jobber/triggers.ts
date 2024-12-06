@@ -6,7 +6,14 @@ import {
   getPathJobTriggersDirectory,
   getPathJobTriggersFile,
 } from "~/paths.js";
-import { createToken, presentablePath } from "~/util.js";
+import {
+  awaitTruthy,
+  createSha1Hash,
+  createToken,
+  presentablePath,
+  shortenString,
+  timeout,
+} from "~/util.js";
 import { Job } from "./job.js";
 import { StatusLifecycle } from "./types.js";
 import { CronTime } from "cron";
@@ -15,6 +22,7 @@ import {
   SendHandleRequestHttp,
   SendHandleResponse,
 } from "./runner-server.js";
+import { connectAsync, IClientOptions, MqttClient } from "mqtt";
 
 const configSchema = z.object({
   id: z.string(),
@@ -30,6 +38,30 @@ const configSchema = z.object({
     z.object({
       type: z.literal("http"),
     }),
+    z.object({
+      type: z.literal("mqtt"),
+      topics: z.array(z.string()),
+      // allowPublish: z.boolean().default(true),
+      connection: z.object({
+        protocol: z.enum(["wss", "ws", "mqtt", "mqtts"]).optional(),
+        protocolVariable: z.string().optional(),
+
+        port: z.string().optional(),
+        portVariable: z.string().optional(),
+
+        host: z.string().optional(),
+        hostVariable: z.string().optional(),
+
+        username: z.string().optional(),
+        usernameVariable: z.string().optional(),
+
+        password: z.string().optional(),
+        passwordVariable: z.string().optional(),
+
+        clientId: z.string().optional(),
+        clientIdVariable: z.string().optional(),
+      }),
+    }),
   ]),
 });
 
@@ -39,6 +71,13 @@ type TriggerItem = ConfigSchemaType & {
   schedule?: {
     cronTime: CronTime;
     runAt: number;
+  };
+  mqtt?: {
+    client: MqttClient;
+
+    // Hash of connection details, used to determine if we need to recreate a connection
+    // with new configuration. An example would be environment variables changing.
+    configHash: string;
   };
 };
 
@@ -56,7 +95,7 @@ export class Triggers {
 
   private status: StatusLifecycle = "neutral";
 
-  private intervalSchedule: NodeJS.Timeout | null = null;
+  private isLoopRunning = false;
 
   private onHandleEvent: null | TriggersHandleEvent = null;
 
@@ -91,7 +130,7 @@ export class Triggers {
       }
     }
 
-    this.intervalSchedule = setInterval(() => this.onScheduleTick(), 1000);
+    this.loop();
 
     this.status = "started";
   }
@@ -107,16 +146,18 @@ export class Triggers {
       );
     }
 
+    console.log("[Triggers/stop] stopping triggers");
     this.status = "stopping";
 
-    for (const [id] of this.triggers) {
+    await awaitTruthy(() => Promise.resolve(!this.isLoopRunning));
+
+    for (const [id, trigger] of this.triggers) {
+      assert(!trigger.mqtt);
+
       this.removeTrigger(id);
     }
 
-    if (this.intervalSchedule) {
-      clearInterval(this.intervalSchedule);
-    }
-
+    console.log("[Triggers/stop] stopped triggers");
     this.status = "neutral";
   }
 
@@ -128,8 +169,6 @@ export class Triggers {
     const triggers = this.getTriggersByJobName(jobName);
 
     if (!job || triggers.length <= 0) {
-      console.warn();
-
       return {
         success: false,
         duration: 0,
@@ -282,7 +321,27 @@ export class Triggers {
     }
   }
 
-  private onScheduleTick = () => {
+  private async loop() {
+    this.isLoopRunning = true;
+
+    while (this.status === "starting" || this.status === "started") {
+      try {
+        this.loopSchedule();
+
+        await this.loopMqtt();
+      } catch (err) {
+        console.error(err);
+      }
+
+      await timeout(250);
+    }
+
+    await this.loopMqttClose();
+
+    this.isLoopRunning = false;
+  }
+
+  private loopSchedule() {
     const timestamp = Date.now();
 
     // WARNING: Don't make this function asynchronous. We iterate over the triggers, and immediately
@@ -324,7 +383,272 @@ export class Triggers {
         });
       }
     }
-  };
+  }
+
+  private async loopMqttClose() {
+    for (const [triggerId, trigger] of this.triggers) {
+      if (trigger.context.type === "mqtt") {
+        if (trigger.mqtt) {
+          try {
+            await trigger.mqtt.client.endAsync();
+
+            this.triggers.set(triggerId, {
+              context: trigger.context,
+              id: trigger.id,
+              jobName: trigger.jobName,
+              version: trigger.version,
+            });
+          } catch (err) {
+            console.log(
+              "[Triggers/loopMqttClose] Failed to close mqtt client!"
+            );
+            console.error(err);
+          }
+        }
+      }
+    }
+  }
+
+  private async loopMqtt() {
+    const jobs = this.job.getJobs();
+    for (const job of jobs) {
+      const triggers = this.getTriggersByJobName(job.name).map((index) => {
+        const trigger = this.triggers.get(index.id);
+
+        assert(trigger);
+
+        return trigger;
+      });
+
+      const triggersCurrent = triggers.filter(
+        (index) =>
+          index.version === job.version && index.context.type === "mqtt"
+      );
+
+      const triggersOutdated = triggers.filter(
+        (index) =>
+          index.version !== job.version && index.context.type === "mqtt"
+      );
+
+      // stop old mqtt triggers
+      if (triggersOutdated.length > 0) {
+        for (const trigger of triggersOutdated) {
+          if (trigger.context.type === "mqtt" && trigger.mqtt?.client) {
+            await trigger.mqtt.client.endAsync();
+
+            this.triggers.set(trigger.id, {
+              ...trigger,
+              mqtt: undefined,
+            });
+          }
+        }
+      }
+
+      // start new mqtt triggers if they are not already running
+      if (triggersCurrent.length > 0) {
+        for (const trigger of triggersCurrent) {
+          if (trigger.context.type === "mqtt") {
+            try {
+              const config = this.buildMqttConfig(
+                job.name,
+                trigger.context.connection
+              );
+
+              if (!config.success) {
+                console.warn(
+                  `[Triggers/loopMqtt] failed to build mqttConfig, jobName ${
+                    job.name
+                  }, ${shortenString(trigger.id)}, errors: ${config.errors}`
+                );
+
+                // TODO : Log when we have some form of logging??
+
+                continue;
+              }
+
+              // Handling connection refresh if required.
+              if (trigger.mqtt) {
+                if (config.configHash === trigger.mqtt.configHash) {
+                  continue;
+                }
+
+                if (config.configHash !== trigger.mqtt.configHash) {
+                  console.log(
+                    `[Triggers/loopMqtt] Detected MQTT configuration change. Closing existing MQTT connection. jobName ${
+                      job.name
+                    }, triggerId ${shortenString(trigger.id)}`
+                  );
+
+                  await trigger.mqtt.client.endAsync();
+                }
+              }
+
+              console.log(
+                `[Triggers/loopMqtt] Opening MQTT connection... jobName ${
+                  job.name
+                }, triggerId ${shortenString(trigger.id)}`
+              );
+
+              const client = await connectAsync(config.config);
+
+              this.triggers.set(trigger.id, {
+                ...trigger,
+                mqtt: {
+                  client,
+                  configHash: config.configHash,
+                },
+              });
+
+              client.on("message", async (topic, payload) => {
+                console.log(
+                  `[Triggers/loopMqtt] MQTT message received. topic ${topic}, jobName ${
+                    job.name
+                  }, triggerId ${shortenString(trigger.id)}`
+                );
+
+                if (!this.onHandleEvent) {
+                  return;
+                }
+
+                const response = await this.onHandleEvent(trigger.jobName, {
+                  type: "mqtt",
+                  topic: topic,
+                  body: payload.toString("base64"),
+                  bodyLength: payload.length,
+                });
+
+                if (
+                  client.connected &&
+                  response.success &&
+                  response.mqtt?.publish
+                ) {
+                  for (const publish of response.mqtt.publish) {
+                    await client.publishAsync(publish.topic, publish.body);
+                  }
+                }
+              });
+
+              await client.subscribeAsync(trigger.context.topics);
+            } catch (err) {
+              console.warn(
+                `[Triggers/loopMqtt] error with starting mqtt client, jobName ${
+                  job.name
+                }, triggerId ${shortenString(trigger.id)}`,
+                err
+              );
+
+              // TODO : Log when we have better logging
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private buildMqttConfig(
+    jobName: string,
+    connection: Extract<
+      ConfigSchemaType["context"],
+      { type: "mqtt" }
+    >["connection"]
+  ) {
+    const result: IClientOptions = {};
+
+    const env = this.job.getEnvironmentVariables(jobName);
+    const errors: string[] = [];
+
+    if (connection.clientId) {
+      result.clientId = connection.clientId;
+    } else if (connection.clientIdVariable) {
+      if (env[connection.clientIdVariable]) {
+        result.clientId = env[connection.clientIdVariable].value;
+      } else {
+        errors.push(
+          `MQTT Config Building: clientId from  environment failure, ${connection.clientIdVariable} missing`
+        );
+      }
+    }
+
+    if (connection.host) {
+      result.host = connection.host;
+    } else if (connection.hostVariable) {
+      if (env[connection.hostVariable]) {
+        result.host = env[connection.hostVariable].value;
+      } else {
+        errors.push(
+          `MQTT Config Building: host from  environment failure, ${connection.hostVariable} missing`
+        );
+      }
+    }
+
+    if (connection.password) {
+      result.password = connection.password;
+    } else if (connection.passwordVariable) {
+      if (env[connection.passwordVariable]) {
+        result.password = env[connection.passwordVariable].value;
+      } else {
+        errors.push(
+          `MQTT Config Building: password from  environment failure, ${connection.passwordVariable} missing`
+        );
+      }
+    }
+
+    if (connection.port) {
+      result.port = Number(connection.port);
+    } else if (connection.portVariable) {
+      if (env[connection.portVariable]) {
+        result.port = Number(env[connection.portVariable].value);
+      } else {
+        errors.push(
+          `MQTT Config Building: port from  environment failure, ${connection.portVariable} missing`
+        );
+      }
+    }
+
+    if (Number.isNaN(result.port)) {
+      errors.push(
+        `MQTT Config Building: port from  environment failure, ${connection.portVariable} expected valid number`
+      );
+    }
+
+    if (connection.protocol) {
+      result.protocol = connection.protocol;
+    } else if (connection.protocolVariable) {
+      if (env[connection.protocolVariable]) {
+        result.protocol = env[connection.protocolVariable]
+          .value as typeof result.protocol;
+      } else {
+        errors.push(
+          `MQTT Config Building: protocol from  environment failure, ${connection.protocolVariable} missing`
+        );
+      }
+    }
+
+    if (connection.username) {
+      result.username = connection.username;
+    } else if (connection.usernameVariable) {
+      if (env[connection.usernameVariable]) {
+        result.username = env[connection.usernameVariable].value;
+      } else {
+        errors.push(
+          `MQTT Config Building: username from  environment failure, ${connection.usernameVariable} missing`
+        );
+      }
+    }
+
+    if (errors.length > 0) {
+      return {
+        success: false,
+        errors,
+      } as const;
+    }
+
+    return {
+      success: true,
+      config: result,
+      configHash: createSha1Hash(JSON.stringify(result)),
+    } as const;
+  }
 
   private static async readConfigFiles(jobName: string) {
     const result: ConfigSchemaType[] = [];

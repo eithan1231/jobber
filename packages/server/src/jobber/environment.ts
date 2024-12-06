@@ -105,7 +105,7 @@ export class Environment {
       return {};
     }
 
-    return environment.config;
+    return structuredClone(environment.config);
   }
 
   public async upsertEnvironmentVariable(

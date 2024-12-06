@@ -61,6 +61,8 @@ export class Runners {
 
   private status: StatusLifecycle = "neutral";
 
+  private isLoopRunning = false;
+
   constructor(job: Job, actions: Actions) {
     this.runnerServer = new RunnerServer();
 
@@ -139,7 +141,7 @@ export class Runners {
 
     await this.runnerServer.start();
 
-    setImmediate(() => this.integrityLoop());
+    this.loop();
 
     this.status = "started";
   }
@@ -157,9 +159,15 @@ export class Runners {
 
     this.status = "stopping";
 
+    console.log("[Runners/stop] stopping runners");
+
     await this.runnerServer.stop();
 
+    await awaitTruthy(() => Promise.resolve(!this.isLoopRunning));
+
     this.status = "neutral";
+
+    console.log("[Runners/stop] runners stopped");
   }
 
   private async createRunner(actionId: string) {
@@ -531,47 +539,55 @@ export class Runners {
     delete this.runnersCurrentLoad[runnerId];
   }
 
-  private async integrityLoop() {
+  private async loop() {
     console.log(
       `[Runners/loopIntegrity] Integrity loop has started ${this.status}`
     );
+    this.isLoopRunning = true;
 
-    while (this.status === "started") {
+    while (this.status === "started" || this.status === "starting") {
       const jobNames = this.job.getJobs().map((job) => job.name);
 
       await Promise.all(
-        jobNames.map((jobName) => this.integrityCheckJobName(jobName))
+        jobNames.map((jobName) => this.loopCheckJobName(jobName))
       );
 
       await timeout(250);
     }
 
+    await Promise.all(
+      this.job.getJobs().map((job) => this.loopCheckJobNameClose(job.name))
+    );
+
     console.log(
       `[Runners/loopIntegrity] Integrity loop has exited ${this.status}`
     );
+    this.isLoopRunning = false;
   }
 
-  private async integrityCheckJobName(jobName: string) {
+  private async loopCheckJobNameClose(jobName: string) {
+    for (const [runnerId, runner] of this.runners.entries()) {
+      if (runner.status === "started" || runner.status === "starting") {
+        runner.process.kill("SIGTERM");
+      }
+    }
+  }
+
+  private async loopCheckJobName(jobName: string) {
     const job = this.job.getJob(jobName);
 
     if (!job) {
       return;
     }
 
-    const targetVersion = job.version;
-
-    if (!targetVersion) {
-      return;
-    }
-
     const actions = this.actions.getActionsByJobName(jobName);
 
     const actionCurrent = actions.find(
-      (index) => index.version === targetVersion
+      (index) => index.version === job.version
     );
 
     const actionsOutdated = actions.filter(
-      (index) => index.version !== targetVersion
+      (index) => index.version !== job.version
     );
 
     assert(actionCurrent);
@@ -598,23 +614,12 @@ export class Runners {
           runnersOutdated.length
         } runners, on outdated versions ${runningVersions.join(
           ", "
-        )}, target version is ${targetVersion}`
+        )}, target version is ${job.version}`
       );
     }
 
-    //
-    //
-    // Need to check of there are new versions of the app that need upgrading to.
-    // -- Start new version (as per minimum amount)
-    // -- Graceful stop old version
-    // Check if we need to increase amount of runners for an action
-    // Check max-age of runners.
-    // Check hard max-age of runners
-    //
-    //
-
     // Check if we need to spawn new runners
-    if (actionCurrent.runnerMode === "standard") {
+    if (this.status === "started" && actionCurrent.runnerMode === "standard") {
       const currentActionLoad = runnersCurrent.reduce(
         (prev, runner) => this.runnersCurrentLoad[runner.id] + prev,
         0

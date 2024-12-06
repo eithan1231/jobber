@@ -1,13 +1,11 @@
-import path from "path";
 import { spawn } from "child_process";
+import { hash, randomBytes } from "crypto";
+import { createReadStream } from "fs";
+import { stat } from "fs/promises";
 import { tmpdir } from "os";
-import { publicDecrypt, randomBytes } from "crypto";
+import path from "path";
 import { Readable, Writable } from "stream";
 import { ReadableStream } from "stream/web";
-import { readFile, rm, stat } from "fs/promises";
-import { PATH_CONFIG_JOBS } from "./constants.js";
-import { z } from "zod";
-import { createReadStream } from "fs";
 
 export const getUnixTimestamp = () => Math.round(Date.now() / 1000);
 
@@ -276,4 +274,8 @@ export const readFileLines = (
       reject(err);
     });
   });
+};
+
+export const createSha1Hash = (input: string) => {
+  return hash("sha1", input);
 };

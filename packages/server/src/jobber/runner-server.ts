@@ -13,7 +13,17 @@ export type SendHandleRequestHttp = {
   bodyLength: number;
 };
 
-export type SendHandleRequest = { type: "schedule" } | SendHandleRequestHttp;
+export type SendHandleRequestMqtt = {
+  type: "mqtt";
+  topic: string;
+  body: string;
+  bodyLength: number;
+};
+
+export type SendHandleRequest =
+  | { type: "schedule" }
+  | SendHandleRequestHttp
+  | SendHandleRequestMqtt;
 
 export type SendHandleResponse = (
   | {
@@ -22,6 +32,12 @@ export type SendHandleResponse = (
         status: number;
         headers: Record<string, string>;
         body: Buffer;
+      };
+      mqtt?: {
+        publish: Array<{
+          topic: string;
+          body: Buffer;
+        }>;
       };
     }
   | { success: false; error: string }
@@ -174,7 +190,7 @@ export class RunnerServer {
           });
         }
 
-        if (data.http) {
+        if (payload.type === "http" && data.http) {
           const httpBody = Buffer.from(data.http.body, "base64");
 
           return resolve({
@@ -184,6 +200,29 @@ export class RunnerServer {
               body: httpBody,
               headers: data.http.headers,
               status: data.http.status,
+            },
+          });
+        }
+
+        if (payload.type === "mqtt" && data.mqtt) {
+          const publish: NonNullable<
+            Extract<SendHandleResponse, { success: true }>["mqtt"]
+          >["publish"] = [];
+
+          if (data.mqtt?.publish) {
+            for (const item of data.mqtt?.publish) {
+              publish.push({
+                topic: item.topic as string,
+                body: Buffer.from(item.body, "base64"),
+              });
+            }
+          }
+
+          return resolve({
+            success: true,
+            duration: data.duration ?? -1,
+            mqtt: {
+              publish,
             },
           });
         }

@@ -1,4 +1,4 @@
-import { readFileLines, timeout } from "~/util.js";
+import { awaitTruthy, readFileLines, timeout } from "~/util.js";
 import { StatusLifecycle } from "./types.js";
 import { Job } from "./job.js";
 import { getPathJobLogsFile } from "~/paths.js";
@@ -20,6 +20,8 @@ export class Logs {
 
   private status: StatusLifecycle = "neutral";
 
+  private isLoopRunning = false;
+
   private job: Job;
 
   constructor(job: Job) {
@@ -35,7 +37,7 @@ export class Logs {
 
     this.status = "starting";
 
-    this.loopWriter();
+    this.loop();
 
     this.status = "started";
   }
@@ -48,6 +50,8 @@ export class Logs {
     }
 
     this.status = "stopping";
+
+    await awaitTruthy(() => Promise.resolve(!this.isLoopRunning));
 
     this.status = "neutral";
   }
@@ -102,10 +106,12 @@ export class Logs {
     }
   }
 
-  private async loopWriter() {
+  private async loop() {
     console.log(`[Logs/loopWriter] Starting log writing loop`);
 
-    while (this.status !== "neutral") {
+    this.isLoopRunning = true;
+
+    while (this.status === "starting" || this.status === "started") {
       const jobs = this.job.getJobs();
       const jobNames = Object.keys(this.logs);
 
@@ -136,5 +142,7 @@ export class Logs {
     }
 
     console.log(`[Logs/loopWriter] Log writing loop finished`);
+
+    this.isLoopRunning = false;
   }
 }

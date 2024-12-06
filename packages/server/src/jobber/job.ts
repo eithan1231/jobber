@@ -102,9 +102,18 @@ export class Job {
 
     this.status = "stopping";
 
-    await this.triggers.stop();
+    // NOTE: Ideally we would close triggers before actions, as there is a rare possibility of a race
+    // condition. But sadly there is a separate race condition that comes to life when we don't close
+    // them both at the same time - the race condition of shutdown signals, and them being sent to all
+    // children processes concurrently.
 
-    await this.actions.stop();
+    await Promise.all([
+      // Close actions
+      this.actions.stop(),
+
+      // Close triggers
+      this.triggers.stop(),
+    ]);
 
     await this.logs.stop();
 

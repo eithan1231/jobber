@@ -28,7 +28,7 @@ const getUnixTimestamp = () => Math.round(Date.now() / 1000);
 class JobberHandlerRequest {
   /**
    * @param {{
-   *     type: "http" | "schedule";
+   *     type: "http" | "schedule" | "mqtt";
    *     headers: Record<string, string>;
    *     query: Record<string, string>;
    *     queries: Record<string, string[]>;
@@ -41,56 +41,88 @@ class JobberHandlerRequest {
   constructor(data) {
     /**
      * @private
-     * @type {"http" | "schedule"}
+     * @type {"http" | "schedule" | "mqtt"}
      */
     this._type = data.type;
 
-    /**
-     * @private
-     * @type {Record<string, string>}
-     */
-    this._headers = data.headers;
+    if (this._type === "http") {
+      /**
+       * HTTP Headers
+       * @private
+       * @type {Record<string, string>}
+       */
+      this._headers = data.headers;
+    }
 
-    /**
-     * @private
-     * @type {Record<string, string>}
-     */
-    this._query = data.query;
+    if (this._type === "http") {
+      /**
+       * HTTP Query
+       * @private
+       * @type {Record<string, string>}
+       */
+      this._query = data.query;
+    }
 
-    /**
-     * @private
-     * @type {Record<string, string[]>}
-     */
-    this._queries = data.queries;
+    if (this._type === "http") {
+      /**
+       * HTTP Queries
+       * @private
+       * @type {Record<string, string[]>}
+       */
+      this._queries = data.queries;
+    }
 
-    /**
-     * @private
-     * @type {string}
-     */
-    this._path = data.path;
+    if (this._type === "http") {
+      /**
+       * HTTP Path
+       * @private
+       * @type {string}
+       */
+      this._path = data.path;
+    }
 
-    /**
-     * @private
-     * @type {string}
-     */
-    this._method = data.method;
+    if (this._type === "http") {
+      /**
+       * HTTP Method
+       * @private
+       * @type {string}
+       */
+      this._method = data.method;
+    }
 
-    /**
-     * @private
-     * @type {Buffer}
-     */
-    this._body = data.body ? Buffer.from(data.body, "base64") : Buffer.alloc(0);
+    if (this._type === "mqtt") {
+      /**
+       * MQTT Topic
+       * @private
+       * @type {string}
+       */
+      this._topic = data.topic;
+    }
 
-    /**
-     * @private
-     * @type {number}
-     */
-    this._bodyLength = data.bodyLength;
+    if (this._type === "http" || this._type == "mqtt") {
+      /**
+       * HTTP and MQTT Body
+       * @private
+       * @type {Buffer}
+       */
+      this._body = data.body
+        ? Buffer.from(data.body, "base64")
+        : Buffer.alloc(0);
+    }
+
+    if (this._type === "http" || this._type == "mqtt") {
+      /**
+       * HTTP and MQTT Body Length
+       * @private
+       * @type {number}
+       */
+      this._bodyLength = data.bodyLength;
+    }
   }
 
   /**
    * @param {string} name
-   * @returns {"schedule" | "http"}
+   * @returns {"schedule" | "http" | 'mqtt'}
    */
   type() {
     return this._type;
@@ -173,10 +205,21 @@ class JobberHandlerRequest {
   }
 
   /**
+   * @returns {string}
+   */
+  topic() {
+    if (this._type !== "mqtt") {
+      throw new Error("[JobberHandlerRequest/header] Expecting type of mqtt");
+    }
+
+    return this._path;
+  }
+
+  /**
    * @returns {unknown}
    */
   json() {
-    if (this._type !== "http") {
+    if (this._type !== "http" || this._type !== "mqtt") {
       throw new Error("[JobberHandlerRequest/header] Expecting type of http");
     }
 
@@ -187,7 +230,7 @@ class JobberHandlerRequest {
    * @returns {string}
    */
   text() {
-    if (this._type !== "http") {
+    if (this._type !== "http" || this._type !== "mqtt") {
       throw new Error("[JobberHandlerRequest/header] Expecting type of http");
     }
 
@@ -198,7 +241,7 @@ class JobberHandlerRequest {
    * @returns {Buffer}
    */
   data() {
-    if (this._type !== "http") {
+    if (this._type !== "http" || this._type !== "mqtt") {
       throw new Error("[JobberHandlerRequest/header] Expecting type of http");
     }
 
@@ -217,25 +260,40 @@ class JobberHandlerResponse {
      */
     this._request = request;
 
-    /**
-     * @type {number}
-     */
-    this._status = 200;
+    if (this._request.type() === "http") {
+      /**
+       * @type {number}
+       */
+      this._status = 200;
+    }
 
-    /**
-     * @private
-     * @type {Record<string, string>}
-     */
-    this._headers = {};
+    if (this._request.type() === "http") {
+      /**
+       * @private
+       * @type {Record<string, string>}
+       */
+      this._headers = {};
+    }
 
-    /**
-     * @private
-     * @type {Buffer[]}
-     */
-    this._body = [];
+    if (this._request.type() === "http") {
+      /**
+       * @private
+       * @type {Buffer[]}
+       */
+      this._body = [];
+    }
+
+    if (this._request.type() === "mqtt") {
+      /**
+       * @private
+       * @type {Array<{topic: string, body: Buffer}>}
+       */
+      this._publish = [];
+    }
   }
 
   /**
+   * HTTP Response Header
    * @param {string} name
    * @param {string} value
    * @returns {this}
@@ -254,6 +312,7 @@ class JobberHandlerResponse {
   }
 
   /**
+   * HTTP Response Status
    * @param {number} status
    * @returns {this}
    */
@@ -270,6 +329,7 @@ class JobberHandlerResponse {
   }
 
   /**
+   * HTTP Redirect
    * @param {string} path
    * @param {number} status
    * @returns {this}
@@ -290,6 +350,7 @@ class JobberHandlerResponse {
   }
 
   /**
+   * HTTP JSON response (application/json)
    * @param {any} data
    * @param {number} status
    * @returns {this}
@@ -311,6 +372,7 @@ class JobberHandlerResponse {
   }
 
   /**
+   * HTTP Text response (text/plain)
    * @param {string} data
    * @param {number} status
    * @returns {this}
@@ -333,6 +395,7 @@ class JobberHandlerResponse {
   }
 
   /**
+   * HTTP Chunk of a response body
    * @param {string} data
    * @param {number} status
    * @returns {this}
@@ -347,6 +410,48 @@ class JobberHandlerResponse {
     this._body.push(data);
 
     return this;
+  }
+
+  /**
+   * MQTT Publish
+   * @param {string} topic
+   * @param {string | Buffer | any} body
+   */
+  publish(topic, body) {
+    if (this._request.type() !== "mqtt") {
+      throw new Error("Unable to publish to non-mqtt request");
+    }
+
+    assert(typeof topic === "string");
+
+    if (typeof body === "string") {
+      this._publish.push({
+        topic,
+        body: Buffer.from(body),
+      });
+
+      return;
+    }
+
+    if (body instanceof Buffer) {
+      this._publish.push({
+        topic,
+        body: Buffer.from(body),
+      });
+
+      return;
+    }
+
+    if (typeof body === "object") {
+      this._publish.push({
+        topic,
+        body: Buffer.from(JSON.stringify(body)),
+      });
+
+      return;
+    }
+
+    throw new Error("unexpected type of body");
   }
 }
 
@@ -565,6 +670,12 @@ class JobberSocket {
         console.log(`[JobberSocket/onTransaction_Handle] Schedule`);
       }
 
+      if (jobberRequest.type() === "mqtt") {
+        console.log(
+          `[JobberSocket/onTransaction_Handle] MQTT ${jobberRequest.topic()}`
+        );
+      }
+
       await clientModule.handler(jobberRequest, jobberResponse);
 
       console.log(
@@ -586,6 +697,15 @@ class JobberSocket {
 
       if (jobberRequest.type() === "schedule") {
         //
+      }
+
+      if (jobberRequest.type() === "mqtt") {
+        responseData.mqtt = {
+          publish: jobberResponse._publish.map((index) => ({
+            topic: index.topic,
+            body: index.body.toString("base64"),
+          })),
+        };
       }
 
       await this.writeJson("handle-response", traceId, responseData);
