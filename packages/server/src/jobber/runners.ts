@@ -590,8 +590,6 @@ export class Runners {
       (index) => index.version !== job.version
     );
 
-    assert(actionCurrent);
-
     const runnersCurrent = actions
       .map((index) => this.getRunnersByActionId(index.id))
       .flat();
@@ -619,7 +617,11 @@ export class Runners {
     }
 
     // Check if we need to spawn new runners
-    if (this.status === "started" && actionCurrent.runnerMode === "standard") {
+    if (
+      this.status === "started" &&
+      actionCurrent &&
+      actionCurrent.runnerMode === "standard"
+    ) {
       const currentActionLoad = runnersCurrent.reduce(
         (prev, runner) => this.runnersCurrentLoad[runner.id] + prev,
         0
@@ -672,7 +674,11 @@ export class Runners {
     }
 
     // Check max age of runners
-    if (actionCurrent.runnerMode === "standard" && actionCurrent.runnerMaxAge) {
+    if (
+      actionCurrent &&
+      actionCurrent.runnerMode === "standard" &&
+      actionCurrent.runnerMaxAge
+    ) {
       for (const runner of runnersCurrent) {
         if (runner.status === "started") {
           const duration = getUnixTimestamp() - (runner.startedAt ?? 0);
@@ -692,6 +698,7 @@ export class Runners {
 
     // Check hard max age of runners
     if (
+      actionCurrent &&
       actionCurrent.runnerMode === "standard" &&
       actionCurrent.runnerMaxAgeHard
     ) {
