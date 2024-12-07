@@ -10,9 +10,9 @@ import {
 } from "~/paths.js";
 import { createToken } from "~/util.js";
 import { Job } from "./job.js";
-import { Runners } from "./runners.js";
+import { Runners } from "./runners/runners.js";
 import { StatusLifecycle } from "./types.js";
-import { SendHandleRequest, SendHandleResponse } from "./runner-server.js";
+import { SendHandleRequest, SendHandleResponse } from "./runners/server.js";
 
 const configSchema = z.object({
   id: z.string(),

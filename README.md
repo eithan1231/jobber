@@ -4,6 +4,8 @@ Do you like Lambda, the concept of disposable functions? Well this is surely the
 
 ### Future additions
 
+- Migrate entrypoint.js to its own package with bundling
+- Migrate the Framed TCP protocol to its own package which can be shared by the Server and Entrypoint packages.
 - Run jobs within an isolated context for security, this will be most likely in the form of Docker.
 - Support other languages (python? native binaries?).
 - Support CommonJS?

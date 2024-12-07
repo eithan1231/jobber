@@ -21,7 +21,7 @@ import {
   SendHandleRequest,
   SendHandleRequestHttp,
   SendHandleResponse,
-} from "./runner-server.js";
+} from "./runners/server.js";
 import { connectAsync, IClientOptions, MqttClient } from "mqtt";
 
 const configSchema = z.object({

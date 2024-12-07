@@ -7,7 +7,7 @@ import path from "path";
 import { ReadableStream } from "stream/web";
 import { z } from "zod";
 import { Job } from "~/jobber/job.js";
-import { SendHandleRequestHttp } from "~/jobber/runner-server.js";
+import { SendHandleRequestHttp } from "~/jobber/runners/server.js";
 import {
   createToken,
   getTmpFile,

@@ -15,14 +15,14 @@ import {
   timeout,
   unzip,
 } from "~/util.js";
-import { Actions } from "./actions.js";
-import { Job } from "./job.js";
+import { Actions } from "../actions.js";
+import { Job } from "../job.js";
 import {
   RunnerServer,
   SendHandleRequest,
   SendHandleResponse,
-} from "./runner-server.js";
-import { StatusLifecycle } from "./types.js";
+} from "./server.js";
+import { StatusLifecycle } from "../types.js";
 
 type RunnerItem = {
   status: "starting" | "started" | "closing" | "closed";
@@ -69,12 +69,12 @@ export class Runners {
     this.job = job;
     this.actions = actions;
 
-    this.runnerServer.registerOpenEvent((runnerId: string) => {
+    this.runnerServer.on("runner-open", (runnerId: string) => {
       const runner = this.runners.get(runnerId);
 
       if (!runner) {
         console.warn(
-          `[Runners/runnerServer.registerOpenEvent] Runner not found ${runnerId}`
+          `[Runners/runnerServer.runner-open] Runner not found ${runnerId}`
         );
 
         return;
@@ -87,12 +87,12 @@ export class Runners {
       });
     });
 
-    this.runnerServer.registerClosingEvent((runnerId: string) => {
+    this.runnerServer.on("runner-closing", (runnerId: string) => {
       const runner = this.runners.get(runnerId);
 
       if (!runner) {
         console.warn(
-          `[Runners/runnerServer.registerClosingEvent] Runner not found ${runnerId}`
+          `[Runners/runnerServer.runner-closing] Runner not found ${runnerId}`
         );
 
         return;
@@ -105,12 +105,12 @@ export class Runners {
       });
     });
 
-    this.runnerServer.registerCloseEvent((runnerId: string) => {
+    this.runnerServer.on("runner-close", (runnerId: string) => {
       const runner = this.runners.get(runnerId);
 
       if (!runner) {
         console.warn(
-          `[Runners/runnerServer.registerCloseEvent] Runner not found ${runnerId}`
+          `[Runners/runnerServer.runner-close] Runner not found ${runnerId}`
         );
 
         return;
