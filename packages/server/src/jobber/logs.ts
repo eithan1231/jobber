@@ -1,9 +1,12 @@
+import { appendFile, mkdir, readdir } from "fs/promises";
+import {
+  getPathJobLogsChunkDirectory,
+  getPathJobLogsChunkFile,
+} from "~/paths.js";
 import { awaitTruthy, readFileLines, timeout } from "~/util.js";
-import { StatusLifecycle } from "./types.js";
 import { Job } from "./job.js";
-import { getPathJobLogsFile } from "~/paths.js";
-import { appendFile, readFile } from "fs/promises";
-import { createReadStream } from "fs";
+import { StatusLifecycle } from "./types.js";
+import path from "path";
 
 export type LogsLine = {
   runnerId: string;
@@ -37,6 +40,10 @@ export class Logs {
 
     this.status = "starting";
 
+    for (const job of this.job.getJobs()) {
+      await mkdir(getPathJobLogsChunkDirectory(job.name), { recursive: true });
+    }
+
     this.loop();
 
     this.status = "started";
@@ -56,44 +63,97 @@ export class Logs {
     this.status = "neutral";
   }
 
-  public async findLogs(jobName: string, filter: Partial<LogsLine>) {
+  public async findLogs(
+    jobName: string,
+    filter: Partial<LogsLine> & { elapsed?: number }
+  ) {
     const result: LogsLine[] = [];
 
-    const filename = getPathJobLogsFile(jobName);
+    const timeNow = Date.now();
 
-    await readFileLines(filename, (line) => {
-      const lineParsed = JSON.parse(line);
+    // 2 hours default
+    const elapsed = filter.elapsed ?? 60 * 60 * 12;
 
-      if (filter.actionId && filter.actionId !== lineParsed.actionId) {
-        return;
+    // Limit results if elapsed has not been passed through
+    const limitResults = !filter.elapsed;
+    const limitResultsCount = 256;
+
+    const chunkDir = getPathJobLogsChunkDirectory(jobName);
+
+    const chunkFiles = await readdir(chunkDir);
+
+    const chunkFilesFiltered = chunkFiles
+      .filter((file) => {
+        const fileTime = Number(path.parse(file).name);
+
+        if (isNaN(fileTime)) {
+          return false;
+        }
+
+        if (timeNow - fileTime > 1000 * elapsed) {
+          return false;
+        }
+
+        return true;
+      })
+      .sort()
+      .reverse();
+
+    let currentResultsCount = 0;
+
+    for (const file of chunkFilesFiltered) {
+      const filepath = path.join(chunkDir, file);
+
+      await readFileLines(filepath, (line) => {
+        const lineParsed = JSON.parse(line) as LogsLine;
+
+        if (filter.actionId && filter.actionId !== lineParsed.actionId) {
+          return;
+        }
+
+        if (filter.jobName && filter.jobName !== lineParsed.jobName) {
+          return;
+        }
+
+        if (filter.jobVersion && filter.jobVersion !== lineParsed.jobVersion) {
+          return;
+        }
+
+        if (filter.runnerId && filter.runnerId !== lineParsed.runnerId) {
+          return;
+        }
+
+        if (filter.source && filter.source !== lineParsed.source) {
+          return;
+        }
+
+        if (filter.timestamp && filter.timestamp !== lineParsed.timestamp) {
+          return;
+        }
+
+        if (
+          filter.message &&
+          !lineParsed.message
+            .toLowerCase()
+            .includes(filter.message.toLowerCase())
+        ) {
+          return;
+        }
+
+        result.push(lineParsed);
+
+        currentResultsCount++;
+      });
+
+      if (limitResults && currentResultsCount > limitResultsCount) {
+        break;
       }
+    }
 
-      if (filter.jobName && filter.jobName !== lineParsed.jobName) {
-        return;
-      }
-
-      if (filter.jobVersion && filter.jobVersion !== lineParsed.jobVersion) {
-        return;
-      }
-
-      if (filter.runnerId && filter.runnerId !== lineParsed.runnerId) {
-        return;
-      }
-
-      if (filter.source && filter.source !== lineParsed.source) {
-        return;
-      }
-
-      if (filter.timestamp && filter.timestamp !== lineParsed.timestamp) {
-        return;
-      }
-
-      if (filter.message && !lineParsed.message.includes(filter.message)) {
-        return;
-      }
-
-      result.push(lineParsed);
-    });
+    if (limitResults && result.length - limitResultsCount > 0) {
+      // Remove the first results. Order will be ascending, so we will preserve the latest appended logs.
+      result.splice(0, result.length - limitResultsCount);
+    }
 
     return result;
   }
@@ -112,6 +172,8 @@ export class Logs {
     this.isLoopRunning = true;
 
     while (this.status === "starting" || this.status === "started") {
+      const date = new Date();
+
       const jobs = this.job.getJobs();
       const jobNames = Object.keys(this.logs);
 
@@ -128,7 +190,7 @@ export class Logs {
           continue;
         }
 
-        const filename = getPathJobLogsFile(jobName);
+        const filename = getPathJobLogsChunkFile(jobName, date);
 
         let appendContent = "";
         for (const log of logs) {

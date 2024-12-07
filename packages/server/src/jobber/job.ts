@@ -7,6 +7,7 @@ import {
   getPathJobActionsDirectory,
   getPathJobConfigFile,
   getPathJobDirectory,
+  getPathJobLogsChunkDirectory,
   getPathJobLogsDirectory,
   getPathJobTriggersDirectory,
 } from "~/paths.js";
@@ -149,6 +150,7 @@ export class Job {
     const directories = [
       directory,
       getPathJobLogsDirectory(payloadFull.name),
+      getPathJobLogsChunkDirectory(payloadFull.name),
       getPathJobActionsDirectory(payloadFull.name),
       getPathJobTriggersDirectory(payloadFull.name),
     ];

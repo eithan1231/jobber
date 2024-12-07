@@ -43,6 +43,12 @@ export const getPathJobTriggersDirectory = (jobName: string) => {
 export const getPathJobLogsDirectory = (jobName: string) => {
   return path.join(getPathJobDirectory(jobName), "logs");
 };
+/**
+ * Get /jobs/{name}/logs/chunk
+ */
+export const getPathJobLogsChunkDirectory = (jobName: string) => {
+  return path.join(getPathJobLogsDirectory(jobName), "chunk");
+};
 
 /**
  * Get /jobs/{name}/actions/{actionId}.json
@@ -94,8 +100,16 @@ export const getPathJobTriggersFile = (jobName: string, triggerId: string) => {
 };
 
 /**
- * Get /jobs/{name}/logs/output.log
+ * Get /jobs/{name}/logs/chunk/{YYYY}-{MM}-{DD}-{HH}.log
  */
-export const getPathJobLogsFile = (jobName: string) => {
-  return path.join(getPathJobLogsDirectory(jobName), "output.log");
+export const getPathJobLogsChunkFile = (jobName: string, date: Date) => {
+  const dateHourSpecific = new Date(date.getTime());
+  dateHourSpecific.setMilliseconds(0);
+  dateHourSpecific.setSeconds(0);
+  dateHourSpecific.setMinutes(0);
+
+  return path.join(
+    getPathJobLogsChunkDirectory(jobName),
+    `${dateHourSpecific.getTime()}.log`
+  );
 };
