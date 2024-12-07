@@ -1,4 +1,4 @@
-import assert from "assert";
+import assert, { strictEqual } from "assert";
 import { Server, Socket } from "net";
 import { awaitTruthy, createToken } from "../../util.js";
 import { RunnerSocket } from "./socket.js";
@@ -160,7 +160,7 @@ export class RunnerServer extends EventEmitter<{
       const connection = this.connections.get(runnerId);
 
       assert(connection);
-      assert(connection.status === "connected");
+      strictEqual(connection.status, "connected");
 
       const timeoutInterval = setTimeout(() => {
         this.socketTraceIdResponses.delete(traceId);
@@ -177,7 +177,7 @@ export class RunnerServer extends EventEmitter<{
 
         this.socketTraceIdResponses.delete(traceId);
 
-        assert(typeof data.success === "boolean");
+        strictEqual(typeof data.success, "boolean");
 
         if (!data.success) {
           return resolve({
@@ -242,22 +242,14 @@ export class RunnerServer extends EventEmitter<{
   }
 
   public async sendShutdownRequest(runnerId: string) {
-    const runner = this.connections.get(runnerId);
+    const connection = this.connections.get(runnerId);
 
-    assert(runner);
-    assert(runner.status === "connected");
+    assert(connection);
+    strictEqual(connection.status, "connected");
 
     const traceId = createToken({
       length: 128,
       prefix: "traceId-shutdown",
-    });
-
-    this.emit("runner-closing", runnerId);
-
-    this.connections.set(runnerId, {
-      runnerId,
-      status: "disconnecting",
-      socket: runner.socket,
     });
 
     await this.writeFrame({
@@ -266,13 +258,21 @@ export class RunnerServer extends EventEmitter<{
       runnerId: runnerId,
       data: {},
     });
+
+    this.emit("runner-closing", runnerId);
+
+    this.connections.set(runnerId, {
+      runnerId,
+      status: "disconnecting",
+      socket: connection.socket,
+    });
   }
 
   private async writeFrame<T = unknown>(frame: Frame<T>) {
     const connection = this.connections.get(frame.runnerId);
 
     assert(connection);
-    assert(connection.status === "connected");
+    strictEqual(connection.status, "connected");
 
     const buffer = Buffer.from(JSON.stringify(frame));
 

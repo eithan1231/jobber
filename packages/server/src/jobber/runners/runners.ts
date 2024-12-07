@@ -668,6 +668,12 @@ export class Runners {
     if (runnersOutdated.length > 0) {
       for (const runner of runnersOutdated) {
         if (runner.status === "started") {
+          console.log(
+            `[Runners/integrityCheckJobName] Sending graceful shutdown to outdated runner. version ${
+              runner.actionVersion
+            }, runnerId ${shortenString(runner.id)}!`
+          );
+
           await this.runnerServer.sendShutdownRequest(runner.id);
         }
       }
