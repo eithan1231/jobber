@@ -1,9 +1,11 @@
 import { getJobs, JobberJob } from "../../api/jobber.js";
 import { useEffect, useState } from "react";
-import { Link, RouteObject } from "react-router-dom";
+import { Link, RouteObject, useLocation } from "react-router-dom";
 
-const pagesJobberLandingComponent = () => {
+const Component = () => {
   const [jobs, setJobs] = useState<JobberJob[]>([]);
+
+  const location = useLocation();
 
   useEffect(() => {
     getJobs().then((result) => {
@@ -11,7 +13,7 @@ const pagesJobberLandingComponent = () => {
         setJobs(result.data);
       }
     });
-  }, []);
+  }, [location]);
 
   return (
     <div className="container mx-auto my-8 p-4">
@@ -59,5 +61,5 @@ const pagesJobberLandingComponent = () => {
 
 export const pagesJobberLandingRoute: RouteObject = {
   path: "/jobber/",
-  Component: pagesJobberLandingComponent,
+  Component: Component,
 };

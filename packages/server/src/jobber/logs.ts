@@ -1,9 +1,15 @@
-import { appendFile, mkdir, readdir } from "fs/promises";
+import { appendFile, mkdir, readdir, rm } from "fs/promises";
 import {
   getPathJobLogsChunkDirectory,
   getPathJobLogsChunkFile,
 } from "~/paths.js";
-import { awaitTruthy, readFileLines, timeout } from "~/util.js";
+import {
+  awaitTruthy,
+  getUnixTimestamp,
+  presentablePath,
+  readFileLines,
+  timeout,
+} from "~/util.js";
 import { Job } from "./job.js";
 import { StatusLifecycle } from "./types.js";
 import path from "path";
@@ -171,34 +177,15 @@ export class Logs {
 
     this.isLoopRunning = true;
 
+    let chunkCleanupLast = 0;
+
     while (this.status === "starting" || this.status === "started") {
-      const date = new Date();
-
-      const jobs = this.job.getJobs();
-      const jobNames = Object.keys(this.logs);
-
-      for (const jobName of jobNames) {
-        if (!jobs.find((index) => index.name === jobName)) {
-          delete this.logs[jobName];
-
-          continue;
-        }
-
-        const logs = this.logs[jobName].splice(0, this.logs[jobName].length);
-
-        if (logs.length <= 0) {
-          continue;
-        }
-
-        const filename = getPathJobLogsChunkFile(jobName, date);
-
-        let appendContent = "";
-        for (const log of logs) {
-          appendContent += JSON.stringify(log) + "\n";
-        }
-
-        await appendFile(filename, appendContent, "utf8");
+      if (getUnixTimestamp() - chunkCleanupLast > 60 * 60) {
+        await this.loopLogChunkCleanup();
+        chunkCleanupLast = getUnixTimestamp();
       }
+
+      await this.loopLogChunkWrite();
 
       await timeout(250);
     }
@@ -206,5 +193,74 @@ export class Logs {
     console.log(`[Logs/loopWriter] Log writing loop finished`);
 
     this.isLoopRunning = false;
+  }
+
+  private async loopLogChunkCleanup() {
+    console.log(`[Logs/loopLogChunkCleanup] Cleaning up old log files`);
+
+    const jobs = this.job.getJobs();
+    for (const job of jobs) {
+      const chunksPath = getPathJobLogsChunkDirectory(job.name);
+
+      const files = await readdir(chunksPath);
+
+      for (const filename of files) {
+        try {
+          const fileTime = Number(path.parse(filename).name);
+
+          if (isNaN(fileTime)) {
+            continue;
+          }
+
+          const MS_DAY = 1000 * 60 * 60 * 24;
+
+          if (Date.now() - fileTime < MS_DAY * 8) {
+            continue;
+          }
+
+          const filepath = path.join(chunksPath, filename);
+
+          console.log(
+            `[Logs/loopLogChunkCleanup] Deleting ${presentablePath(
+              filepath
+            )} due to date`
+          );
+
+          await rm(filepath);
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    }
+  }
+
+  private async loopLogChunkWrite() {
+    const date = new Date();
+
+    const jobs = this.job.getJobs();
+    const jobNames = Object.keys(this.logs);
+
+    for (const jobName of jobNames) {
+      if (!jobs.find((index) => index.name === jobName)) {
+        delete this.logs[jobName];
+
+        continue;
+      }
+
+      const logs = this.logs[jobName].splice(0, this.logs[jobName].length);
+
+      if (logs.length <= 0) {
+        continue;
+      }
+
+      const filename = getPathJobLogsChunkFile(jobName, date);
+
+      let appendContent = "";
+      for (const log of logs) {
+        appendContent += JSON.stringify(log) + "\n";
+      }
+
+      await appendFile(filename, appendContent, "utf8");
+    }
   }
 }

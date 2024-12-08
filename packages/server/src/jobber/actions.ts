@@ -130,7 +130,14 @@ export class Actions {
     }
 
     const job = this.job.getJob(jobName);
-    assert(job);
+
+    if (!job) {
+      return {
+        success: false,
+        duration: 0,
+        error: `Jobber: Job ${jobName} not found!`,
+      };
+    }
 
     const actions = this.getActionsByJobName(job.name);
 

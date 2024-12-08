@@ -45,7 +45,7 @@ const Component = () => {
           actions.map((action) => (
             <div
               key={action.id}
-              className="border rounded shadow-md p-4 bg-white flex flex-col"
+              className="border rounded shadow-md p-4 bg-white flex flex-col mb-10"
             >
               <h2 className="text-xl font-semibold mb-2">
                 {action.jobName}

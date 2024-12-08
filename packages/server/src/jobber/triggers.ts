@@ -251,6 +251,11 @@ export class Triggers {
 
     const trigger = this.triggers.get(triggerId);
 
+    // TODO: Possibly move the MQTT handling stuff to its own class.
+    if (trigger?.mqtt) {
+      await trigger.mqtt.client.endAsync();
+    }
+
     assert(trigger);
 
     this.removeTrigger(triggerId);
@@ -410,6 +415,7 @@ export class Triggers {
 
   private async loopMqtt() {
     const jobs = this.job.getJobs();
+
     for (const job of jobs) {
       const triggers = this.getTriggersByJobName(job.name).map((index) => {
         const trigger = this.triggers.get(index.id);
@@ -505,9 +511,7 @@ export class Triggers {
                   }, triggerId ${shortenString(trigger.id)}`
                 );
 
-                if (!this.onHandleEvent) {
-                  return;
-                }
+                assert(this.onHandleEvent);
 
                 const response = await this.onHandleEvent(trigger.jobName, {
                   type: "mqtt",
