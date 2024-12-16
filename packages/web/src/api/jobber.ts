@@ -87,6 +87,18 @@ export type JobberTrigger = {
       };
 };
 
+export type JobberRunner = {
+  id: string;
+  status: "starting" | "started" | "closing" | "closed";
+  actionId: string;
+  actionVersion: string;
+
+  createdAt: number;
+  startedAt?: number;
+  closingAt?: number;
+  closedAt?: number;
+};
+
 export const getJobs = async (): Promise<
   JobberGenericResponse<JobberJob[]>
 > => {
@@ -179,6 +191,23 @@ export const getJobTriggerLatest = async (
   jobName: string
 ): Promise<JobberGenericResponse<JobberTrigger[]>> => {
   const result = await fetch(`/api/job/${jobName}/trigger:latest`);
+
+  return await result.json();
+};
+
+export const getJobRunners = async (
+  jobName: string
+): Promise<JobberGenericResponse<JobberRunner[]>> => {
+  const result = await fetch(`/api/job/${jobName}/runners`);
+
+  return await result.json();
+};
+
+export const getJobRunnersByActionId = async (
+  jobName: string,
+  actionId: string
+): Promise<JobberGenericResponse<JobberRunner[]>> => {
+  const result = await fetch(`/api/job/${jobName}/action/${actionId}/runners`);
 
   return await result.json();
 };

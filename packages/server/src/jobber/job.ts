@@ -217,6 +217,12 @@ export class Job {
   public getJobActionsByJobName = this.actions.getActionsByJobName.bind(
     this.actions
   );
+  public getJobRunnersByActionId = this.actions.getRunnersByActionId.bind(
+    this.actions
+  );
+  public getJobRunnersByJobName = this.actions.getRunnersByJobName.bind(
+    this.actions
+  );
 
   public runJobHttpTrigger = this.triggers.runHttpTrigger.bind(this.triggers);
   public createJobTrigger = this.triggers.createTrigger.bind(this.triggers);
@@ -234,6 +240,9 @@ export class Job {
     this.environment.deleteEnvironmentVariable.bind(this.environment);
   public getEnvironmentVariables =
     this.environment.getEnvironmentVariables.bind(this.environment);
+  public getEnvironment = this.environment.getEnvironment.bind(
+    this.environment
+  );
 
   private async addJob(job: JobItem) {
     this.jobs.set(job.name, job);

@@ -337,6 +337,62 @@ export const createRouteJob = async (job: Job) => {
     });
   });
 
+  app.get("/:jobName/action/:actionId/runners", async (c, next) => {
+    const jobItem = job.getJob(c.req.param("jobName"));
+
+    if (!jobItem) {
+      return await next();
+    }
+
+    const actionId = c.req.param("actionId");
+
+    const runners = job.getJobRunnersByActionId(actionId);
+
+    return c.json({
+      success: true,
+      data: runners.map((runner) => {
+        return {
+          id: runner.id,
+          status: runner.status,
+          actionId: runner.actionId,
+          actionVersion: runner.actionVersion,
+
+          createdAt: runner.createdAt,
+          startedAt: runner.startedAt,
+          closingAt: runner.closingAt,
+          closedAt: runner.closedAt,
+        };
+      }),
+    });
+  });
+
+  app.get("/:jobName/runners", async (c, next) => {
+    const jobItem = job.getJob(c.req.param("jobName"));
+
+    if (!jobItem) {
+      return await next();
+    }
+
+    const runners = job.getJobRunnersByJobName(jobItem.name);
+
+    return c.json({
+      success: true,
+      data: runners.map((runner) => {
+        return {
+          id: runner.id,
+          status: runner.status,
+          actionId: runner.actionId,
+          actionVersion: runner.actionVersion,
+
+          createdAt: runner.createdAt,
+          startedAt: runner.startedAt,
+          closingAt: runner.closingAt,
+          closedAt: runner.closedAt,
+        };
+      }),
+    });
+  });
+
   app.all("/:jobName/run", async (c, next) => {
     const bodyDirect = await c.req.arrayBuffer();
 

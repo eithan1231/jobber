@@ -2,10 +2,12 @@ import {
   getJob,
   getJobActionLatest,
   getJobEnvironment,
+  getJobRunners,
   getJobTriggerLatest,
   JobberAction,
   JobberEnvironment,
   JobberJob,
+  JobberRunner,
   JobberTrigger,
 } from "../../../api/jobber.js";
 import { useEffect, useState } from "react";
@@ -244,6 +246,82 @@ const TriggersSectionComponent = ({
   );
 };
 
+const RunnersSectionComponent = ({
+  runners,
+  error,
+}: {
+  runners?: JobberRunner[];
+  error?: string;
+}) => {
+  if (!runners) {
+    return <></>;
+  }
+
+  const killRunner = () => {
+    alert("not implemented");
+  };
+
+  return (
+    <div className="container mx-auto my-8 p-4">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Jobber Runners</h1>
+      </div>
+      <div className="flex justify-between items-center mb-4">
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <strong className="font-bold">Error:</strong>
+            <span className="block sm:inline"> {error}</span>
+          </div>
+        )}
+
+        <table className="table-auto border-collapse border border-gray-300 w-full">
+          <thead>
+            <tr className="bg-gray-200">
+              <th className="border border-gray-300 px-4 py-2 text-left">
+                Status
+              </th>
+              <th className="border border-gray-300 px-4 py-2 text-left">
+                Version
+              </th>
+              <th className="border border-gray-300 px-4 py-2 text-left">Id</th>
+              <th className="border border-gray-300 px-4 py-2 text-left">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {runners.map((item) => (
+              <tr key={item.id} className="odd:bg-white even:bg-gray-100">
+                <td
+                  className={
+                    "border border-gray-300 px-4 py-2 " +
+                    (item.status === "starting" ? "text-blue-800" : "") +
+                    (item.status === "started" ? "text-green-800" : "") +
+                    (item.status === "closing" ? "text-orange-800" : "") +
+                    (item.status === "closed" ? "text-red-800" : "")
+                  }
+                >
+                  {item.status}
+                </td>
+                <td className="border border-gray-300 px-4 py-2 text-gray-700">
+                  {item.actionVersion}
+                </td>
+                <td className="border border-gray-300 px-4 py-2 text-gray-700">
+                  {item.id.substring(0, 32)}...
+                </td>
+
+                <td className="border border-gray-300 px-4 py-2 text-gray-700">
+                  coming soon...
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
 const Component = () => {
   const params = useParams();
 
@@ -255,6 +333,9 @@ const Component = () => {
 
   const [triggers, setTriggers] = useState<JobberTrigger[]>();
   const [triggersError, setTriggersError] = useState<string>();
+
+  const [runners, setRunners] = useState<JobberRunner[]>();
+  const [runnersError, setRunnersError] = useState<string>();
 
   const [environment, setEnvironment] = useState<JobberEnvironment>();
   const [environmentError, setEnvironmentError] = useState<string>();
@@ -300,6 +381,18 @@ const Component = () => {
       setTriggers(result.data);
     });
 
+    getJobRunners(params.jobName).then((result) => {
+      if (!result.success) {
+        setRunnersError(
+          result.message ?? "Failed to get triggers due to unknown error"
+        );
+
+        return;
+      }
+
+      setRunners(result.data);
+    });
+
     getJobEnvironment(params.jobName).then((result) => {
       if (!result.success) {
         setEnvironmentError(
@@ -328,6 +421,7 @@ const Component = () => {
             error={triggersError ?? environmentError}
             environment={environment}
           />
+          <RunnersSectionComponent runners={runners} error={runnersError} />
         </>
       )}
     </div>

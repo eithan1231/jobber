@@ -175,6 +175,24 @@ export class Actions {
     );
   }
 
+  public getRunnersByActionId(actionId: string) {
+    return this.runners.getRunnersByActionId(actionId);
+  }
+
+  public getRunnersByJobName(jobName: string) {
+    const result: ReturnType<typeof this.runners.getRunnersByActionId> = [];
+
+    const actions = this.getActionsByJobName(jobName);
+
+    for (const action of actions) {
+      const actionRunners = this.runners.getRunnersByActionId(action.id);
+
+      result.push(...actionRunners);
+    }
+
+    return result;
+  }
+
   public async createAction(
     payload: Partial<Omit<ActionItem, "id">>,
     archiveFile: string

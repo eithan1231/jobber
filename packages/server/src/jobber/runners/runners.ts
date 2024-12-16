@@ -31,6 +31,12 @@ type RunnerItem = {
   actionId: string;
   actionVersion: string;
 
+  /**
+   * Used to determine if environment variables have changed since
+   * starting running
+   */
+  environmentModifiedAt: number;
+
   directory: string;
 
   process: ChildProcessWithoutNullStreams;
@@ -199,10 +205,10 @@ export class Runners {
 
     this.runnerServer.registerConnection(id);
 
+    const environment = this.job.getEnvironment(action.jobName);
+
     const env: Record<string, string> = {};
-    for (const [name, value] of Object.entries(
-      this.job.getEnvironmentVariables(action.jobName)
-    )) {
+    for (const [name, value] of Object.entries(environment.config)) {
       env[name] = value.value;
     }
 
@@ -277,6 +283,7 @@ export class Runners {
       directory: runtimeDirectory,
       jobName: action.jobName,
       process: child,
+      environmentModifiedAt: environment.modifiedAt,
     });
 
     return id;
@@ -481,7 +488,7 @@ export class Runners {
     throw new Error(`[Runners/sendHandleRequest] Unexpected runner mode.`);
   }
 
-  private getRunnersByActionId(actionId: string) {
+  public getRunnersByActionId(actionId: string) {
     const result: RunnerItem[] = [];
 
     if (!this.runnersIndexActionId[actionId]) {
@@ -566,7 +573,7 @@ export class Runners {
   }
 
   private async loopCheckJobNameClose(jobName: string) {
-    for (const [runnerId, runner] of this.runners.entries()) {
+    for (const [_runnerId, runner] of this.runners.entries()) {
       if (runner.status === "started" || runner.status === "starting") {
         runner.process.kill("SIGTERM");
       }
@@ -672,6 +679,27 @@ export class Runners {
             `[Runners/integrityCheckJobName] Sending graceful shutdown to outdated runner. version ${
               runner.actionVersion
             }, runnerId ${shortenString(runner.id)}!`
+          );
+
+          await this.runnerServer.sendShutdownRequest(runner.id);
+        }
+      }
+    }
+
+    // Close runners with outdated environment variables.
+    if (
+      this.status === "started" &&
+      actionCurrent &&
+      actionCurrent.runnerMode === "standard"
+    ) {
+      const environment = this.job.getEnvironment(actionCurrent.jobName);
+
+      for (const runner of runnersCurrent) {
+        if (runner.environmentModifiedAt !== environment.modifiedAt) {
+          console.log(
+            `[Runners/integrityCheckJobName] Sending graceful shutdown to runner, environment change detected ${shortenString(
+              runner.id
+            )}`
           );
 
           await this.runnerServer.sendShutdownRequest(runner.id);

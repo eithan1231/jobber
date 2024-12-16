@@ -1,0 +1,16 @@
+meta {
+  name: GET Job -> (name) -> Actions -> (id) -> Runners
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{hostname}}/api/job/:jobName/action/:actionId/runners
+  body: none
+  auth: none
+}
+
+params:path {
+  actionId: {{get_job_nane_actions_first_id}}
+  jobName: {{get_jobs_first_jobName}}
+}

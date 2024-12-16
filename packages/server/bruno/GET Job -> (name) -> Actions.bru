@@ -13,3 +13,7 @@ get {
 params:path {
   jobName: {{get_jobs_first_jobName}}
 }
+
+vars:post-response {
+  get_job_nane_actions_first_id: res('data.0.id')
+}

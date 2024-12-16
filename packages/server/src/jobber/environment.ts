@@ -15,6 +15,8 @@ const configSchema = z.object({
       type: z.enum(["secret", "text"]),
     })
   ),
+
+  modifiedAt: z.number().default(() => Date.now()),
 });
 
 type ConfigSchemaType = z.infer<typeof configSchema>;
@@ -79,14 +81,23 @@ export class Environment {
 
     assert(!env);
 
-    const data = {
+    const data: ConfigSchemaType = {
       jobName: jobName,
       config: {},
+      modifiedAt: Date.now(),
     };
 
     this.environments.set(data.jobName, data);
 
     await Environment.writeConfigFile(data.jobName, data);
+  }
+
+  public getEnvironment(jobName: string) {
+    const environment = this.environments.get(jobName);
+
+    assert(environment);
+
+    return structuredClone(environment);
   }
 
   public async deleteEnvironment(jobName: string) {
@@ -117,12 +128,13 @@ export class Environment {
 
     assert(env, new Error(`Failed to find environment for job ${jobName}`));
 
-    const envNew = {
+    const envNew: ConfigSchemaType = {
       jobName: env.jobName,
       config: {
         ...env.config,
         [name]: value,
       },
+      modifiedAt: Date.now(),
     };
 
     this.environments.set(jobName, envNew);
@@ -136,8 +148,9 @@ export class Environment {
     assert(env, new Error(`Failed to find environment for job ${jobName}`));
 
     // TODO: Revise?
-    const envNew = JSON.parse(JSON.stringify(env));
+    const envNew = structuredClone(env);
     delete envNew.config[name];
+    envNew.modifiedAt = Date.now();
 
     this.environments.set(jobName, envNew);
 

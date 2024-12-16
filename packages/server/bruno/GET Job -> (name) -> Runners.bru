@@ -1,11 +1,11 @@
 meta {
-  name: GET Job -> (name) -> Triggers
+  name: GET Job -> (name) -> Runners
   type: http
-  seq: 9
+  seq: 16
 }
 
 get {
-  url: {{hostname}}/api/job/:jobName/trigger
+  url: {{hostname}}/api/job/:jobName/runners
   body: none
   auth: none
 }
