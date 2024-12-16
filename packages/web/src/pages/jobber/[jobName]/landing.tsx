@@ -257,10 +257,6 @@ const RunnersSectionComponent = ({
     return <></>;
   }
 
-  const killRunner = () => {
-    alert("not implemented");
-  };
-
   return (
     <div className="container mx-auto my-8 p-4">
       <div className="flex justify-between items-center mb-4">
