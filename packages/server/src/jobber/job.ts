@@ -22,6 +22,15 @@ const configSchema = z.object({
   description: z.string(),
 
   version: z.string().nullable().default(null),
+
+  links: z
+    .array(
+      z.object({
+        name: z.string(),
+        url: z.string().url(),
+      })
+    )
+    .default([]),
 });
 
 type ConfigSchemaType = z.infer<typeof configSchema>;

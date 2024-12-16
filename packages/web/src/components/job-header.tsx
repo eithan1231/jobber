@@ -62,6 +62,16 @@ export const JobHeaderComponent = ({ job }: { job: JobberJob }) => {
             View Environment Variables
           </Link>
 
+          {job.links.map((link, index) => (
+            <Link
+              key={index}
+              to={link.url}
+              className="text-blue-600 hover:text-blue-800 text-sm"
+            >
+              {link.name}
+            </Link>
+          ))}
+
           <JobDeleteConfirmButton
             className="ml-auto"
             job={job}

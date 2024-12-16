@@ -13,6 +13,7 @@ export type JobberJob = {
   name: string;
   description: string;
   version?: string;
+  links: Array<{ name: string; url: string }>;
 };
 
 export type JobberLogLine = {

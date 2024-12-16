@@ -65,6 +65,14 @@ const archiveFileSchema = z.object({
       }),
     ])
   ),
+  links: z
+    .array(
+      z.object({
+        name: z.string(),
+        url: z.string().url(),
+      })
+    )
+    .default([]),
 });
 
 type ArchiveFileSchemaType = z.infer<typeof archiveFileSchema>;
@@ -130,6 +138,7 @@ export const createRouteJob = async (job: Job) => {
         description: jobItem.description,
         name: jobItem.name,
         version: jobItem.version,
+        links: jobItem.links,
       },
     });
   });
@@ -390,10 +399,11 @@ export const createRouteJob = async (job: Job) => {
     return c.json(
       {
         success: true,
-        data: job.getJobs().map((jobItem) => ({
-          name: jobItem.name,
-          description: jobItem.description,
-          version: jobItem.version,
+        data: job.getJobs().map((item) => ({
+          name: item.name,
+          description: item.description,
+          version: item.version,
+          links: item.links,
         })),
       },
       200
@@ -410,7 +420,11 @@ export const createRouteJob = async (job: Job) => {
       path: ["request", "body"],
     });
 
-    await job.createJob(body);
+    await job.createJob({
+      name: body.name,
+      description: body.description,
+      links: [],
+    });
 
     return c.json(
       {
@@ -475,6 +489,7 @@ export const createRouteJob = async (job: Job) => {
       await job.createJob({
         name: archiveContent.name,
         description: archiveContent.description,
+        links: archiveContent.links,
       });
     }
 
@@ -573,6 +588,8 @@ export const createRouteJob = async (job: Job) => {
 
     await job.updateJob(archiveContent.name, {
       version: archiveContent.version,
+      description: archiveContent.description,
+      links: archiveContent.links,
     });
 
     console.log(`[/publish/] Updating job version... done`);
