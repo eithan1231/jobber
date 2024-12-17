@@ -159,27 +159,31 @@ export class Runners {
 
     const actions = this.actions.getActions();
     for (const action of actions) {
-      const actionRunnersDir = getPathJobActionRunnersDirectory(
-        action.jobName,
-        action.id
-      );
-
-      if (!(await fileExists(actionRunnersDir))) {
-        continue;
-      }
-
-      const folders = await readdir(actionRunnersDir);
-
-      for (const folderName of folders) {
-        const folderPath = path.join(actionRunnersDir, folderName);
-
-        console.log(
-          `[Runners/start] Removing unexpected runner directory ${presentablePath(
-            folderPath
-          )}`
+      try {
+        const actionRunnersDir = getPathJobActionRunnersDirectory(
+          action.jobName,
+          action.id
         );
 
-        await rm(actionRunnersDir, { recursive: true });
+        if (!(await fileExists(actionRunnersDir))) {
+          continue;
+        }
+
+        const folders = await readdir(actionRunnersDir);
+
+        for (const folderName of folders) {
+          const folderPath = path.join(actionRunnersDir, folderName);
+
+          console.log(
+            `[Runners/start] Removing unexpected runner directory ${presentablePath(
+              folderPath
+            )}`
+          );
+
+          await rm(actionRunnersDir, { recursive: true });
+        }
+      } catch (err) {
+        console.error(err);
       }
     }
 
