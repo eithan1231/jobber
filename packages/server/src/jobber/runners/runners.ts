@@ -1,16 +1,20 @@
 import assert from "assert";
 import { ChildProcessWithoutNullStreams, spawn } from "child_process";
 import { randomBytes } from "crypto";
-import { copyFile, mkdir, rm } from "fs/promises";
+import { copyFile, mkdir, readdir, rm } from "fs/promises";
 import path from "path";
 import {
   getPathJobActionRunnerDirectory,
+  getPathJobActionRunnersDirectory,
   getPathJobActionsArchiveFile,
 } from "~/paths.js";
 import {
   awaitTruthy,
   createToken,
+  fileExists,
   getUnixTimestamp,
+  presentablePath,
+  sanitiseFilename,
   shortenString,
   timeout,
   unzip,
@@ -61,6 +65,8 @@ export class Runners {
 
   private runnersIndexActionId: Record<string, string[]> = {};
 
+  private requestedStartActionId = new Set<string>();
+
   private job: Job;
 
   private actions: Actions;
@@ -80,7 +86,9 @@ export class Runners {
 
       if (!runner) {
         console.warn(
-          `[Runners/runnerServer.runner-open] Runner not found ${runnerId}`
+          `[Runners/runnerServer.runner-open] Runner not found ${shortenString(
+            runnerId
+          )}`
         );
 
         return;
@@ -98,7 +106,9 @@ export class Runners {
 
       if (!runner) {
         console.warn(
-          `[Runners/runnerServer.runner-closing] Runner not found ${runnerId}`
+          `[Runners/runnerServer.runner-closing] Runner not found ${shortenString(
+            runnerId
+          )}`
         );
 
         return;
@@ -116,7 +126,9 @@ export class Runners {
 
       if (!runner) {
         console.warn(
-          `[Runners/runnerServer.runner-close] Runner not found ${runnerId}`
+          `[Runners/runnerServer.runner-close] Runner not found ${shortenString(
+            runnerId
+          )}`
         );
 
         return;
@@ -144,6 +156,32 @@ export class Runners {
     }
 
     this.status = "starting";
+
+    const actions = this.actions.getActions();
+    for (const action of actions) {
+      const actionRunnersDir = getPathJobActionRunnersDirectory(
+        action.jobName,
+        action.id
+      );
+
+      if (!(await fileExists(actionRunnersDir))) {
+        continue;
+      }
+
+      const folders = await readdir(actionRunnersDir);
+
+      for (const folderName of folders) {
+        const folderPath = path.join(actionRunnersDir, folderName);
+
+        console.log(
+          `[Runners/start] Removing unexpected runner directory ${presentablePath(
+            folderPath
+          )}`
+        );
+
+        await rm(actionRunnersDir, { recursive: true });
+      }
+    }
 
     await this.runnerServer.start();
 
@@ -437,28 +475,38 @@ export class Runners {
         );
 
       if (validRunners.length <= 0) {
-        if (!canCreateRunner) {
-          return {
-            success: false,
-            duration: 0,
-            error: "Jobber: No available runners to start job",
-          };
-        }
+        this.requestedStartActionId.add(action.id);
 
-        const runnerId = await this.createRunner(actionId);
+        await awaitTruthy(async () => {
+          const runners = this.getRunnersByActionId(action.id);
 
-        await this.runnerServer.awaitConnectionStatus(runnerId, "connected");
+          return (
+            runners.length > 0 &&
+            runners.some(
+              (index) =>
+                index.actionId === action.id && index.status === "started"
+            )
+          );
+        });
 
-        const runner = this.runners.get(runnerId);
+        const runners = this.getRunnersByActionId(action.id);
+
+        const runner = runners.find(
+          (index) => index.actionId === action.id && index.status === "started"
+        );
 
         if (!runner) {
-          throw new Error("Failed to start new runner");
+          throw new Error("Failed to start runner!");
         }
 
         validRunners.push(runner);
       }
 
       const runner = validRunners[0];
+
+      if (runner.status === "starting") {
+        await this.runnerServer.awaitConnectionStatus(runner.id, "connected");
+      }
 
       if (runner.status !== "started") {
         console.warn(
@@ -629,21 +677,27 @@ export class Runners {
       actionCurrent &&
       actionCurrent.runnerMode === "standard"
     ) {
-      const currentActionLoad = runnersCurrent.reduce(
-        (prev, runner) => this.runnersCurrentLoad[runner.id] + prev,
+      const runnerLoadAverage = runnersCurrent.reduce(
+        (prev, runner) => (this.runnersCurrentLoad[runner.id] + prev) / 2,
         0
       );
 
       const targetLoadPerRunner = actionCurrent.runnerAsynchronous ? 10 : 1;
 
-      const runnerLoadAverage = currentActionLoad / runnersCurrent.length;
-
-      let targetRunnerCount = Math.round(
-        (runnerLoadAverage / targetLoadPerRunner) * 1.5
+      let targetRunnerCount = Math.ceil(
+        (runnerLoadAverage / targetLoadPerRunner) * 1.2
       );
 
       if (Number.isNaN(targetRunnerCount)) {
         targetRunnerCount = 0;
+      }
+
+      if (this.requestedStartActionId.has(actionCurrent.id)) {
+        this.requestedStartActionId.delete(actionCurrent.id);
+
+        if (targetRunnerCount <= 0) {
+          targetRunnerCount++;
+        }
       }
 
       if (targetRunnerCount > actionCurrent.runnerMaxCount) {

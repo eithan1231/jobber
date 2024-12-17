@@ -90,11 +90,11 @@ const main = async () => {
   const signalRoutine = async () => {
     console.log(`[signalRoutine] Received shutdown signal.`);
 
-    console.log(`[signalRoutine] Closing Hono Server.`);
-    await server.close();
-
     console.log(`[signalRoutine] Closing Job.`);
     await job.stop();
+
+    console.log(`[signalRoutine] Closing Hono Server.`);
+    await server.close();
 
     console.log(`[signalRoutine] Routine complete... Goodbye!`);
   };

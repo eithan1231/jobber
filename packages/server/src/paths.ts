@@ -74,6 +74,20 @@ export const getPathJobActionsArchiveFile = (
 };
 
 /**
+ * Get /jobs/{name}/actions/{actionId}/runners/
+ */
+export const getPathJobActionRunnersDirectory = (
+  jobName: string,
+  actionId: string
+) => {
+  return path.join(
+    getPathJobActionsDirectory(jobName),
+    sanitiseFilename(actionId),
+    "runners"
+  );
+};
+
+/**
  * Get /jobs/{name}/actions/{actionId}/runners/{runnerId}/
  */
 export const getPathJobActionRunnerDirectory = (
@@ -82,9 +96,7 @@ export const getPathJobActionRunnerDirectory = (
   runnerId: string
 ) => {
   return path.join(
-    getPathJobActionsDirectory(jobName),
-    sanitiseFilename(actionId),
-    "runners",
+    getPathJobActionRunnersDirectory(jobName, actionId),
     sanitiseFilename(runnerId)
   );
 };

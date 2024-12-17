@@ -6,6 +6,7 @@ import { tmpdir } from "os";
 import path from "path";
 import { ReadableStream } from "stream/web";
 import { z } from "zod";
+import { getConfigOption } from "~/config.js";
 import { Job } from "~/jobber/job.js";
 import { SendHandleRequestHttp } from "~/jobber/runners/server.js";
 import {
@@ -111,19 +112,23 @@ const readArchiveFile = async (
 export const createRouteJob = async (job: Job) => {
   const app = new Hono();
 
-  app.use(async (c, next) => {
-    const start = performance.now();
+  if (getConfigOption("DEBUG_HTTP")) {
+    console.log("[createRouteJob] DEBUG_HTTP is enabled");
 
-    await next();
+    app.use(async (c, next) => {
+      const start = performance.now();
 
-    const duration = (performance.now() - start).toFixed(2);
+      await next();
 
-    console.log(
-      `HTTP ${duration}ms ${c.res.status} ${c.req.method.toUpperCase()} ${
-        c.req.path
-      }`
-    );
-  });
+      const duration = (performance.now() - start).toFixed(2);
+
+      console.log(
+        `HTTP ${duration}ms ${c.res.status} ${c.req.method.toUpperCase()} ${
+          c.req.path
+        }`
+      );
+    });
+  }
 
   app.get("/:jobName", async (c, next) => {
     const jobItem = job.getJob(c.req.param("jobName"));
