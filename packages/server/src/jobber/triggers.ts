@@ -337,7 +337,7 @@ export class Triggers {
         console.error(err);
       }
 
-      await timeout(250);
+      await timeout(500);
     }
 
     await this.loopMqttClose();
@@ -394,7 +394,7 @@ export class Triggers {
       if (trigger.context.type === "mqtt") {
         if (trigger.mqtt) {
           try {
-            await trigger.mqtt.client.endAsync();
+            await trigger.mqtt.client.endAsync(true);
 
             this.triggers.set(triggerId, {
               context: trigger.context,
@@ -403,10 +403,10 @@ export class Triggers {
               version: trigger.version,
             });
           } catch (err) {
-            console.log(
-              "[Triggers/loopMqttClose] Failed to close mqtt client!"
+            console.warn(
+              `[Triggers/loopMqttClose] Failed to close mqtt client! jobName ${trigger.jobName}, triggerId ${trigger.id}`,
+              err
             );
-            console.error(err);
           }
         }
       }
@@ -439,12 +439,21 @@ export class Triggers {
       if (triggersOutdated.length > 0) {
         for (const trigger of triggersOutdated) {
           if (trigger.context.type === "mqtt" && trigger.mqtt?.client) {
-            await trigger.mqtt.client.endAsync();
+            try {
+              await trigger.mqtt.client.endAsync();
 
-            this.triggers.set(trigger.id, {
-              ...trigger,
-              mqtt: undefined,
-            });
+              this.triggers.set(trigger.id, {
+                ...trigger,
+                mqtt: undefined,
+              });
+            } catch (err) {
+              console.warn(
+                `[Triggers/loopMqtt] Failed to stop MQTT client, jobName ${
+                  job.name
+                }, triggerId ${shortenString(trigger.id)}`,
+                err
+              );
+            }
           }
         }
       }

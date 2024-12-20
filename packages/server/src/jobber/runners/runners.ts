@@ -426,7 +426,7 @@ export class Runners {
           success: false,
           duration: 0,
           error:
-            "Robber: Failed to start runner, allocation of runners exhausted.",
+            "Jobber: Failed to start runner, allocation of runners exhausted.",
         };
       }
 
@@ -450,7 +450,7 @@ export class Runners {
         return {
           success: false,
           duration: 0,
-          error: "Robber: Runner failed to start.",
+          error: "Jobber: Runner failed to start.",
         };
       }
 
@@ -512,7 +512,15 @@ export class Runners {
         );
 
         if (!runner) {
-          throw new Error("Failed to start runner!");
+          console.warn(
+            `[Runners/sendHandleRequest Failed to start runner, refer to other logs for more details.`
+          );
+
+          return {
+            success: false,
+            duration: 0,
+            error: "Jobber: Runner failed to start!",
+          };
         }
 
         validRunners.push(runner);
@@ -532,7 +540,7 @@ export class Runners {
         return {
           success: false,
           duration: 0,
-          error: "Robber: Failed to find valid runner.",
+          error: "Jobber: Failed to find valid runner.",
         };
       }
 
@@ -614,38 +622,41 @@ export class Runners {
     console.log(
       `[Runners/loopIntegrity] Integrity loop has started ${this.status}`
     );
+
     this.isLoopRunning = true;
 
     let lastDangleCheck = getUnixTimestamp();
 
     while (this.status === "started" || this.status === "starting") {
-      if (getUnixTimestamp() - lastDangleCheck > 15) {
-        await this.loopDanglingContainers();
-        lastDangleCheck = getUnixTimestamp();
+      try {
+        if (getUnixTimestamp() - lastDangleCheck > 60) {
+          await this.loopDanglingContainers();
+
+          lastDangleCheck = getUnixTimestamp();
+        }
+
+        const jobNames = this.job.getJobs().map((job) => job.name);
+
+        await Promise.all(
+          jobNames.map((jobName) => this.loopCheckJobName(jobName))
+        );
+      } catch (err) {
+        console.error(err);
       }
 
-      const jobNames = this.job.getJobs().map((job) => job.name);
-
-      await Promise.all(
-        jobNames.map((jobName) => this.loopCheckJobName(jobName))
-      );
-
-      await timeout(250);
+      await timeout(500);
     }
 
-    await Promise.all(
-      this.job.getJobs().map((job) => this.loopCheckJobNameClose(job.name))
-    );
+    await this.loopClose();
 
     console.log(
       `[Runners/loopIntegrity] Integrity loop has exited ${this.status}`
     );
+
     this.isLoopRunning = false;
   }
 
   private async loopDanglingContainers() {
-    console.log("[loopDanglingContainers] Cleaning up dangling containers");
-
     const containers = await getDockerContainers();
 
     for (const container of containers) {
@@ -687,7 +698,7 @@ export class Runners {
     }
   }
 
-  private async loopCheckJobNameClose(jobName: string) {
+  private async loopClose() {
     for (const [_runnerId, runner] of this.runners.entries()) {
       if (runner.status === "ready" || runner.status === "starting") {
         runner.process.kill("SIGTERM");

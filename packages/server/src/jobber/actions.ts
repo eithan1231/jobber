@@ -125,32 +125,42 @@ export class Actions {
     jobName: string,
     payload: SendHandleRequest
   ): Promise<SendHandleResponse> {
-    if (this.status !== "started") {
-      throw new Error("Class has to be started");
-    }
+    try {
+      if (this.status !== "started") {
+        throw new Error("Class has to be started");
+      }
 
-    const job = this.job.getJob(jobName);
+      const job = this.job.getJob(jobName);
 
-    if (!job) {
+      if (!job) {
+        return {
+          success: false,
+          duration: 0,
+          error: `Jobber: Job ${jobName} not found!`,
+        };
+      }
+
+      const actions = this.getActionsByJobName(job.name);
+
+      const action = actions.find((index) => index.version === job.version);
+      if (!action) {
+        return {
+          success: false,
+          duration: 0,
+          error: "Jobber: Failed to find latest action versions!",
+        };
+      }
+
+      return await this.runners.sendHandleRequest(action.id, payload);
+    } catch (err) {
+      console.error(err);
+
       return {
         success: false,
         duration: 0,
-        error: `Jobber: Job ${jobName} not found!`,
+        error: "Jobber: Unknown Error!",
       };
     }
-
-    const actions = this.getActionsByJobName(job.name);
-
-    const action = actions.find((index) => index.version === job.version);
-    if (!action) {
-      return {
-        success: false,
-        duration: 0,
-        error: "Jobber: Failed to find latest action versions!",
-      };
-    }
-
-    return await this.runners.sendHandleRequest(action.id, payload);
   }
 
   public getAction(actionId: string) {
