@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "inlineSourceMap": true,
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "types": ["node"],
+    "outDir": "./dist",
+    "paths":{
+      "~/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "./src"
+  ],
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Recommended"
+}

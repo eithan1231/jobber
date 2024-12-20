@@ -4,10 +4,11 @@ ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
 WORKDIR /app
 
-RUN apt update && apt install unzip --no-install-recommends -y
-RUN rm -rf /var/lib/apt/lists/*
+RUN apt update \
+  && apt install unzip --no-install-recommends -y \
+  && rm -rf /var/lib/apt/lists/*
 
-
+  
 
 FROM base AS build
 COPY . /repo
@@ -20,6 +21,7 @@ RUN cp -r packages/web/dist/* /app/public/
 
 
 FROM base
+WORKDIR /app
 COPY --from=build /app /app
 EXPOSE 3000
-CMD [ "node", "./dist/index.js" ]
+ENTRYPOINT ["node", "./dist/index.js"]

@@ -1,0 +1,22 @@
+{
+  "name": "@jobber/tcp-frame-socket",
+  "version": "1.0.0",
+  "description": "TCP Frame socket",
+  "main": "./dist/index.js",
+  "types": "./dist/index.ts",
+  "type": "module",
+  "scripts": {
+    "build": "rimraf ./dist/* && tsc && tsc-alias -p tsconfig.json"
+  },
+  "keywords": [],
+  "author": "Eithan Hersey-Tuit",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "@tsconfig/node20": "^20.1.4",
+    "@types/node": "^20.16.12",
+    "rimraf": "^5.0.10",
+    "tsc-alias": "^1.8.10",
+    "typescript": "^5.6.3"
+  }
+}

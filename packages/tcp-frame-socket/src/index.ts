@@ -6,7 +6,7 @@ const FRAME_HEADER_MAGIC = "\xB0\x00\xB8\x88";
 const FRAME_HEADER_LENGTH =
   FRAME_HEADER_MAGIC.length + FRAME_HEADER_SIZE_LENGTH;
 
-export class RunnerSocket extends EventEmitter<{
+export class TcpFrameSocket extends EventEmitter<{
   frame: [buffer: Buffer];
   close: [];
 }> {
@@ -21,10 +21,14 @@ export class RunnerSocket extends EventEmitter<{
 
   private dataBuffer = Buffer.alloc(0);
 
-  constructor(socket: Socket) {
+  constructor(socket?: Socket) {
     super();
 
-    this.socket = socket;
+    if (socket) {
+      this.socket = socket;
+    } else {
+      this.socket = new Socket();
+    }
 
     this.socket.setNoDelay(true);
 
@@ -50,6 +54,10 @@ export class RunnerSocket extends EventEmitter<{
         reject(new Error("Connection attempt failed"));
       });
     });
+  }
+
+  end(callback: () => void) {
+    this.socket.end(callback);
   }
 
   public writeFrame(buffer: Buffer) {

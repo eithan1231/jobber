@@ -363,7 +363,7 @@ export const createRouteJob = async (job: Job) => {
           actionVersion: runner.actionVersion,
 
           createdAt: runner.createdAt,
-          startedAt: runner.startedAt,
+          readyAt: runner.readyAt,
           closingAt: runner.closingAt,
           closedAt: runner.closedAt,
         };
@@ -390,7 +390,7 @@ export const createRouteJob = async (job: Job) => {
           actionVersion: runner.actionVersion,
 
           createdAt: runner.createdAt,
-          startedAt: runner.startedAt,
+          readyAt: runner.readyAt,
           closingAt: runner.closingAt,
           closedAt: runner.closedAt,
         };

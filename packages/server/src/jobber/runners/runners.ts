@@ -1,23 +1,20 @@
 import assert from "assert";
 import { ChildProcessWithoutNullStreams, spawn } from "child_process";
-import { randomBytes } from "crypto";
-import { copyFile, mkdir, readdir, rm } from "fs/promises";
+import { readdir, rm } from "fs/promises";
 import path from "path";
 import {
-  getPathJobActionRunnerDirectory,
   getPathJobActionRunnersDirectory,
   getPathJobActionsArchiveFile,
 } from "~/paths.js";
 import {
   awaitTruthy,
   createToken,
+  ctrImagePull,
   fileExists,
   getUnixTimestamp,
   presentablePath,
-  sanitiseFilename,
   shortenString,
   timeout,
-  unzip,
 } from "~/util.js";
 import { Actions } from "../actions.js";
 import { Job } from "../job.js";
@@ -27,9 +24,10 @@ import {
   SendHandleResponse,
 } from "./server.js";
 import { StatusLifecycle } from "../types.js";
+import { getConfigOption } from "~/config.js";
 
 type RunnerItem = {
-  status: "starting" | "started" | "closing" | "closed";
+  status: "starting" | "ready" | "closing" | "closed";
   id: string;
   jobName: string;
   actionId: string;
@@ -41,12 +39,10 @@ type RunnerItem = {
    */
   environmentModifiedAt: number;
 
-  directory: string;
-
   process: ChildProcessWithoutNullStreams;
 
   createdAt: number;
-  startedAt?: number;
+  readyAt?: number;
   closingAt?: number;
   closedAt?: number;
 };
@@ -81,12 +77,12 @@ export class Runners {
     this.job = job;
     this.actions = actions;
 
-    this.runnerServer.on("runner-open", (runnerId: string) => {
+    this.runnerServer.on("runner-ready", (runnerId: string) => {
       const runner = this.runners.get(runnerId);
 
       if (!runner) {
         console.warn(
-          `[Runners/runnerServer.runner-open] Runner not found ${shortenString(
+          `[Runners/runnerServer.runner-ready] Runner not found ${shortenString(
             runnerId
           )}`
         );
@@ -96,8 +92,27 @@ export class Runners {
 
       this.runners.set(runnerId, {
         ...runner,
-        status: "started",
-        startedAt: getUnixTimestamp(),
+        status: "ready",
+        readyAt: getUnixTimestamp(),
+      });
+    });
+
+    this.runnerServer.on("runner-starting", (runnerId: string) => {
+      const runner = this.runners.get(runnerId);
+
+      if (!runner) {
+        console.warn(
+          `[Runners/runnerServer.runner-starting] Runner not found ${shortenString(
+            runnerId
+          )}`
+        );
+
+        return;
+      }
+
+      this.runners.set(runnerId, {
+        ...runner,
+        status: "starting",
       });
     });
 
@@ -222,30 +237,17 @@ export class Runners {
     const action = this.actions.getAction(actionId);
 
     const id = createToken({
-      length: 128,
+      length: 32,
       prefix: "runner",
     });
 
     const archiveFile = getPathJobActionsArchiveFile(action.jobName, action.id);
 
-    const runtimeDirectory = getPathJobActionRunnerDirectory(
-      action.jobName,
-      action.id,
-      id
-    );
+    const entrypoint = `jobber-entrypoint.js`;
 
-    await mkdir(runtimeDirectory, { recursive: true });
-
-    await unzip(archiveFile, runtimeDirectory);
-
-    const entrypoint = path.join(
-      runtimeDirectory,
-      `entrypoint-${randomBytes(6).toString("hex")}.js`
-    );
-
-    await copyFile("./src/jobber/child-wrapper/entrypoint.js", entrypoint);
-
-    this.runnerServer.registerConnection(id);
+    this.runnerServer.registerConnection(id, {
+      archiveFile,
+    });
 
     const environment = this.job.getEnvironment(action.jobName);
 
@@ -254,27 +256,34 @@ export class Runners {
       env[name] = value.value;
     }
 
-    const child = spawn(
+    const imageName = getConfigOption("RUNNER_CONTAINER_NODE_DEFAULT_IMAGE");
+
+    const args: string[] = [];
+
+    args.push("run", "--rm");
+    args.push("--name", id);
+
+    for (const [name, value] of Object.entries(env)) {
+      // TODO: Escape? Possible command injections
+      args.push(`--env`, `${name}=${value}`);
+    }
+
+    args.push(
+      imageName,
       "node",
-      [
-        entrypoint,
-        "--job-runner-identifier",
-        id,
-        "--job-controller-host",
-        RunnerServer.HOSTNAME,
-        "--job-controller-port",
-        RunnerServer.PORT.toString(),
-      ],
-      {
-        env: {
-          ...env,
-          PATH: process.env.PATH,
-        },
-        windowsHide: true,
-        cwd: runtimeDirectory,
-        stdio: "pipe",
-      }
+      entrypoint,
+      "--job-runner-identifier",
+      id,
+      "--job-controller-host",
+      getConfigOption("MANAGER_HOST"),
+      "--job-controller-port",
+      getConfigOption("MANAGER_PORT").toString()
     );
+
+    const child = spawn("docker", args, {
+      windowsHide: true,
+      stdio: "pipe",
+    });
 
     child.once("spawn", () => {
       console.log(
@@ -288,8 +297,6 @@ export class Runners {
       );
 
       this.removeRunner(id);
-
-      rm(runtimeDirectory, { recursive: true });
     });
 
     child.stderr.on("data", (chunk: Buffer) =>
@@ -322,7 +329,6 @@ export class Runners {
       id: id,
       actionId: action.id,
       actionVersion: action.version,
-      directory: runtimeDirectory,
       jobName: action.jobName,
       process: child,
       environmentModifiedAt: environment.modifiedAt,
@@ -348,7 +354,7 @@ export class Runners {
       );
 
       if (
-        !(await this.runnerServer.awaitConnectionStatus(runner.id, "connected"))
+        !(await this.runnerServer.awaitConnectionStatus(runner.id, "ready"))
       ) {
         throw new Error(
           `[Runners/deleteRunner] Failed to wait for runner to connect during deletion`
@@ -356,7 +362,7 @@ export class Runners {
       }
     }
 
-    if (runner.status === "started") {
+    if (runner.status === "ready") {
       console.log(
         `[Runners/deleteRunner] Sending shutdown to runner ${shortenString(
           runnerId
@@ -420,7 +426,7 @@ export class Runners {
 
       const runnerId = await this.createRunner(actionId);
 
-      await this.runnerServer.awaitConnectionStatus(runnerId, "connected");
+      await this.runnerServer.awaitConnectionStatus(runnerId, "ready");
 
       const runner = this.runners.get(runnerId);
 
@@ -428,7 +434,7 @@ export class Runners {
         throw new Error(`[Runners/sendHandleRequest] Unable to find runner.`);
       }
 
-      if (runner.status !== "started") {
+      if (runner.status !== "ready") {
         console.warn(
           `[Runners/sendHandleRequest] Failed to start runner, sending termination. status ${runner.status}`
         );
@@ -460,7 +466,7 @@ export class Runners {
     if (action.runnerMode === "standard") {
       const validRunners = actionRunners
         .filter((index) => {
-          if (index.status !== "started") {
+          if (index.status !== "ready") {
             return false;
           }
 
@@ -488,7 +494,7 @@ export class Runners {
             runners.length > 0 &&
             runners.some(
               (index) =>
-                index.actionId === action.id && index.status === "started"
+                index.actionId === action.id && index.status === "ready"
             )
           );
         });
@@ -496,7 +502,7 @@ export class Runners {
         const runners = this.getRunnersByActionId(action.id);
 
         const runner = runners.find(
-          (index) => index.actionId === action.id && index.status === "started"
+          (index) => index.actionId === action.id && index.status === "ready"
         );
 
         if (!runner) {
@@ -509,10 +515,10 @@ export class Runners {
       const runner = validRunners[0];
 
       if (runner.status === "starting") {
-        await this.runnerServer.awaitConnectionStatus(runner.id, "connected");
+        await this.runnerServer.awaitConnectionStatus(runner.id, "ready");
       }
 
-      if (runner.status !== "started") {
+      if (runner.status !== "ready") {
         console.warn(
           `[Runners/sendHandleRequest] Failed to find valid runner. status ${runner.status}`
         );
@@ -626,7 +632,7 @@ export class Runners {
 
   private async loopCheckJobNameClose(jobName: string) {
     for (const [_runnerId, runner] of this.runners.entries()) {
-      if (runner.status === "started" || runner.status === "starting") {
+      if (runner.status === "ready" || runner.status === "starting") {
         runner.process.kill("SIGTERM");
       }
     }
@@ -724,7 +730,7 @@ export class Runners {
         for (let i = 0; i < spawnCount; i++) {
           const runnerId = await this.createRunner(actionCurrent.id);
 
-          await this.runnerServer.awaitConnectionStatus(runnerId, "connected");
+          await this.runnerServer.awaitConnectionStatus(runnerId, "ready");
         }
       }
     }
@@ -732,7 +738,7 @@ export class Runners {
     // Closing outdated runners
     if (runnersOutdated.length > 0) {
       for (const runner of runnersOutdated) {
-        if (runner.status === "started") {
+        if (runner.status === "ready") {
           console.log(
             `[Runners/integrityCheckJobName] Sending graceful shutdown to outdated runner. version ${
               runner.actionVersion
@@ -772,8 +778,8 @@ export class Runners {
       actionCurrent.runnerMaxAge
     ) {
       for (const runner of runnersCurrent) {
-        if (runner.status === "started") {
-          const duration = getUnixTimestamp() - (runner.startedAt ?? 0);
+        if (runner.status === "ready") {
+          const duration = getUnixTimestamp() - (runner.readyAt ?? 0);
 
           if (duration > actionCurrent.runnerMaxAge) {
             console.log(
@@ -795,8 +801,8 @@ export class Runners {
       actionCurrent.runnerMaxAgeHard
     ) {
       for (const runner of runnersCurrent) {
-        if (runner.status === "started") {
-          const duration = getUnixTimestamp() - (runner.startedAt ?? 0);
+        if (runner.status === "ready") {
+          const duration = getUnixTimestamp() - (runner.readyAt ?? 0);
 
           if (duration > actionCurrent.runnerMaxAgeHard) {
             console.log(

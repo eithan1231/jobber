@@ -94,7 +94,7 @@ export type JobberRunner = {
   actionVersion: string;
 
   createdAt: number;
-  startedAt?: number;
+  readyAt?: number;
   closingAt?: number;
   closedAt?: number;
 };

@@ -158,7 +158,7 @@ const Component = () => {
                       .map((col) => (
                         <td
                           key={col}
-                          className="px-4 py-2 text-sm text-gray-600"
+                          className="px-4 py-2 text-sm text-gray-600 whitespace-pre-line"
                         >
                           {log[col as keyof JobberLogLine]}
                         </td>

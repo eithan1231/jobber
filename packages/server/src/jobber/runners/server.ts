@@ -1,8 +1,10 @@
 import assert, { strictEqual } from "assert";
-import { Server, Socket } from "net";
+import { Server } from "net";
 import { awaitTruthy, createToken } from "../../util.js";
-import { RunnerSocket } from "./socket.js";
+import { TcpFrameSocket } from "@jobber/tcp-frame-socket";
 import { EventEmitter } from "events";
+import { readFile } from "fs/promises";
+import { getConfigOption } from "~/config.js";
 
 export type SendHandleRequestHttp = {
   type: "http";
@@ -52,36 +54,38 @@ type ConnectionDetails = {
 } & (
   | {
       status: "pending";
+      init: {
+        archiveFile: string;
+      };
     }
   | {
-      status: "connected" | "disconnecting";
-      socket: RunnerSocket;
+      status: "starting" | "ready" | "closing";
+      socket: TcpFrameSocket;
     }
 );
 
-type Frame<T = unknown> = {
+type FrameJson = {
   runnerId: string;
   name: string;
   traceId: string;
-  data: T;
+  dataType: "buffer" | "json";
 };
 
 export class RunnerServer extends EventEmitter<{
   "runner-close": [runnerId: string];
   "runner-closing": [runnerId: string];
-  "runner-open": [runnerId: string];
+  "runner-starting": [runnerId: string];
+  "runner-ready": [runnerId: string];
 }> {
-  public static readonly PORT = 5211;
-  public static readonly HOSTNAME = "127.0.0.1";
-
   private server: Server;
 
   private connections = new Map<string, ConnectionDetails>();
 
-  private socketTraceIdResponses: Map<
+  private socketTraceIdResponses = new Map<
     string,
     (traceId: string, data: any) => void
-  > = new Map();
+  >();
+
   constructor() {
     super();
 
@@ -90,7 +94,7 @@ export class RunnerServer extends EventEmitter<{
     });
 
     this.server.on("connection", (socket) => {
-      const runnerSocket = new RunnerSocket(socket);
+      const runnerSocket = new TcpFrameSocket(socket);
       runnerSocket.on("frame", (buffer) => {
         this.onFrame(runnerSocket, buffer);
       });
@@ -102,7 +106,9 @@ export class RunnerServer extends EventEmitter<{
 
     this.server.once("listening", () => {
       console.log(
-        `[RunnerServer/listen] Listening on port ${RunnerServer.PORT}`
+        `[RunnerServer/listen] Listening on port ${getConfigOption(
+          "MANAGER_PORT"
+        )}`
       );
     });
   }
@@ -112,7 +118,7 @@ export class RunnerServer extends EventEmitter<{
       return;
     }
 
-    this.server.listen(RunnerServer.PORT, RunnerServer.HOSTNAME);
+    this.server.listen(getConfigOption("MANAGER_PORT"));
   }
 
   public stop() {
@@ -123,10 +129,14 @@ export class RunnerServer extends EventEmitter<{
     });
   }
 
-  public registerConnection(runnerId: string) {
+  public registerConnection(
+    runnerId: string,
+    init: Extract<ConnectionDetails, { status: "pending" }>["init"]
+  ) {
     this.connections.set(runnerId, {
       status: "pending",
       runnerId,
+      init,
     });
   }
 
@@ -140,7 +150,7 @@ export class RunnerServer extends EventEmitter<{
 
   public async awaitConnectionStatus(
     runnerId: string,
-    status: ConnectionDetails["status"] = "connected"
+    status: ConnectionDetails["status"] = "ready"
   ) {
     return await awaitTruthy(async () => {
       return this.getConnectionStatus(runnerId) === status;
@@ -160,7 +170,7 @@ export class RunnerServer extends EventEmitter<{
       const connection = this.connections.get(runnerId);
 
       assert(connection);
-      strictEqual(connection.status, "connected");
+      strictEqual(connection.status, "ready");
 
       const timeoutInterval = setTimeout(() => {
         this.socketTraceIdResponses.delete(traceId);
@@ -230,12 +240,15 @@ export class RunnerServer extends EventEmitter<{
         });
       });
 
-      this.writeFrame({
-        runnerId: connection.runnerId,
-        traceId,
-        name: "handle",
-        data: payload,
-      }).then(() => {
+      this.writeFrame(
+        {
+          runnerId: connection.runnerId,
+          traceId,
+          name: "handle",
+          dataType: "json",
+        },
+        Buffer.from(JSON.stringify(payload))
+      ).then(() => {
         clearTimeout(timeoutInterval);
       });
     });
@@ -245,56 +258,76 @@ export class RunnerServer extends EventEmitter<{
     const connection = this.connections.get(runnerId);
 
     assert(connection);
-    strictEqual(connection.status, "connected");
+    strictEqual(connection.status, "ready");
 
     const traceId = createToken({
       length: 128,
       prefix: "traceId-shutdown",
     });
 
-    await this.writeFrame({
-      traceId,
-      name: "shutdown",
-      runnerId: runnerId,
-      data: {},
-    });
+    await this.writeFrame(
+      {
+        traceId,
+        name: "shutdown",
+        runnerId: runnerId,
+        dataType: "buffer",
+      },
+      Buffer.alloc(0)
+    );
 
     this.emit("runner-closing", runnerId);
 
     this.connections.set(runnerId, {
       runnerId,
-      status: "disconnecting",
+      status: "closing",
       socket: connection.socket,
     });
   }
 
-  private async writeFrame<T = unknown>(frame: Frame<T>) {
+  private async writeFrame(frame: FrameJson, data: Buffer) {
     const connection = this.connections.get(frame.runnerId);
 
     assert(connection);
-    strictEqual(connection.status, "connected");
+    assert(connection.status === "ready" || connection.status == "starting");
 
-    const buffer = Buffer.from(JSON.stringify(frame));
+    const buffer = Buffer.concat([
+      Buffer.from(JSON.stringify(frame)),
+      Buffer.from("\n"),
+      data,
+    ]);
 
     await connection.socket.writeFrame(buffer);
   }
 
-  private onFrame(socket: RunnerSocket, buffer: Buffer) {
-    const { name, runnerId, traceId, data } = JSON.parse(
-      buffer.toString("utf8")
-    ) as Frame;
+  private async onFrame(socket: TcpFrameSocket, buffer: Buffer) {
+    const separator = buffer.indexOf("\n");
+
+    assert(separator > 0);
+
+    const chunkJson = buffer.subarray(0, separator);
+    const bodyBuffer = buffer.subarray(separator + 1);
+
+    const { name, runnerId, traceId, dataType } = JSON.parse(
+      chunkJson.toString("utf8")
+    ) as FrameJson;
 
     if (name === "handle-response") {
+      if (dataType !== "json") {
+        throw new Error("expected dataType of json");
+      }
+
+      const bodyJson = JSON.parse(bodyBuffer.toString("utf8"));
+
       const connection = this.connections.get(runnerId);
 
       assert(connection);
-      assert(["connected", "disconnecting"].includes(connection.status));
+      assert(["ready", "disconnecting"].includes(connection.status));
 
       const traceCallback = this.socketTraceIdResponses.get(traceId);
 
       assert(traceCallback);
 
-      traceCallback(traceId, data);
+      traceCallback(traceId, bodyJson);
     }
 
     if (name === "init") {
@@ -304,17 +337,44 @@ export class RunnerServer extends EventEmitter<{
       assert(connection.status === "pending");
 
       this.connections.set(runnerId, {
-        status: "connected",
+        status: "starting",
         socket,
         runnerId,
       });
 
-      this.emit("runner-open", runnerId);
+      this.emit("runner-starting", runnerId);
 
       socket.once("close", () => {
         this.emit("runner-close", runnerId);
         this.connections.delete(runnerId);
       });
+
+      const archiveContent = await readFile(connection.init.archiveFile);
+
+      this.writeFrame(
+        {
+          name: "init-response",
+          runnerId,
+          traceId,
+          dataType: "buffer",
+        },
+        archiveContent
+      );
+    }
+
+    if (name === "ready") {
+      const connection = this.connections.get(runnerId);
+
+      assert(connection);
+      assert(connection.status === "starting");
+
+      this.connections.set(runnerId, {
+        status: "ready",
+        socket,
+        runnerId,
+      });
+
+      this.emit("runner-ready", runnerId);
     }
   }
 }

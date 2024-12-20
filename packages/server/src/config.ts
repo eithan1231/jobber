@@ -14,6 +14,11 @@ export const ConfigurationOptionsSchema = z.object({
     .transform((val) => val.toLowerCase() === "true")
     .pipe(z.boolean())
     .default("false"),
+
+  MANAGER_PORT: z.coerce.number().default(5211),
+  MANAGER_HOST: z.string().default("127.0.0.1"),
+
+  RUNNER_CONTAINER_NODE_DEFAULT_IMAGE: z.string().default(""),
 });
 
 export type ConfigurationOptionsSchemaType = z.infer<

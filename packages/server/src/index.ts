@@ -4,6 +4,7 @@ import { Job } from "./jobber/job.js";
 import { createRouteJob } from "./routes/job.js";
 import { ZodError } from "zod";
 import { serveStatic } from "@hono/node-server/serve-static";
+import { getConfigOption } from "./config.js";
 
 const createHonoApp = async (job: Job) => {
   const honoApp = new Hono();
@@ -75,6 +76,10 @@ const createHonoApp = async (job: Job) => {
 };
 
 const main = async () => {
+  console.log(
+    "WARNING: Container mode is currently experimental and may cause issues! You HAVE been warned. Issues are EXPECTED."
+  );
+
   const job = new Job();
 
   console.log("[main] Starting job...");
