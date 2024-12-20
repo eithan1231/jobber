@@ -280,38 +280,3 @@ export const readFileLines = (
 export const createSha1Hash = (input: string) => {
   return hash("sha1", input);
 };
-
-export const ctrImagePull = (imageName: string) => {
-  return new Promise((resolve, reject) => {
-    console.log(`[ctrImagePull] Pulling ${imageName}`);
-
-    const errorLines: string[] = [];
-
-    const proc = spawn("ctr", ["images", "pull", imageName], {
-      stdio: "pipe",
-      windowsHide: true,
-    });
-
-    proc.stderr.on("data", (chunk: Buffer) =>
-      errorLines.push(chunk.toString())
-    );
-
-    proc.stdout.on("data", (chunk: Buffer) =>
-      errorLines.push(chunk.toString())
-    );
-
-    proc.once("exit", (code) => {
-      if (code === 0) {
-        console.log(`[ctrImagePull] Finished ${imageName}`);
-
-        return resolve(true);
-      }
-
-      return reject(
-        new Error("Ctr Image Pull failed", {
-          cause: errorLines.join("\n"),
-        })
-      );
-    });
-  });
-};

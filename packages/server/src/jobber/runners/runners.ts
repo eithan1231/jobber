@@ -9,7 +9,6 @@ import {
 import {
   awaitTruthy,
   createToken,
-  ctrImagePull,
   fileExists,
   getUnixTimestamp,
   presentablePath,
@@ -25,6 +24,7 @@ import {
 } from "./server.js";
 import { StatusLifecycle } from "../types.js";
 import { getConfigOption } from "~/config.js";
+import { getDockerContainers, stopDockerContainer } from "~/docker.js";
 
 type RunnerItem = {
   status: "starting" | "ready" | "closing" | "closed";
@@ -262,6 +262,12 @@ export class Runners {
 
     args.push("run", "--rm");
     args.push("--name", id);
+    args.push("--label", `jobber=true`);
+
+    const dockerNetwork = getConfigOption("RUNNER_CONTAINER_DOCKER_NETWORK");
+    if (dockerNetwork) {
+      args.push("--network", dockerNetwork);
+    }
 
     for (const [name, value] of Object.entries(env)) {
       // TODO: Escape? Possible command injections
@@ -610,7 +616,14 @@ export class Runners {
     );
     this.isLoopRunning = true;
 
+    let lastDangleCheck = getUnixTimestamp();
+
     while (this.status === "started" || this.status === "starting") {
+      if (getUnixTimestamp() - lastDangleCheck > 15) {
+        await this.loopDanglingContainers();
+        lastDangleCheck = getUnixTimestamp();
+      }
+
       const jobNames = this.job.getJobs().map((job) => job.name);
 
       await Promise.all(
@@ -628,6 +641,50 @@ export class Runners {
       `[Runners/loopIntegrity] Integrity loop has exited ${this.status}`
     );
     this.isLoopRunning = false;
+  }
+
+  private async loopDanglingContainers() {
+    console.log("[loopDanglingContainers] Cleaning up dangling containers");
+
+    const containers = await getDockerContainers();
+
+    for (const container of containers) {
+      const labels = container.Labels.split(",").map((label) =>
+        label.split("=", 2)
+      );
+
+      const isJobberRunner = labels.some(
+        ([labelName, labelValue]) =>
+          labelName === "jobber" && labelValue.toLowerCase() === "true"
+      );
+
+      if (!isJobberRunner) {
+        continue;
+      }
+
+      const hasRunner = this.runners.get(container.Names);
+      if (hasRunner) {
+        continue;
+      }
+
+      console.log(
+        `[loopCheckDockerContainers] Found dangling container! This should NOT happen. Are you running multiple Jobber instances on the same host? Did Jobber previously crash? containerId: ${shortenString(
+          container.ID
+        )}, containerNames: ${container.Names}`
+      );
+
+      const result = await stopDockerContainer(container.ID);
+
+      if (result) {
+        console.log(
+          "[loopCheckDockerContainers] Killed dangling container successfully."
+        );
+      } else {
+        console.log(
+          "[loopCheckDockerContainers] Failed to kill dangling container!"
+        );
+      }
+    }
   }
 
   private async loopCheckJobNameClose(jobName: string) {

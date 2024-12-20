@@ -4,6 +4,7 @@ ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
 WORKDIR /app
 
+# install unzip
 RUN apt update \
   && apt install unzip --no-install-recommends -y \
   && rm -rf /var/lib/apt/lists/*
@@ -12,9 +13,9 @@ RUN apt update \
 FROM base AS build
 COPY . /repo
 WORKDIR /repo
-RUN pnpm install --frozen-lockfile
-RUN pnpm run -r build
-RUN pnpm deploy --filter=@jobber/runner-node-entrypoint --prod /app
+RUN pnpm install --frozen-lockfile \
+  && pnpm run -r build \
+  && pnpm deploy --filter=@jobber/runner-node-entrypoint --prod /app
 
 
 

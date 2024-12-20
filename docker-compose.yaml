@@ -1,0 +1,19 @@
+services:
+  jobber-server:
+    image: docker.io/library/jobber-server
+    container_name: "jobber-server"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      DOCKER_HOST: unix:///var/run/docker.sock
+      RUNNER_CONTAINER_NODE_DEFAULT_IMAGE: forgejo.eithan.me/eithan/runner-node-22:latest
+      RUNNER_CONTAINER_DOCKER_NETWORK: jobber_jobber-network
+    ports:
+      - 3001:3000
+    restart: "unless-stopped"
+    networks:
+      - jobber-network
+
+networks:
+  jobber-network:
+    driver: bridge

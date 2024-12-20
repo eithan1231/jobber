@@ -1,3 +1,4 @@
+import { hostname } from "os";
 import { z } from "zod";
 
 export const ConfigurationOptionsSchema = z.object({
@@ -16,9 +17,13 @@ export const ConfigurationOptionsSchema = z.object({
     .default("false"),
 
   MANAGER_PORT: z.coerce.number().default(5211),
-  MANAGER_HOST: z.string().default("127.0.0.1"),
+  MANAGER_HOST: z.string().default(hostname()),
 
-  RUNNER_CONTAINER_NODE_DEFAULT_IMAGE: z.string().default(""),
+  RUNNER_CONTAINER_NODE_DEFAULT_IMAGE: z
+    .string()
+    .default("forgejo.eithan.me/eithan/runner-node-22:latest"),
+
+  RUNNER_CONTAINER_DOCKER_NETWORK: z.string().optional(),
 });
 
 export type ConfigurationOptionsSchemaType = z.infer<

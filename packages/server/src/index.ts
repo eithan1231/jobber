@@ -4,7 +4,6 @@ import { Job } from "./jobber/job.js";
 import { createRouteJob } from "./routes/job.js";
 import { ZodError } from "zod";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { getConfigOption } from "./config.js";
 
 const createHonoApp = async (job: Job) => {
   const honoApp = new Hono();
