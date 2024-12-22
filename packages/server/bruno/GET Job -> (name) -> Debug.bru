@@ -1,0 +1,15 @@
+meta {
+  name: GET Job -> (name) -> Debug
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{hostname}}/api/job/:jobId/debug
+  body: none
+  auth: none
+}
+
+params:path {
+  jobId: {{get_jobs_first_id}}
+}

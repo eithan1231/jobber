@@ -1,12 +1,13 @@
-import assert, { strictEqual } from "assert";
-import { Server } from "net";
-import { awaitTruthy, createToken } from "../../util.js";
 import { TcpFrameSocket } from "@jobber/tcp-frame-socket";
-import { EventEmitter } from "events";
+import EventEmitter from "events";
 import { readFile } from "fs/promises";
+import { Server } from "net";
 import { getConfigOption } from "~/config.js";
+import { ActionsTableType } from "~/db/schema/actions.js";
+import { getJobActionArchiveFile } from "~/paths.js";
+import { awaitTruthy, createToken, shortenString } from "~/util.js";
 
-export type SendHandleRequestHttp = {
+export type HandleRequestHttp = {
   type: "http";
   headers: Record<string, string>;
   query: Record<string, string>;
@@ -17,19 +18,19 @@ export type SendHandleRequestHttp = {
   bodyLength: number;
 };
 
-export type SendHandleRequestMqtt = {
+export type HandleRequestMqtt = {
   type: "mqtt";
   topic: string;
   body: string;
   bodyLength: number;
 };
 
-export type SendHandleRequest =
+export type HandleRequest =
   | { type: "schedule" }
-  | SendHandleRequestHttp
-  | SendHandleRequestMqtt;
+  | HandleRequestHttp
+  | HandleRequestMqtt;
 
-export type SendHandleResponse = (
+export type HandleResponse = (
   | {
       success: true;
       http?: {
@@ -49,14 +50,12 @@ export type SendHandleResponse = (
   duration: number;
 };
 
-type ConnectionDetails = {
+type RunnerServerItem = {
   runnerId: string;
+  action: ActionsTableType;
 } & (
   | {
       status: "pending";
-      init: {
-        archiveFile: string;
-      };
     }
   | {
       status: "starting" | "ready" | "closing";
@@ -77,14 +76,14 @@ export class RunnerServer extends EventEmitter<{
   "runner-starting": [runnerId: string];
   "runner-ready": [runnerId: string];
 }> {
-  private server: Server;
+  private connections = new Map<string, RunnerServerItem>();
 
-  private connections = new Map<string, ConnectionDetails>();
-
-  private socketTraceIdResponses = new Map<
+  private traceResponses = new Map<
     string,
-    (traceId: string, data: any) => void
+    (frame: FrameJson, data: Buffer) => void
   >();
+
+  private server: Server;
 
   constructor() {
     super();
@@ -94,23 +93,12 @@ export class RunnerServer extends EventEmitter<{
     });
 
     this.server.on("connection", (socket) => {
-      const runnerSocket = new TcpFrameSocket(socket);
-      runnerSocket.on("frame", (buffer) => {
-        this.onFrame(runnerSocket, buffer);
-      });
+      const socketFrame = new TcpFrameSocket(socket);
+
+      socketFrame.on("frame", (buffer) => this.onFrame(socketFrame, buffer));
     });
 
-    this.server.on("error", (err) => {
-      console.error(err);
-    });
-
-    this.server.once("listening", () => {
-      console.log(
-        `[RunnerServer/listen] Listening on port ${getConfigOption(
-          "MANAGER_PORT"
-        )}`
-      );
-    });
+    this.server.on("error", (err) => console.error(err));
   }
 
   public async start() {
@@ -129,28 +117,23 @@ export class RunnerServer extends EventEmitter<{
     });
   }
 
-  public registerConnection(
-    runnerId: string,
-    init: Extract<ConnectionDetails, { status: "pending" }>["init"]
-  ) {
+  public registerConnection(runnerId: string, action: ActionsTableType) {
     this.connections.set(runnerId, {
       status: "pending",
+      action,
       runnerId,
-      init,
     });
   }
 
   public getConnectionStatus(runnerId: string) {
     const connection = this.connections.get(runnerId);
 
-    assert(connection);
-
-    return connection.status;
+    return connection?.status ?? null;
   }
 
   public async awaitConnectionStatus(
     runnerId: string,
-    status: ConnectionDetails["status"] = "ready"
+    status: RunnerServerItem["status"] = "ready"
   ) {
     return await awaitTruthy(async () => {
       return this.getConnectionStatus(runnerId) === status;
@@ -159,65 +142,98 @@ export class RunnerServer extends EventEmitter<{
 
   public sendHandleRequest(
     runnerId: string,
-    payload: SendHandleRequest
-  ): Promise<SendHandleResponse> {
-    return new Promise(async (resolve, reject) => {
+    handleRequest: HandleRequest
+  ): Promise<HandleResponse> {
+    return new Promise((resolve, _reject) => {
       const traceId = createToken({
-        length: 128,
-        prefix: "traceId-handle",
+        length: 256,
+        prefix: "HandleRequestTraceId",
       });
 
       const connection = this.connections.get(runnerId);
 
-      assert(connection);
-      strictEqual(connection.status, "ready");
+      if (!connection) {
+        return resolve({
+          success: false,
+          duration: -1,
+          error: "Jobber: Runner connection not found",
+        });
+      }
+
+      if (connection.status !== "ready") {
+        return resolve({
+          success: false,
+          duration: -1,
+          error: "Jobber: Runner connection not ready",
+        });
+      }
 
       const timeoutInterval = setTimeout(() => {
-        this.socketTraceIdResponses.delete(traceId);
+        this.traceResponses.delete(traceId);
 
-        resolve({
+        return resolve({
           success: false,
           duration: -1,
           error: "Jobber: Timeout Error",
         });
-      }, 60_000);
+      }, connection.action.runnerTimeout * 1000);
 
-      this.socketTraceIdResponses.set(traceId, (traceId, data) => {
+      this.traceResponses.set(traceId, (frame, data) => {
         clearTimeout(timeoutInterval);
 
-        this.socketTraceIdResponses.delete(traceId);
+        this.traceResponses.delete(traceId);
 
-        strictEqual(typeof data.success, "boolean");
-
-        if (!data.success) {
+        if (typeof frame.dataType !== "string" || frame.dataType !== "json") {
           return resolve({
             success: false,
-            error: data.error ?? "An unknown error occurred",
-            duration: data.duration ?? -1,
+            duration: -1,
+            error: `Jobber: Runner sent back "${frame.dataType}", expected "json"`,
           });
         }
 
-        if (payload.type === "http" && data.http) {
-          const httpBody = Buffer.from(data.http.body, "base64");
+        const handleResponse = JSON.parse(data.toString());
+
+        if (typeof handleResponse.success !== "boolean") {
+          console.warn(
+            `[RunnerServer/sendHandleRequest] Malformed response object, handleResponse.success expected to be boolean`
+          );
+
+          return resolve({
+            success: false,
+            duration: -1,
+            error: `Jobber: Malformed response object`,
+          });
+        }
+
+        if (!handleResponse.success) {
+          return resolve({
+            success: false,
+            error: handleResponse.error ?? "An unknown error occurred",
+            duration: handleResponse.duration ?? -1,
+          });
+        }
+
+        if (handleRequest.type === "http" && handleResponse.http) {
+          const httpBody = Buffer.from(handleResponse.http.body, "base64");
 
           return resolve({
             success: true,
-            duration: data.duration ?? -1,
+            duration: handleResponse.duration ?? -1,
             http: {
               body: httpBody,
-              headers: data.http.headers,
-              status: data.http.status,
+              headers: handleResponse.http.headers,
+              status: handleResponse.http.status,
             },
           });
         }
 
-        if (payload.type === "mqtt" && data.mqtt) {
+        if (handleRequest.type === "mqtt" && handleResponse.mqtt) {
           const publish: NonNullable<
-            Extract<SendHandleResponse, { success: true }>["mqtt"]
+            Extract<HandleResponse, { success: true }>["mqtt"]
           >["publish"] = [];
 
-          if (data.mqtt?.publish) {
-            for (const item of data.mqtt?.publish) {
+          if (handleResponse.mqtt?.publish) {
+            for (const item of handleResponse.mqtt?.publish) {
               publish.push({
                 topic: item.topic as string,
                 body: Buffer.from(item.body, "base64"),
@@ -227,7 +243,7 @@ export class RunnerServer extends EventEmitter<{
 
           return resolve({
             success: true,
-            duration: data.duration ?? -1,
+            duration: handleResponse.duration ?? -1,
             mqtt: {
               publish,
             },
@@ -236,33 +252,32 @@ export class RunnerServer extends EventEmitter<{
 
         return resolve({
           success: true,
-          duration: data.duration ?? -1,
+          duration: handleResponse.duration ?? -1,
         });
       });
 
       this.writeFrame(
         {
-          runnerId: connection.runnerId,
-          traceId,
           name: "handle",
+          traceId,
+          runnerId,
           dataType: "json",
         },
-        Buffer.from(JSON.stringify(payload))
-      ).then(() => {
-        clearTimeout(timeoutInterval);
-      });
+        Buffer.from(JSON.stringify(handleRequest))
+      );
     });
   }
 
   public async sendShutdownRequest(runnerId: string) {
     const connection = this.connections.get(runnerId);
 
-    assert(connection);
-    strictEqual(connection.status, "ready");
+    if (!connection || connection.status !== "ready") {
+      return false;
+    }
 
     const traceId = createToken({
       length: 128,
-      prefix: "traceId-shutdown",
+      prefix: "ShutdownRequestTraceId",
     });
 
     await this.writeFrame(
@@ -278,103 +293,150 @@ export class RunnerServer extends EventEmitter<{
     this.emit("runner-closing", runnerId);
 
     this.connections.set(runnerId, {
-      runnerId,
+      ...connection,
       status: "closing",
-      socket: connection.socket,
     });
-  }
 
-  private async writeFrame(frame: FrameJson, data: Buffer) {
-    const connection = this.connections.get(frame.runnerId);
-
-    assert(connection);
-    assert(connection.status === "ready" || connection.status == "starting");
-
-    const buffer = Buffer.concat([
-      Buffer.from(JSON.stringify(frame)),
-      Buffer.from("\n"),
-      data,
-    ]);
-
-    await connection.socket.writeFrame(buffer);
+    return true;
   }
 
   private async onFrame(socket: TcpFrameSocket, buffer: Buffer) {
     const separator = buffer.indexOf("\n");
 
-    assert(separator > 0);
+    if (separator <= 0) {
+      console.warn(`[RunnerServer/onFrame] Received malformed frame!`);
+
+      return;
+    }
 
     const chunkJson = buffer.subarray(0, separator);
     const bodyBuffer = buffer.subarray(separator + 1);
 
-    const { name, runnerId, traceId, dataType } = JSON.parse(
-      chunkJson.toString("utf8")
-    ) as FrameJson;
+    const frame = JSON.parse(chunkJson.toString("utf8")) as FrameJson;
 
-    if (name === "handle-response") {
-      if (dataType !== "json") {
-        throw new Error("expected dataType of json");
+    if (frame.name === "response") {
+      const traceResponseCallback = this.traceResponses.get(frame.traceId);
+
+      if (!traceResponseCallback) {
+        return;
       }
 
-      const bodyJson = JSON.parse(bodyBuffer.toString("utf8"));
+      traceResponseCallback(frame, bodyBuffer);
 
-      const connection = this.connections.get(runnerId);
-
-      assert(connection);
-      assert(["ready", "disconnecting"].includes(connection.status));
-
-      const traceCallback = this.socketTraceIdResponses.get(traceId);
-
-      assert(traceCallback);
-
-      traceCallback(traceId, bodyJson);
+      return;
     }
 
-    if (name === "init") {
-      const connection = this.connections.get(runnerId);
+    if (frame.name === "init") {
+      const connection = this.connections.get(frame.runnerId);
 
-      assert(connection);
-      assert(connection.status === "pending");
+      if (!connection) {
+        console.warn(
+          `[RunnerServer/onFrame] handle frame name "${
+            frame.name
+          }", cannot find connection for runner ${shortenString(
+            frame.runnerId
+          )}!`
+        );
 
-      this.connections.set(runnerId, {
+        return;
+      }
+
+      if (connection.status !== "pending") {
+        console.warn(
+          `[RunnerServer/onFrame] handle frame name "${
+            frame.name
+          }", connection already initialised, with status of ${
+            connection.status
+          }, for runner ${shortenString(frame.runnerId)}!`
+        );
+
+        return;
+      }
+
+      this.connections.set(frame.runnerId, {
+        ...connection,
         status: "starting",
         socket,
-        runnerId,
       });
 
-      this.emit("runner-starting", runnerId);
+      this.emit("runner-starting", frame.runnerId);
 
       socket.once("close", () => {
-        this.emit("runner-close", runnerId);
-        this.connections.delete(runnerId);
+        this.emit("runner-close", frame.runnerId);
+        this.connections.delete(frame.runnerId);
       });
-
-      const archiveContent = await readFile(connection.init.archiveFile);
 
       this.writeFrame(
         {
-          name: "init-response",
-          runnerId,
-          traceId,
+          name: "response",
+          runnerId: frame.runnerId,
+          traceId: frame.traceId,
           dataType: "buffer",
         },
-        archiveContent
+        await readFile(getJobActionArchiveFile(connection.action))
       );
+
+      return;
     }
 
-    if (name === "ready") {
-      const connection = this.connections.get(runnerId);
+    if (frame.name === "ready") {
+      const connection = this.connections.get(frame.runnerId);
 
-      assert(connection);
-      assert(connection.status === "starting");
+      if (!connection) {
+        console.warn(
+          `[RunnerServer/onFrame] handle frame name "${
+            frame.name
+          }", cannot find connection for runner ${shortenString(
+            frame.runnerId
+          )}!`
+        );
 
-      this.connections.set(runnerId, {
+        return;
+      }
+
+      if (connection.status !== "starting") {
+        console.warn(
+          `[RunnerServer/onFrame] handle frame name "${
+            frame.name
+          }", connection already initialised, with status of ${
+            connection.status
+          }, for runner ${shortenString(frame.runnerId)}!`
+        );
+
+        return;
+      }
+
+      this.connections.set(frame.runnerId, {
+        ...connection,
         status: "ready",
         socket,
-        runnerId,
       });
 
-      this.emit("runner-ready", runnerId);
+      this.emit("runner-ready", frame.runnerId);
+
+      return;
     }
+  }
+
+  private async writeFrame(frame: FrameJson, buffer: Buffer) {
+    const connection = this.connections.get(frame.runnerId);
+
+    if (!connection) {
+      return false;
+    }
+
+    if (connection.status !== "ready" && connection.status !== "starting") {
+      return false;
+    }
+
+    const data = Buffer.concat([
+      Buffer.from(JSON.stringify(frame)),
+      Buffer.from("\n"),
+      buffer,
+    ]);
+
+    await connection.socket.writeFrame(data);
+
+    return true;
   }
 }

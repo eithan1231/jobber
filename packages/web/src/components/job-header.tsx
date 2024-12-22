@@ -32,8 +32,8 @@ export const JobHeaderComponent = ({ job }: { job: JobberJob }) => {
       {/* Job details */}
       <div className="flex flex-col h-full">
         <div>
-          <Link to={`/jobber/${job.name}/`} className="text-2xl font-semibold">
-            {job.name}
+          <Link to={`/jobber/${job.id}/`} className="text-2xl font-semibold">
+            {job.jobName}
           </Link>
           <p className="text-sm text-gray-600 mt-1">{job.description}</p>
           {job.version && (
@@ -44,19 +44,19 @@ export const JobHeaderComponent = ({ job }: { job: JobberJob }) => {
         </div>
         <div className="mt-auto flex gap-4 pt-4 ">
           <Link
-            to={`/jobber/${job.name}/`}
+            to={`/jobber/${job.id}/`}
             className="text-blue-600 hover:text-blue-800 text-sm"
           >
             Overview
           </Link>
           <Link
-            to={`/jobber/${job.name}/logs`}
+            to={`/jobber/${job.id}/logs`}
             className="text-blue-600 hover:text-blue-800 text-sm"
           >
             View Logs
           </Link>
           <Link
-            to={`/jobber/${job.name}/environment`}
+            to={`/jobber/${job.id}/environment`}
             className="text-blue-600 hover:text-blue-800 text-sm"
           >
             View Environment Variables

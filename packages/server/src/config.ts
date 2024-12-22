@@ -2,7 +2,7 @@ import { hostname } from "os";
 import { z } from "zod";
 
 export const ConfigurationOptionsSchema = z.object({
-  API_AUTH_BEARER_TOKEN: z.string().optional(),
+  DATABASE_URL: z.string(),
 
   DEBUG_HTTP: z
     .string()

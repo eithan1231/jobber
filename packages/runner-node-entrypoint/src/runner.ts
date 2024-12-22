@@ -6,6 +6,13 @@ import { getTmpFile, shortenString, timeout, unzip } from "./util.js";
 import { JobberHandlerRequest } from "./request.js";
 import { JobberHandlerResponse } from "./response.js";
 
+type FrameJson = {
+  runnerId: string;
+  name: string;
+  traceId: string;
+  dataType: "buffer" | "json";
+};
+
 export class Runner {
   private hostname: string;
   private port: number;
@@ -15,6 +22,11 @@ export class Runner {
   private handleRequestsProcessing: number = 0;
 
   private socket: TcpFrameSocket;
+
+  private traceResponses = new Map<
+    string,
+    (frame: FrameJson, data: Buffer) => void
+  >();
 
   constructor(hostname: string, port: number, runnerId: string) {
     this.hostname = hostname;
@@ -38,10 +50,34 @@ export class Runner {
       port: this.port,
     });
 
+    const traceId = `InitTraceId-${randomBytes(16).toString("hex")}`;
+
+    this.traceResponses.set(traceId, async (frame, data) => {
+      assert(frame.dataType === "buffer");
+
+      const zipFile = getTmpFile({ extension: "zip" });
+
+      await writeFile(zipFile, data);
+
+      await unzip(zipFile, process.cwd());
+
+      await this.writeFrame(
+        {
+          name: "ready",
+          runnerId: frame.runnerId,
+          traceId: `ready-${randomBytes(16).toString("hex")}`,
+          dataType: "buffer",
+        },
+        Buffer.alloc(0)
+      );
+
+      return;
+    });
+
     await this.writeFrame(
       {
         name: "init",
-        traceId: `trace-init-${randomBytes(16).toString("hex")}`,
+        traceId: traceId,
         runnerId: this.runnerId,
         dataType: "buffer",
       },
@@ -49,15 +85,7 @@ export class Runner {
     );
   }
 
-  async writeFrame(
-    frame: {
-      runnerId: string;
-      name: string;
-      traceId: string;
-      dataType: "json" | "buffer";
-    },
-    data: Buffer
-  ) {
+  async writeFrame(frame: FrameJson, data: Buffer) {
     const buffer = Buffer.concat([
       Buffer.from(JSON.stringify(frame)),
       Buffer.from("\n"),
@@ -75,70 +103,53 @@ export class Runner {
     const chunkJson = buffer.subarray(0, separator);
     const bodyBuffer = buffer.subarray(separator + 1);
 
-    const { name, runnerId, traceId, dataType } = JSON.parse(
-      chunkJson.toString("utf8")
-    ) as {
-      name: string;
-      runnerId: string;
-      traceId: string;
-      dataType: "json" | "buffer";
-    };
+    const frame = JSON.parse(chunkJson.toString("utf8")) as FrameJson;
 
-    if (name === "init-response") {
-      assert(dataType === "buffer");
+    if (frame.name === "response") {
+      const traceResponseCallback = this.traceResponses.get(frame.traceId);
 
-      const zipFile = getTmpFile({ extension: "zip" });
+      if (!traceResponseCallback) {
+        return;
+      }
 
-      await writeFile(zipFile, bodyBuffer);
-
-      await unzip(zipFile, process.cwd());
-
-      await this.writeFrame(
-        {
-          name: "ready",
-          runnerId,
-          traceId: `ready-${randomBytes(16).toString("hex")}`,
-          dataType: "buffer",
-        },
-        Buffer.alloc(0)
-      );
+      traceResponseCallback(frame, bodyBuffer);
 
       return;
     }
 
-    if (name === "handle") {
+    if (frame.name === "handle") {
       if (this.isShuttingDown) {
         console.warn(
-          `[Runner/onFrame] ${name} event received while shutting down`
+          `[Runner/onFrame] ${frame.name} event received while shutting down`
         );
         return;
       }
 
-      assert(dataType === "json");
+      assert(frame.dataType === "json");
 
       const data = JSON.parse(bodyBuffer.toString());
 
-      await this.onFrameHandle(traceId, data);
+      await this.onFrameHandle(frame, data);
 
       return;
     }
 
-    if (name === "shutdown") {
-      await this.onFrameShutdown(traceId);
+    if (frame.name === "shutdown") {
+      await this.onFrameShutdown(frame.traceId);
 
       return;
     }
 
-    throw new Error(`Unexpected transaction name ${name}`);
+    throw new Error(`Unexpected transaction name ${frame.name}`);
   }
 
-  async onFrameHandle(traceId: string, data: any) {
+  async onFrameHandle(frame: FrameJson, data: any) {
     const start = performance.now();
 
     this.handleRequestsProcessing++;
 
     console.log(
-      `[Runner/onFrameHandle] Starting, traceId ${shortenString(traceId)}`
+      `[Runner/onFrameHandle] Starting, traceId ${shortenString(frame.traceId)}`
     );
 
     try {
@@ -203,9 +214,9 @@ export class Runner {
 
       await this.writeFrame(
         {
-          name: "handle-response",
+          name: "response",
           runnerId: this.runnerId,
-          traceId: traceId,
+          traceId: frame.traceId,
           dataType: "json",
         },
         Buffer.from(JSON.stringify(responseData))
@@ -213,7 +224,7 @@ export class Runner {
 
       console.log(
         "[Runner/onFrameHandle] Delivered response, traceId",
-        shortenString(traceId)
+        shortenString(frame.traceId)
       );
     } catch (err) {
       if (!(err instanceof Error)) {
@@ -223,16 +234,16 @@ export class Runner {
 
       console.log(
         "[Runner/onFrameHandle] Failed due to error, traceId",
-        shortenString(traceId)
+        shortenString(frame.traceId)
       );
 
       console.error(err);
 
       await this.writeFrame(
         {
-          name: "handle-response",
+          name: "response",
           runnerId: this.runnerId,
-          traceId: traceId,
+          traceId: frame.traceId,
           dataType: "json",
         },
         Buffer.from(

@@ -5,11 +5,11 @@ meta {
 }
 
 get {
-  url: {{hostname}}/api/job/:jobName/environment
+  url: {{hostname}}/api/job/:jobId/environment/
   body: none
   auth: none
 }
 
 params:path {
-  jobName: {{get_jobs_first_jobName}}
+  jobId: {{get_jobs_first_id}}
 }

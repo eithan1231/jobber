@@ -10,19 +10,18 @@ export type JobberGenericResponse<T = undefined> =
     };
 
 export type JobberJob = {
-  name: string;
+  id: string;
+  jobName: string;
   description: string;
   version?: string;
   links: Array<{ name: string; url: string }>;
 };
 
 export type JobberLogLine = {
-  runnerId: string;
+  jobId: string;
   actionId: string;
-  jobName: string;
-  jobVersion: string;
-  source: "STDOUT" | "STDERR";
-  timestamp: number;
+  source: string;
+  created: number;
   message: string;
 };
 
@@ -39,11 +38,12 @@ export type JobberEnvironment = {
 
 export type JobberAction = {
   id: string;
-  jobName: string;
+  jobId: string;
   version: string;
   runnerAsynchronous: boolean;
   runnerMinCount: number;
   runnerMaxCount: number;
+  runnerTimeout: number;
   runnerMaxAge: number;
   runnerMaxAgeHard: number;
   runnerMode: "standard" | "run-once";
@@ -51,7 +51,7 @@ export type JobberAction = {
 
 export type JobberTrigger = {
   id: string;
-  jobName: string;
+  jobId: string;
   version: string;
   context:
     | {
@@ -61,6 +61,9 @@ export type JobberTrigger = {
       }
     | {
         type: "http";
+        path: string[] | null;
+        method: string[] | null;
+        hostname: string[] | null;
       }
     | {
         type: "mqtt";
@@ -89,10 +92,10 @@ export type JobberTrigger = {
 
 export type JobberRunner = {
   id: string;
-  status: "starting" | "started" | "closing" | "closed";
+  status: "starting" | "ready" | "closing" | "closed";
   actionId: string;
-  actionVersion: string;
-
+  jobId: string;
+  requestsProcessing: number;
   createdAt: number;
   readyAt?: number;
   closingAt?: number;
@@ -108,17 +111,17 @@ export const getJobs = async (): Promise<
 };
 
 export const getJob = async (
-  jobName: string
+  jobId: string
 ): Promise<JobberGenericResponse<JobberJob>> => {
-  const result = await fetch(`/api/job/${jobName}`);
+  const result = await fetch(`/api/job/${jobId}`);
 
   return await result.json();
 };
 
 export const deleteJob = async (
-  jobName: string
+  jobId: string
 ): Promise<JobberGenericResponse> => {
-  const result = await fetch(`/api/job/${jobName}`, {
+  const result = await fetch(`/api/job/${jobId}`, {
     method: "DELETE",
   });
 
@@ -126,15 +129,15 @@ export const deleteJob = async (
 };
 
 export const getJobEnvironment = async (
-  jobName: string
+  jobId: string
 ): Promise<JobberGenericResponse<JobberEnvironment>> => {
-  const result = await fetch(`/api/job/${jobName}/environment`);
+  const result = await fetch(`/api/job/${jobId}/environment`);
 
   return await result.json();
 };
 
 export const createJobEnvironmentVariable = async (
-  jobName: string,
+  jobId: string,
   name: string,
   value: string,
   type: "text" | "secret"
@@ -144,7 +147,7 @@ export const createJobEnvironmentVariable = async (
   form.set("type", type);
   form.set("value", value);
 
-  const result = await fetch(`/api/job/${jobName}/environment/${name}`, {
+  const result = await fetch(`/api/job/${jobId}/environment/${name}`, {
     method: "POST",
     body: form,
   });
@@ -153,10 +156,10 @@ export const createJobEnvironmentVariable = async (
 };
 
 export const deleteJobEnvironmentVariable = async (
-  jobName: string,
+  jobId: string,
   name: string
 ) => {
-  const result = await fetch(`/api/job/${jobName}/environment/${name}`, {
+  const result = await fetch(`/api/job/${jobId}/environment/${name}`, {
     method: "DELETE",
   });
 
@@ -164,72 +167,67 @@ export const deleteJobEnvironmentVariable = async (
 };
 
 export const getJobActions = async (
-  jobName: string
+  jobId: string
 ): Promise<JobberGenericResponse<JobberAction[]>> => {
-  const result = await fetch(`/api/job/${jobName}/action`);
+  const result = await fetch(`/api/job/${jobId}/actions`);
 
   return await result.json();
 };
 
 export const getJobActionLatest = async (
-  jobName: string
-): Promise<JobberGenericResponse<JobberAction>> => {
-  const result = await fetch(`/api/job/${jobName}/action:latest`);
+  jobId: string
+): Promise<JobberGenericResponse<JobberAction[]>> => {
+  const result = await fetch(`/api/job/${jobId}/actions:latest`);
 
   return await result.json();
 };
 
-export const getJobTrigger = async (
-  jobName: string
+export const getJobTriggers = async (
+  jobId: string
 ): Promise<JobberGenericResponse<JobberTrigger[]>> => {
-  const result = await fetch(`/api/job/${jobName}/trigger`);
+  const result = await fetch(`/api/job/${jobId}/triggers`);
 
   return await result.json();
 };
 
-export const getJobTriggerLatest = async (
-  jobName: string
+export const getJobTriggersLatest = async (
+  jobId: string
 ): Promise<JobberGenericResponse<JobberTrigger[]>> => {
-  const result = await fetch(`/api/job/${jobName}/trigger:latest`);
+  const result = await fetch(`/api/job/${jobId}/triggers:latest`);
 
   return await result.json();
 };
 
 export const getJobRunners = async (
-  jobName: string
+  jobId: string
 ): Promise<JobberGenericResponse<JobberRunner[]>> => {
-  const result = await fetch(`/api/job/${jobName}/runners`);
+  const result = await fetch(`/api/job/${jobId}/runners`);
 
   return await result.json();
 };
 
 export const getJobRunnersByActionId = async (
-  jobName: string,
+  jobId: string,
   actionId: string
 ): Promise<JobberGenericResponse<JobberRunner[]>> => {
-  const result = await fetch(`/api/job/${jobName}/action/${actionId}/runners`);
+  const result = await fetch(`/api/job/${jobId}/action/${actionId}/runners`);
 
   return await result.json();
 };
 
 export const getJobLogs = async (
-  jobName: string,
-  filter: {
-    message?: string;
-  } = {}
+  jobId: string
 ): Promise<JobberGenericResponse<JobberLogLine[]>> => {
-  const query = new URLSearchParams(filter);
-
-  const result = await fetch(`/api/job/${jobName}/logs?${query.toString()}`);
+  const result = await fetch(`/api/job/${jobId}/logs`);
 
   return await result.json();
 };
 
 export const runJob = async (
-  jobName: string,
+  jobId: string,
   opts: Pick<RequestInit, "headers" | "body" | "method">
 ) => {
-  const result = await fetch(`/api/job/${jobName}/run`, {
+  const result = await fetch(`/api/job/${jobId}/run`, {
     ...opts,
     redirect: "manual",
   });

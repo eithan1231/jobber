@@ -5,17 +5,17 @@ meta {
 }
 
 post {
-  url: {{hostname}}/api/job/:jobName/environment/:name
+  url: {{hostname}}/api/job/:jobId/environment/:name
   body: multipartForm
   auth: none
 }
 
 params:path {
   name: NODE_ENV
-  jobName: {{get_jobs_first_jobName}}
+  jobId: {{get_jobs_first_id}}
 }
 
 body:multipart-form {
   type: secret
-  value: I am a hidden value :))
+  value: fff
 }

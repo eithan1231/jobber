@@ -5,13 +5,13 @@ meta {
 }
 
 get {
-  url: {{hostname}}/api/job/:jobName/action
+  url: {{hostname}}/api/job/:jobId/actions
   body: none
   auth: none
 }
 
 params:path {
-  jobName: {{get_jobs_first_jobName}}
+  jobId: {{get_jobs_first_id}}
 }
 
 vars:post-response {

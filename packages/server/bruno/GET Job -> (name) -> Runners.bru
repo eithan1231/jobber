@@ -1,15 +1,15 @@
 meta {
   name: GET Job -> (name) -> Runners
   type: http
-  seq: 16
+  seq: 13
 }
 
 get {
-  url: {{hostname}}/api/job/:jobName/runners
+  url: {{hostname}}/api/job/:jobId/runners
   body: none
   auth: none
 }
 
 params:path {
-  jobName: {{get_jobs_first_jobName}}
+  jobId: {{get_jobs_first_id}}
 }

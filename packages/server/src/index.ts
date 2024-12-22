@@ -1,14 +1,39 @@
 import { serve } from "@hono/node-server";
-import { Hono } from "hono";
-import { Job } from "./jobber/job.js";
-import { createRouteJob } from "./routes/job.js";
-import { ZodError } from "zod";
 import { serveStatic } from "@hono/node-server/serve-static";
+import { Hono } from "hono";
+import { StatusCode } from "hono/utils/http-status";
+import { mkdir } from "node:fs/promises";
+import { ZodError } from "zod";
 
-const createHonoApp = async (job: Job) => {
-  const honoApp = new Hono();
+import { getJobActionArchiveDirectory } from "./paths.js";
 
-  honoApp.onError(async (err, c) => {
+import { RunnerManager } from "./jobber/runners/manager.js";
+import { HandleRequestHttp } from "./jobber/runners/server.js";
+import { TriggerCron } from "./jobber/triggers/cron.js";
+import { TriggerHttp } from "./jobber/triggers/http.js";
+import { TriggerMqtt } from "./jobber/triggers/mqtt.js";
+
+import { Logger } from "./jobber/logger.js";
+import { createRouteDeleteEnvironmentVariable } from "./routes/job/delete-environment-variable.js";
+import { createRouteGetActionRunners } from "./routes/job/get-action-runners.js";
+import { createRouteGetActionsLatest } from "./routes/job/get-actions-latest.js";
+import { createRouteGetActions } from "./routes/job/get-actions.js";
+import { createRouteGetEnvironment } from "./routes/job/get-environment.js";
+import { createRouteGetJobRunners } from "./routes/job/get-job-runners.js";
+import { createRouteGetJob } from "./routes/job/get-job.js";
+import { createRouteGetJobs } from "./routes/job/get-jobs.js";
+import { createRouteGetLogs } from "./routes/job/get-logs.js";
+import { createRouteGetTriggersLatest } from "./routes/job/get-triggers-latest.js";
+import { createRouteGetTriggers } from "./routes/job/get-triggers.js";
+import { createRoutePostEnvironmentVariable } from "./routes/job/post-environment-variable.js";
+import { createRoutePostPublish } from "./routes/job/post-publish.js";
+import { createRouteDeleteJob } from "./routes/job/delete-job.js";
+import { getDrizzle, getPool, runDrizzleMigration } from "./db/index.js";
+
+async function createInternalHono(runnerManager: RunnerManager) {
+  const app = new Hono();
+
+  app.onError(async (err, c) => {
     if (err instanceof ZodError) {
       if (
         err.errors.every(
@@ -40,7 +65,7 @@ const createHonoApp = async (job: Job) => {
     );
   });
 
-  honoApp.notFound(async (c) => {
+  app.notFound(async (c) => {
     return c.json(
       {
         success: false,
@@ -50,20 +75,31 @@ const createHonoApp = async (job: Job) => {
     );
   });
 
-  honoApp.route("/api/job/", await createRouteJob(job));
+  app.route("/api/", await createRouteDeleteEnvironmentVariable());
+  app.route("/api/", await createRouteDeleteJob());
+  app.route("/api/", await createRouteGetActionRunners(runnerManager));
+  app.route("/api/", await createRouteGetActions());
+  app.route("/api/", await createRouteGetActionsLatest());
+  app.route("/api/", await createRouteGetEnvironment());
+  app.route("/api/", await createRouteGetJob());
+  app.route("/api/", await createRouteGetJobRunners(runnerManager));
+  app.route("/api/", await createRouteGetJobs());
+  app.route("/api/", await createRouteGetLogs());
+  app.route("/api/", await createRouteGetTriggers());
+  app.route("/api/", await createRouteGetTriggersLatest());
+  app.route("/api/", await createRoutePostEnvironmentVariable());
+  app.route("/api/", await createRoutePostPublish());
 
-  honoApp.all("/", async (c) => {
-    return c.redirect("/jobber/");
-  });
+  app.get("/", async (c) => c.redirect("/jobber/"));
 
-  honoApp.use(
+  app.use(
     "/*",
     serveStatic({
       root: "./public",
     })
   );
 
-  honoApp.use(
+  app.use(
     "*",
     serveStatic({
       path: "index.html",
@@ -71,36 +107,175 @@ const createHonoApp = async (job: Job) => {
     })
   );
 
-  return honoApp;
-};
+  return app;
+}
 
-const main = async () => {
+async function createGatewayHono(triggerHttp: TriggerHttp) {
+  const app = new Hono();
+
+  app.all(async (c, next) => {
+    const bodyDirect = await c.req.arrayBuffer();
+
+    const headers = c.req.header();
+    const query = c.req.query();
+    const queries = c.req.queries();
+    const path = c.req.path;
+    const method = c.req.method;
+    const body = Buffer.from(bodyDirect);
+    const bodyLength = body.length;
+
+    const payload: HandleRequestHttp = {
+      type: "http",
+      body: body.toString("base64"),
+      bodyLength,
+      method,
+      path,
+      queries,
+      query,
+      headers,
+    };
+
+    const response = await triggerHttp.sendHandleRequest(payload);
+
+    if (!response) {
+      return await next();
+    }
+
+    if (!response.success) {
+      return c.json(
+        {
+          success: false,
+          message: `Jobber: Gateway error, ${response.error}`,
+        },
+        502
+      );
+    }
+
+    if (!response.http) {
+      return c.json(
+        {
+          success: false,
+          message: `Jobber: Job did not return a HTTP response`,
+        },
+        502
+      );
+    }
+
+    return c.body(
+      response.http.body,
+      response.http.status as StatusCode,
+      response.http.headers
+    );
+  });
+
+  return app;
+}
+
+async function main() {
   console.log(
-    "WARNING: Container mode is currently experimental and may cause issues! You HAVE been warned. Issues are EXPECTED."
+    "WARNING: This is an experimental runtime, and issues ARE expected! Report any issue, or raise a PR with a fix. Issues WILL be investigated and fixed."
   );
 
-  const job = new Job();
+  console.log("[main] Initialising Database connection...");
+  const dbPool = getPool();
+  await dbPool.connect();
+  console.log(`[main] done.`);
 
-  console.log("[main] Starting job...");
-  await job.start();
-  console.log("[main] Started job.");
+  console.log("[main] Applying database migrations...");
+  if (!process.argv.includes("--skip-migrations")) {
+    await runDrizzleMigration();
+    console.log(`[main] done.`);
+  } else {
+    console.log(`[main] skipped.`);
+  }
 
-  const server = serve(await createHonoApp(job));
-
-  server.once("listening", () => {
-    console.log("[main] API Server is listening");
+  console.log(`[main] Creating action-archive directory...`);
+  await mkdir(getJobActionArchiveDirectory(), {
+    recursive: true,
   });
+  console.log(`[main] done.`);
+
+  console.log(`[main] Initialising logger...`);
+  const logger = new Logger();
+  await logger.start();
+  console.log(`[main] done.`);
+
+  console.log(`[main] Initialising runner manager...`);
+  const runnerManager = new RunnerManager(logger);
+  await runnerManager.start();
+  console.log(`[main] done.`);
+
+  console.log(`[main] Initialising triggers (Cron, MQTT, HTTP)...`);
+  const triggerCron = new TriggerCron(runnerManager);
+  const triggerMqtt = new TriggerMqtt(runnerManager);
+  const triggerHttp = new TriggerHttp(runnerManager);
+
+  await Promise.all([
+    triggerCron.start(),
+    triggerMqtt.start(),
+    triggerHttp.start(),
+  ]);
+  console.log(`[main] done.`);
+
+  console.log(`[main] Initialising APIs (API Internal, API Gateway)...`);
+  const appInternal = await createInternalHono(runnerManager);
+  const appGateway = await createGatewayHono(triggerHttp);
+
+  const serverInternal = serve({
+    port: 3000,
+    fetch: appInternal.fetch,
+  });
+
+  const serverGateway = serve({
+    port: 3001,
+    fetch: appGateway.fetch,
+  });
+
+  serverInternal.once("listening", () => {
+    console.log("[main] API Internal now listening");
+  });
+
+  serverGateway.once("listening", () => {
+    console.log("[main] API Gateway now listening");
+  });
+
+  console.log(`[main] Application startup routine has completed.`);
 
   const signalRoutine = async () => {
     console.log(`[signalRoutine] Received shutdown signal.`);
 
-    console.log(`[signalRoutine] Closing Job.`);
-    await job.stop();
+    console.log(`[signalRoutine] Closing API Internal...`);
+    serverInternal.close();
+    console.log(`[signalRoutine] done.`);
 
-    console.log(`[signalRoutine] Closing Hono Server.`);
-    await server.close();
+    console.log(`[signalRoutine] Stopping all triggers.`);
+    await Promise.all([
+      triggerCron.stop(),
+      triggerMqtt.stop(),
+      triggerHttp.stop(),
+    ]);
+    console.log(`[signalRoutine] done.`);
+
+    console.log(`[signalRoutine] Stopping runner manager.`);
+    await runnerManager.stop();
+    console.log(`[signalRoutine] done.`);
+
+    console.log(`[signalRoutine] Stopping logger.`);
+    await logger.stop();
+    console.log(`[signalRoutine] done.`);
+
+    console.log(`[signalRoutine] Closing API Gateway...`);
+    serverGateway.close();
+    console.log(`[signalRoutine] done.`);
+
+    console.log(`[signalRoutine] Ending Database connection...`);
+    const dbPool = getPool();
+    /*await*/ dbPool.end(); // TODO: Look into why this hangs.
+    console.log(`[signalRoutine] done.`);
 
     console.log(`[signalRoutine] Routine complete... Goodbye!`);
+
+    process.exit(0);
   };
 
   process.once("SIGTERM", async () => {
@@ -110,6 +285,6 @@ const main = async () => {
   process.once("SIGINT", async () => {
     await signalRoutine();
   });
-};
+}
 
 main();

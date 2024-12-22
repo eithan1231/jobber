@@ -15,22 +15,22 @@ const Component = () => {
   const [actions, setActions] = useState<JobberAction[]>([]);
 
   useEffect(() => {
-    if (!params.jobName) {
+    if (!params.jobId) {
       return;
     }
 
-    getJob(params.jobName).then((result) => {
+    getJob(params.jobId).then((result) => {
       if (result.success) {
         setJob(result.data);
       }
     });
 
-    getJobActions(params.jobName).then((result) => {
+    getJobActions(params.jobId).then((result) => {
       if (result.success) {
         setActions(result.data);
       }
     });
-  }, [params.jobName]);
+  }, [params.jobId]);
 
   if (!job) {
     return "Please wait, loading..";
@@ -48,7 +48,7 @@ const Component = () => {
               className="border rounded shadow-md p-4 bg-white flex flex-col mb-10"
             >
               <h2 className="text-xl font-semibold mb-2">
-                {action.jobName}
+                {job.jobName}
                 {action.version === job.version && (
                   <span className="text-gray-400 font-normal">:latest</span>
                 )}
@@ -103,6 +103,6 @@ const Component = () => {
 };
 
 export const pagesJobberJobActionsRoute: RouteObject = {
-  path: "/jobber/:jobName/actions",
+  path: "/jobber/:jobId/actions",
   Component: Component,
 };

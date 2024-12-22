@@ -3,7 +3,7 @@ import {
   getJobActionLatest,
   getJobEnvironment,
   getJobRunners,
-  getJobTriggerLatest,
+  getJobTriggersLatest,
   JobberAction,
   JobberEnvironment,
   JobberJob,
@@ -15,9 +15,11 @@ import { Link, RouteObject, useParams } from "react-router-dom";
 import { JobHeaderComponent } from "../../../components/job-header.js";
 
 const ActionSectionComponent = ({
+  job,
   action,
   error,
 }: {
+  job?: JobberJob;
   action?: JobberAction;
   error?: string;
 }) => {
@@ -42,7 +44,7 @@ const ActionSectionComponent = ({
 
         {action && (
           <>
-            <h2 className="text-xl font-semibold mb-2">{action.jobName}</h2>
+            <h2 className="text-xl font-semibold mb-2">{job?.jobName}</h2>
             <p className="text-sm text-gray-600">Version: {action.version}</p>
             <p className="text-sm text-gray-600">ID: {action.id}</p>
             <div className="mt-4">
@@ -88,10 +90,12 @@ const ActionSectionComponent = ({
 };
 
 const TriggersSectionComponent = ({
+  job,
   environment,
   triggers,
   error,
 }: {
+  job?: JobberJob;
   environment?: JobberEnvironment;
   triggers?: JobberTrigger[];
   error?: string;
@@ -163,7 +167,7 @@ const TriggersSectionComponent = ({
               key={trigger.id}
               className="border rounded shadow-md p-4 bg-white flex flex-col"
             >
-              <h2 className="text-xl font-semibold mb-2">{trigger.jobName}</h2>
+              <h2 className="text-xl font-semibold mb-2">{job?.jobName}</h2>
               <p className="text-sm text-gray-600">
                 Version: {trigger.version}
               </p>
@@ -277,7 +281,7 @@ const RunnersSectionComponent = ({
                 Status
               </th>
               <th className="border border-gray-300 px-4 py-2 text-left">
-                Version
+                Requests in flight
               </th>
               <th className="border border-gray-300 px-4 py-2 text-left">Id</th>
               <th className="border border-gray-300 px-4 py-2 text-left">
@@ -292,7 +296,7 @@ const RunnersSectionComponent = ({
                   className={
                     "border border-gray-300 px-4 py-2 " +
                     (item.status === "starting" ? "text-blue-800" : "") +
-                    (item.status === "started" ? "text-green-800" : "") +
+                    (item.status === "ready" ? "text-green-800" : "") +
                     (item.status === "closing" ? "text-orange-800" : "") +
                     (item.status === "closed" ? "text-red-800" : "")
                   }
@@ -300,7 +304,7 @@ const RunnersSectionComponent = ({
                   {item.status}
                 </td>
                 <td className="border border-gray-300 px-4 py-2 text-gray-700">
-                  {item.actionVersion}
+                  {item.requestsProcessing}
                 </td>
                 <td className="border border-gray-300 px-4 py-2 text-gray-700">
                   {item.id.substring(0, 32)}...
@@ -337,13 +341,13 @@ const Component = () => {
   const [environmentError, setEnvironmentError] = useState<string>();
 
   useEffect(() => {
-    if (!params.jobName) {
+    if (!params.jobId) {
       setJobError("parameter jobName not found");
 
       return;
     }
 
-    getJob(params.jobName).then((result) => {
+    getJob(params.jobId).then((result) => {
       if (!result.success) {
         setJobError(result.message ?? "Failed to get job due to unknown error");
 
@@ -353,7 +357,7 @@ const Component = () => {
       setJob(result.data);
     });
 
-    getJobActionLatest(params.jobName).then((result) => {
+    getJobActionLatest(params.jobId).then((result) => {
       if (!result.success) {
         setActionError(
           result.message ?? "Failed to get action due to unknown error"
@@ -362,10 +366,10 @@ const Component = () => {
         return;
       }
 
-      setAction(result.data);
+      setAction(result.data[0]);
     });
 
-    getJobTriggerLatest(params.jobName).then((result) => {
+    getJobTriggersLatest(params.jobId).then((result) => {
       if (!result.success) {
         setTriggersError(
           result.message ?? "Failed to get triggers due to unknown error"
@@ -377,7 +381,7 @@ const Component = () => {
       setTriggers(result.data);
     });
 
-    getJobRunners(params.jobName).then((result) => {
+    getJobRunners(params.jobId).then((result) => {
       if (!result.success) {
         setRunnersError(
           result.message ?? "Failed to get triggers due to unknown error"
@@ -389,7 +393,7 @@ const Component = () => {
       setRunners(result.data);
     });
 
-    getJobEnvironment(params.jobName).then((result) => {
+    getJobEnvironment(params.jobId).then((result) => {
       if (!result.success) {
         setEnvironmentError(
           result.message ??
@@ -401,7 +405,7 @@ const Component = () => {
 
       setEnvironment(result.data);
     });
-  }, [params.jobName]);
+  }, [params.jobId]);
 
   return (
     <div>
@@ -411,8 +415,13 @@ const Component = () => {
         <>
           <JobHeaderComponent job={job} />
 
-          <ActionSectionComponent action={action} error={actionError} />
+          <ActionSectionComponent
+            job={job}
+            action={action}
+            error={actionError}
+          />
           <TriggersSectionComponent
+            job={job}
             triggers={triggers}
             error={triggersError ?? environmentError}
             environment={environment}
@@ -425,6 +434,6 @@ const Component = () => {
 };
 
 export const pagesJobberJobRoute: RouteObject = {
-  path: "/jobber/:jobName/",
+  path: "/jobber/:jobId/",
   Component: Component,
 };

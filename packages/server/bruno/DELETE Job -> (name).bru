@@ -5,13 +5,13 @@ meta {
 }
 
 delete {
-  url: {{hostname}}/api/job/:jobName
+  url: {{hostname}}/api/job/:jobId
   body: multipartForm
   auth: none
 }
 
 params:path {
-  jobName: {{get_jobs_first_jobName}}
+  jobId: {{get_jobs_first_id}}
 }
 
 headers {

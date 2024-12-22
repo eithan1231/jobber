@@ -1,7 +1,7 @@
 import {
   getJob,
   getJobEnvironment,
-  getJobTrigger,
+  getJobTriggers,
   JobberEnvironment,
   JobberJob,
   JobberTrigger,
@@ -19,17 +19,17 @@ const Component = () => {
   const [environment, setEnvironment] = useState<JobberEnvironment>();
 
   useEffect(() => {
-    if (!params.jobName) {
+    if (!params.jobId) {
       return;
     }
 
-    getJob(params.jobName).then((result) => {
+    getJob(params.jobId).then((result) => {
       if (result.success) {
         setJob(result.data);
       }
     });
 
-    getJobTrigger(params.jobName).then((result) => {
+    getJobTriggers(params.jobId).then((result) => {
       if (result.success) {
         setTriggers(result.data);
 
@@ -43,12 +43,12 @@ const Component = () => {
       }
     });
 
-    getJobEnvironment(params.jobName).then((result) => {
+    getJobEnvironment(params.jobId).then((result) => {
       if (result.success) {
         setEnvironment(result.data);
       }
     });
-  }, [params.jobName]);
+  }, [params.jobId]);
 
   const EnvironmentParameter = (params: {
     displayName: string;
@@ -123,7 +123,7 @@ const Component = () => {
                     className="border rounded shadow-md p-4 bg-white flex flex-col"
                   >
                     <h3 className="text-xl font-semibold mb-2">
-                      {trigger.jobName}
+                      {job.jobName}
                     </h3>
                     <p className="text-sm text-gray-600">ID: {trigger.id}</p>
                     <div className="mt-2">
@@ -227,6 +227,6 @@ const Component = () => {
 };
 
 export const pagesJobberJobTriggersRoute: RouteObject = {
-  path: "/jobber/:jobName/triggers",
+  path: "/jobber/:jobId/triggers",
   Component: Component,
 };

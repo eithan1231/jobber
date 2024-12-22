@@ -1,15 +1,15 @@
 meta {
   name: GET Job -> (name) -> Triggers:latest
   type: http
-  seq: 10
+  seq: 9
 }
 
 get {
-  url: {{hostname}}/api/job/:jobName/trigger:latest
+  url: {{hostname}}/api/job/:jobId/triggers:latest
   body: none
   auth: none
 }
 
 params:path {
-  jobName: {{get_jobs_first_jobName}}
+  jobId: {{get_jobs_first_id}}
 }

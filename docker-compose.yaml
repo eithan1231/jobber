@@ -1,19 +1,42 @@
 services:
+  jobber-db:
+    image: postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=pg-user
+      - POSTGRES_PASSWORD=pg-pass
+      - POSTGRES_DB=database
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - network-jobber-internal
+
   jobber-server:
     image: docker.io/library/jobber-server
     container_name: "jobber-server"
+    depends_on:
+      - "jobber-db"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - jobber-data:/app/config
     environment:
+      DATABASE_URL: postgresql://pg-user:pg-pass@jobber-db/database
       DOCKER_HOST: unix:///var/run/docker.sock
       RUNNER_CONTAINER_NODE_DEFAULT_IMAGE: forgejo.eithan.me/eithan/runner-node-22:latest
-      RUNNER_CONTAINER_DOCKER_NETWORK: jobber_jobber-network
+      RUNNER_CONTAINER_DOCKER_NETWORK: jobber_network-jobber-runner
     ports:
-      - 3001:3000
+      - 3000:3000
     restart: "unless-stopped"
     networks:
-      - jobber-network
+      - network-jobber-internal
+      - network-jobber-runner
+
+volumes:
+  postgres-data:
+  jobber-data:
 
 networks:
-  jobber-network:
+  network-jobber-internal:
+    driver: bridge
+  network-jobber-runner:
     driver: bridge

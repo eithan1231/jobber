@@ -1,25 +1,15 @@
 meta {
   name: GET Job -> (name) -> Logs
   type: http
-  seq: 13
+  seq: 12
 }
 
 get {
-  url: {{hostname}}/api/job/:jobName/logs
+  url: {{hostname}}/api/job/:jobId/logs
   body: none
   auth: none
 }
 
-params:query {
-  ~actionId: 
-  ~jobName: 
-  ~jobVersion: 
-  ~runnerId: 
-  ~source: 
-  ~timestamp: 
-  ~message: test
-}
-
 params:path {
-  jobName: {{get_jobs_first_jobName}}
+  jobId: {{get_jobs_first_id}}
 }

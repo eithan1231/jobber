@@ -36,7 +36,9 @@ const Component = () => {
         <tbody>
           {jobs.map((item, index) => (
             <tr key={index} className="odd:bg-white even:bg-gray-100">
-              <td className="border border-gray-300 px-4 py-2">{item.name}</td>
+              <td className="border border-gray-300 px-4 py-2">
+                {item.jobName}
+              </td>
               <td className="border border-gray-300 px-4 py-2">
                 {item.description}
               </td>
@@ -46,7 +48,7 @@ const Component = () => {
               <td className="border border-gray-300 px-4 py-2">
                 <Link
                   className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-4 rounded"
-                  to={`${item.name}/`}
+                  to={`${item.id}/`}
                 >
                   View Page
                 </Link>

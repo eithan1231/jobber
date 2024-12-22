@@ -1,12 +1,11 @@
 import { spawn } from "child_process";
-import { hash, randomBytes } from "crypto";
+import { createHash, hash, randomBytes } from "crypto";
 import { createReadStream } from "fs";
 import { stat } from "fs/promises";
 import { tmpdir } from "os";
 import path from "path";
 import { Readable, Writable } from "stream";
 import { ReadableStream } from "stream/web";
-import { getConfigOption } from "./config.js";
 
 export const getUnixTimestamp = () => Math.round(Date.now() / 1000);
 
@@ -79,11 +78,10 @@ export const unzip = (
     const proc = spawn(
       `unzip`,
       [
-        // overwrite existing files without prompting
-        "-o",
-        source,
-        "-d",
-        destination,
+        "-o", // overwrite existing files without prompting
+        source, // source file
+        "-d", // specify destination
+        destination, // destination folder
       ],
       {
         stdio: "pipe",
@@ -279,4 +277,10 @@ export const readFileLines = (
 
 export const createSha1Hash = (input: string) => {
   return hash("sha1", input);
+};
+
+export const createBenchmark = () => {
+  const start = performance.now();
+
+  return () => performance.now() - start;
 };

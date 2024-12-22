@@ -1,11 +1,11 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { pagesLandingRoute } from "./pages/landing";
 import { pagesJobberLandingRoute } from "./pages/jobber/landing";
-import { pagesJobberJobRoute } from "./pages/jobber/[jobName]/landing";
-import { pagesJobberJobLogsRoute } from "./pages/jobber/[jobName]/logs";
-import { pagesJobberJobEnvironmentRoute } from "./pages/jobber/[jobName]/environment";
-import { pagesJobberJobActionsRoute } from "./pages/jobber/[jobName]/actions";
-import { pagesJobberJobTriggersRoute } from "./pages/jobber/[jobName]/triggers";
+import { pagesJobberJobRoute } from "./pages/jobber/[jobId]/landing";
+import { pagesJobberJobLogsRoute } from "./pages/jobber/[jobId]/logs";
+import { pagesJobberJobEnvironmentRoute } from "./pages/jobber/[jobId]/environment";
+import { pagesJobberJobActionsRoute } from "./pages/jobber/[jobId]/actions";
+import { pagesJobberJobTriggersRoute } from "./pages/jobber/[jobId]/triggers";
 
 const router = createBrowserRouter([
   pagesLandingRoute,

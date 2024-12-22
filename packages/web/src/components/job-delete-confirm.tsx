@@ -23,7 +23,7 @@ export const JobDeleteConfirmButton = (props: {
   const onDelete = async () => {
     setDisabled(true);
 
-    const result = await deleteJob(props.job.name);
+    const result = await deleteJob(props.job.id);
 
     if (!result.success) {
       throw new Error("Failed to delete job");
@@ -57,7 +57,7 @@ export const JobDeleteConfirmButton = (props: {
                 Are you sure you want to delete the following job?
               </p>
               <div className="mt-4 border border-gray-300 rounded-lg p-4 bg-gray-50">
-                <p className="font-semibold">{props.job.name}</p>
+                <p className="font-semibold">{props.job.jobName}</p>
                 <p className="text-sm text-gray-600">{props.job.description}</p>
                 {props.job.version && (
                   <p className="text-sm text-gray-500">

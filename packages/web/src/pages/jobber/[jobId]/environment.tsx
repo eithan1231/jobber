@@ -22,28 +22,28 @@ const Component = () => {
   const [typeInternal, setTypeInternal] = useState<"text" | "secret">("text");
 
   useEffect(() => {
-    if (!params.jobName) {
+    if (!params.jobId) {
       return;
     }
 
-    getJob(params.jobName).then((result) => {
+    getJob(params.jobId).then((result) => {
       if (result.success) {
         setJob(result.data);
       }
     });
 
-    getJobEnvironment(params.jobName).then((result) => {
+    getJobEnvironment(params.jobId).then((result) => {
       if (result.success) {
         setVariables(result.data);
       }
     });
-  }, [params.jobName]);
+  }, [params.jobId]);
 
   const deleteVariable = async (name: string) => {
-    if (params.jobName) {
-      await deleteJobEnvironmentVariable(params.jobName, name);
+    if (params.jobId) {
+      await deleteJobEnvironmentVariable(params.jobId, name);
 
-      const result = await getJobEnvironment(params.jobName);
+      const result = await getJobEnvironment(params.jobId);
       if (result.success) {
         setVariables(result.data);
       }
@@ -55,10 +55,10 @@ const Component = () => {
     type: "text" | "secret",
     value: string
   ) => {
-    if (params.jobName) {
-      await createJobEnvironmentVariable(params.jobName, name, value, type);
+    if (params.jobId) {
+      await createJobEnvironmentVariable(params.jobId, name, value, type);
 
-      const result = await getJobEnvironment(params.jobName);
+      const result = await getJobEnvironment(params.jobId);
       if (result.success) {
         setVariables(result.data);
       }
@@ -126,6 +126,6 @@ const Component = () => {
 };
 
 export const pagesJobberJobEnvironmentRoute: RouteObject = {
-  path: "/jobber/:jobName/environment",
+  path: "/jobber/:jobId/environment",
   Component: Component,
 };
