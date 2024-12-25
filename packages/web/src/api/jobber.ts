@@ -18,9 +18,6 @@ export type JobberJob = {
 };
 
 export type JobberLogLine = {
-  jobId: string;
-  actionId: string;
-  source: string;
   created: number;
   message: string;
 };
