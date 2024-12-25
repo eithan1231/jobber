@@ -24,6 +24,18 @@ export const ConfigurationOptionsSchema = z.object({
     .default("forgejo.eithan.me/eithan/runner-node-22:latest"),
 
   RUNNER_CONTAINER_DOCKER_NETWORK: z.string().optional(),
+
+  LOG_DRIVER: z.enum(["database", "loki"]).default("database"),
+  LOG_DRIVER_LOKI_PUSH: z
+    .string()
+    .nullable()
+    .default(null)
+    .describe("Example: http://localhost/loki/api/v1/push"),
+  LOG_DRIVER_LOKI_QUERY: z
+    .string()
+    .nullable()
+    .default(null)
+    .describe("Example: http://localhost/loki/api/v1/query"),
 });
 
 export type ConfigurationOptionsSchemaType = z.infer<

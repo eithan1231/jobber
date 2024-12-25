@@ -20,8 +20,8 @@ import {
 } from "~/db/schema/environments.js";
 import { ENTRYPOINT_NODE } from "~/constants.js";
 import { getConfigOption } from "~/config.js";
-import { Logger } from "../logger.js";
 import { getDockerContainers, stopDockerContainer } from "~/docker.js";
+import { LogDriverBase } from "../log-drivers/abstract.js";
 
 type RunnerManagerItem = {
   status: "starting" | "ready" | "closing" | "closed";
@@ -41,7 +41,7 @@ type RunnerManagerItem = {
 };
 
 export class RunnerManager {
-  private logger: Logger;
+  private logger: LogDriverBase;
 
   private server: RunnerServer;
 
@@ -53,7 +53,7 @@ export class RunnerManager {
 
   private status: StatusLifecycle = "neutral";
 
-  constructor(logger: Logger) {
+  constructor(logger: LogDriverBase) {
     this.logger = logger;
     this.server = new RunnerServer();
 

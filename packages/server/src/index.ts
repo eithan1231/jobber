@@ -5,16 +5,19 @@ import { StatusCode } from "hono/utils/http-status";
 import { mkdir } from "node:fs/promises";
 import { ZodError } from "zod";
 
+import { getPool, runDrizzleMigration } from "./db/index.js";
 import { getJobActionArchiveDirectory } from "./paths.js";
 
+import { LogDriverBase } from "./jobber/log-drivers/abstract.js";
+import { createLogDriver } from "./jobber/log-drivers/index.js";
 import { RunnerManager } from "./jobber/runners/manager.js";
 import { HandleRequestHttp } from "./jobber/runners/server.js";
 import { TriggerCron } from "./jobber/triggers/cron.js";
 import { TriggerHttp } from "./jobber/triggers/http.js";
 import { TriggerMqtt } from "./jobber/triggers/mqtt.js";
 
-import { Logger } from "./jobber/logger.js";
 import { createRouteDeleteEnvironmentVariable } from "./routes/job/delete-environment-variable.js";
+import { createRouteDeleteJob } from "./routes/job/delete-job.js";
 import { createRouteGetActionRunners } from "./routes/job/get-action-runners.js";
 import { createRouteGetActionsLatest } from "./routes/job/get-actions-latest.js";
 import { createRouteGetActions } from "./routes/job/get-actions.js";
@@ -27,10 +30,11 @@ import { createRouteGetTriggersLatest } from "./routes/job/get-triggers-latest.j
 import { createRouteGetTriggers } from "./routes/job/get-triggers.js";
 import { createRoutePostEnvironmentVariable } from "./routes/job/post-environment-variable.js";
 import { createRoutePostPublish } from "./routes/job/post-publish.js";
-import { createRouteDeleteJob } from "./routes/job/delete-job.js";
-import { getDrizzle, getPool, runDrizzleMigration } from "./db/index.js";
 
-async function createInternalHono(runnerManager: RunnerManager) {
+async function createInternalHono(instances: {
+  runnerManager: RunnerManager;
+  logger: LogDriverBase;
+}) {
   const app = new Hono();
 
   app.onError(async (err, c) => {
@@ -77,14 +81,17 @@ async function createInternalHono(runnerManager: RunnerManager) {
 
   app.route("/api/", await createRouteDeleteEnvironmentVariable());
   app.route("/api/", await createRouteDeleteJob());
-  app.route("/api/", await createRouteGetActionRunners(runnerManager));
+  app.route(
+    "/api/",
+    await createRouteGetActionRunners(instances.runnerManager)
+  );
   app.route("/api/", await createRouteGetActions());
   app.route("/api/", await createRouteGetActionsLatest());
   app.route("/api/", await createRouteGetEnvironment());
   app.route("/api/", await createRouteGetJob());
-  app.route("/api/", await createRouteGetJobRunners(runnerManager));
+  app.route("/api/", await createRouteGetJobRunners(instances.runnerManager));
   app.route("/api/", await createRouteGetJobs());
-  app.route("/api/", await createRouteGetLogs());
+  app.route("/api/", await createRouteGetLogs(instances.logger));
   app.route("/api/", await createRouteGetTriggers());
   app.route("/api/", await createRouteGetTriggersLatest());
   app.route("/api/", await createRoutePostEnvironmentVariable());
@@ -196,7 +203,7 @@ async function main() {
   console.log(`[main] done.`);
 
   console.log(`[main] Initialising logger...`);
-  const logger = new Logger();
+  const logger = await createLogDriver();
   await logger.start();
   console.log(`[main] done.`);
 
@@ -218,7 +225,7 @@ async function main() {
   console.log(`[main] done.`);
 
   console.log(`[main] Initialising APIs (API Internal, API Gateway)...`);
-  const appInternal = await createInternalHono(runnerManager);
+  const appInternal = await createInternalHono({ runnerManager, logger });
   const appGateway = await createGatewayHono(triggerHttp);
 
   const serverInternal = serve({

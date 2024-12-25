@@ -6,19 +6,15 @@ import {
   varchar,
   index,
 } from "drizzle-orm/pg-core";
-import { jobsTable } from "./jobs.js";
-import { actionsTable } from "./actions.js";
 
 export const logsTable = pgTable(
   "logs",
   {
     id: uuid("id").primaryKey().defaultRandom().notNull(),
 
-    jobId: uuid().references(() => jobsTable.id, { onDelete: "cascade" }),
+    jobId: uuid().notNull(),
 
-    actionId: uuid().references(() => actionsTable.id, {
-      onDelete: "cascade",
-    }),
+    actionId: uuid().notNull(),
 
     source: varchar({
       enum: ["system", "runner"],
