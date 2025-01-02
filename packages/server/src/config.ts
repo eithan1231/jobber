@@ -19,9 +19,13 @@ export const ConfigurationOptionsSchema = z.object({
   MANAGER_PORT: z.coerce.number().default(5211),
   MANAGER_HOST: z.string().default(hostname()),
 
-  RUNNER_CONTAINER_NODE_DEFAULT_IMAGE: z
+  RUNNER_IMAGE_NODE22_URL: z
     .string()
     .default("forgejo.eithan.me/eithan/runner-node-22:latest"),
+
+  RUNNER_IMAGE_NODE20_URL: z
+    .string()
+    .default("forgejo.eithan.me/eithan/runner-node-20:latest"),
 
   RUNNER_CONTAINER_DOCKER_NETWORK: z.string().optional(),
 

@@ -15,6 +15,13 @@
       "when": 1735094654342,
       "tag": "0001_keen_revanche",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1735349797035,
+      "tag": "0002_brainy_alex_wilder",
+      "breakpoints": true
     }
   ]
 }

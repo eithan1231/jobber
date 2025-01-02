@@ -1,0 +1,1 @@
+ALTER TABLE "actions" ADD COLUMN "runnerImage" text DEFAULT 'node22' NOT NULL;

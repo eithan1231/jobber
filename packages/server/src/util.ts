@@ -1,5 +1,5 @@
 import { spawn } from "child_process";
-import { createHash, hash, randomBytes } from "crypto";
+import { hash, randomBytes } from "crypto";
 import { createReadStream } from "fs";
 import { stat } from "fs/promises";
 import { tmpdir } from "os";
@@ -49,6 +49,13 @@ export const awaitTruthy = async (
 
 export const sanitiseFilename = (filename: string) => {
   return filename.replaceAll(/[^0-9a-z-_ .]/gi, "").substring(0, 255);
+};
+
+/**
+ * Enforces only alpha-numeric with "_" and "-" characters
+ */
+export const sanitiseSafeCharacters = (name: string) => {
+  return name.replaceAll(/[^0-9a-z-_]/gi, "");
 };
 
 export const unzip = (

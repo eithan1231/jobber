@@ -1,27 +1,29 @@
+import assert from "assert";
+import { ChildProcessWithoutNullStreams, spawn } from "child_process";
+import { eq, isNotNull } from "drizzle-orm";
+import { getConfigOption } from "~/config.js";
+import { ENTRYPOINT_NODE } from "~/constants.js";
+import { getDrizzle } from "~/db/index.js";
+import { actionsTable, ActionsTableType } from "~/db/schema/actions.js";
+import {
+  environmentsTable,
+  EnvironmentsTableType,
+} from "~/db/schema/environments.js";
+import { jobsTable, JobsTableType } from "~/db/schema/jobs.js";
+import { getDockerContainers, stopDockerContainer } from "~/docker.js";
 import {
   awaitTruthy,
   createBenchmark,
   createToken,
   getUnixTimestamp,
+  sanitiseSafeCharacters,
   shortenString,
   timeout,
 } from "~/util.js";
-import { StatusLifecycle } from "../types.js";
-import assert from "assert";
-import { actionsTable, ActionsTableType } from "~/db/schema/actions.js";
-import { jobsTable, JobsTableType } from "~/db/schema/jobs.js";
-import { eq, isNotNull } from "drizzle-orm";
-import { getDrizzle } from "~/db/index.js";
-import { ChildProcessWithoutNullStreams, spawn } from "child_process";
-import { HandleRequest, HandleResponse, RunnerServer } from "./server.js";
-import {
-  environmentsTable,
-  EnvironmentsTableType,
-} from "~/db/schema/environments.js";
-import { ENTRYPOINT_NODE } from "~/constants.js";
-import { getConfigOption } from "~/config.js";
-import { getDockerContainers, stopDockerContainer } from "~/docker.js";
+import { getImage } from "../images.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
+import { StatusLifecycle } from "../types.js";
+import { HandleRequest, HandleResponse, RunnerServer } from "./server.js";
 
 type RunnerManagerItem = {
   status: "starting" | "ready" | "closing" | "closed";
@@ -297,19 +299,54 @@ export class RunnerManager {
       }));
   }
 
-  private async createRunner(action: ActionsTableType) {
+  private async createRunner(
+    action: ActionsTableType,
+    options?: {
+      dockerNamePrefix?: string;
+    }
+  ) {
     console.log(
       `[RunnerManager/createRunner] Creating runner from action  ${shortenString(
         action.id
       )}`
     );
 
+    const prefix = sanitiseSafeCharacters(
+      `JobberRunner-${options?.dockerNamePrefix?.substring(0, 16)}`
+    ).substring(0, 32);
+
     const id = createToken({
       length: 32,
-      prefix: "runner",
+      prefix,
     });
 
     this.server.registerConnection(id, action);
+
+    const image = await getImage(action.runnerImage);
+
+    if (!image) {
+      throw new Error(
+        `[RunnerManager/createRunner] Failed to find the image associated with action. actionId ${shortenString(
+          action.id
+        )}, actionRunnerImage ${action.runnerImage}`
+      );
+    }
+
+    if (image.status === "disabled") {
+      throw new Error(
+        `[RunnerManager/createRunner] Action is using a disabled image! Unable to start runner. actionId ${shortenString(
+          action.id
+        )}, actionRunnerImage ${action.runnerImage}`
+      );
+    }
+
+    if (image.status === "deprecated") {
+      console.log(
+        `[RunnerManager/createRunner] Action is using a deprecated image! actionId ${shortenString(
+          action.id
+        )}, actionRunnerImage ${action.runnerImage}`
+      );
+    }
 
     const environment =
       (
@@ -341,7 +378,7 @@ export class RunnerManager {
     }
 
     args.push(
-      getConfigOption("RUNNER_CONTAINER_NODE_DEFAULT_IMAGE"),
+      image.imageUrl,
       "node",
       ENTRYPOINT_NODE,
       "--job-runner-identifier",
