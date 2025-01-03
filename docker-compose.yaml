@@ -22,7 +22,6 @@ services:
     environment:
       DATABASE_URL: postgresql://pg-user:pg-pass@jobber-db/database
       DOCKER_HOST: unix:///var/run/docker.sock
-      RUNNER_CONTAINER_NODE_DEFAULT_IMAGE: forgejo.eithan.me/eithan/runner-node-22:latest
       RUNNER_CONTAINER_DOCKER_NETWORK: jobber_network-jobber-runner
     ports:
       - 3000:3000

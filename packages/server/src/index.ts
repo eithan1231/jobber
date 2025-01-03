@@ -120,7 +120,7 @@ async function createInternalHono(instances: {
 async function createGatewayHono(triggerHttp: TriggerHttp) {
   const app = new Hono();
 
-  app.all(async (c, next) => {
+  app.all("*", async (c, next) => {
     const bodyDirect = await c.req.arrayBuffer();
 
     const headers = c.req.header();
