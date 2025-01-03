@@ -158,4 +158,24 @@ export class JobberHandlerRequest {
 
     return this._body;
   }
+
+  getHttpRequest(): Request {
+    if (this._type !== "http") {
+      throw new Error(
+        "[JobberHandlerRequest/getHttpRequest] Expecting type of http"
+      );
+    }
+
+    const urlScheme = "https";
+    const urlHost = this.header("host") ?? "localhost";
+    const urlPath = this._path;
+    const urlQuery = new URLSearchParams(this._query);
+
+    return new Request(`${urlScheme}://${urlHost}${urlPath}?${urlQuery}`, {
+      headers: this._headers,
+      method: this._method,
+      body: this._body,
+      redirect: "manual",
+    });
+  }
 }
