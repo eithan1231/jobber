@@ -75,7 +75,13 @@ export class TriggerMqtt {
           environment: environmentsTable,
         })
         .from(triggersTable)
-        .innerJoin(jobsTable, eq(triggersTable.jobId, jobsTable.id))
+        .innerJoin(
+          jobsTable,
+          and(
+            eq(triggersTable.jobId, jobsTable.id),
+            eq(triggersTable.version, jobsTable.version)
+          )
+        )
         .innerJoin(
           actionsTable,
           and(

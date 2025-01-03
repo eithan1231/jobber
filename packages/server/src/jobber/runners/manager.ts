@@ -1,6 +1,6 @@
 import assert from "assert";
 import { ChildProcessWithoutNullStreams, spawn } from "child_process";
-import { eq, isNotNull } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { getConfigOption } from "~/config.js";
 import { ENTRYPOINT_NODE } from "~/constants.js";
 import { getDrizzle } from "~/db/index.js";
@@ -152,7 +152,9 @@ export class RunnerManager {
         };
       }
 
-      const runnerId = await this.createRunner(action);
+      const runnerId = await this.createRunner(action, {
+        dockerNamePrefix: "unknown",
+      });
 
       await this.server.awaitConnectionStatus(runnerId, "ready");
 
@@ -452,7 +454,13 @@ export class RunnerManager {
           environment: environmentsTable,
         })
         .from(actionsTable)
-        .innerJoin(jobsTable, eq(actionsTable.jobId, jobsTable.id))
+        .innerJoin(
+          jobsTable,
+          and(
+            eq(actionsTable.jobId, jobsTable.id),
+            eq(actionsTable.version, jobsTable.version)
+          )
+        )
         .leftJoin(environmentsTable, eq(environmentsTable.jobId, jobsTable.id))
         .where(isNotNull(jobsTable.version));
 
@@ -617,7 +625,9 @@ export class RunnerManager {
         );
 
         for (let i = 0; i < count; i++) {
-          const runnerId = await this.createRunner(action);
+          const runnerId = await this.createRunner(action, {
+            dockerNamePrefix: job.jobName,
+          });
 
           await this.server.awaitConnectionStatus(runnerId, "ready");
         }
