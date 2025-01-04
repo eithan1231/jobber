@@ -1,0 +1,1 @@
+CREATE INDEX "jobId_created_idx" ON "logs" USING btree ("jobId","created");

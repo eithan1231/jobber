@@ -30,6 +30,7 @@ import { createRouteGetTriggersLatest } from "./routes/job/get-triggers-latest.j
 import { createRouteGetTriggers } from "./routes/job/get-triggers.js";
 import { createRoutePostEnvironmentVariable } from "./routes/job/post-environment-variable.js";
 import { createRoutePostPublish } from "./routes/job/post-publish.js";
+import { Store } from "./jobber/store.js";
 
 async function createInternalHono(instances: {
   runnerManager: RunnerManager;
@@ -207,8 +208,13 @@ async function main() {
   await logger.start();
   console.log(`[main] done.`);
 
+  console.log(`[main] Initialising store...`);
+  const store = new Store();
+  await store.start();
+  console.log(`[main] done.`);
+
   console.log(`[main] Initialising runner manager...`);
-  const runnerManager = new RunnerManager(logger);
+  const runnerManager = new RunnerManager(store, logger);
   await runnerManager.start();
   console.log(`[main] done.`);
 
@@ -269,6 +275,10 @@ async function main() {
 
     console.log(`[signalRoutine] Stopping logger.`);
     await logger.stop();
+    console.log(`[signalRoutine] done.`);
+
+    console.log(`[signalRoutine] Stopping store.`);
+    await store.stop();
     console.log(`[signalRoutine] done.`);
 
     console.log(`[signalRoutine] Closing API Gateway...`);

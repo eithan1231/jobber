@@ -5,12 +5,21 @@ import { TcpFrameSocket } from "@jobber/tcp-frame-socket";
 import { getTmpFile, shortenString, timeout, unzip } from "./util.js";
 import { JobberHandlerRequest } from "./request.js";
 import { JobberHandlerResponse } from "./response.js";
+import { JobberHandlerContext } from "./context.js";
 
 type FrameJson = {
   runnerId: string;
   name: string;
   traceId: string;
   dataType: "buffer" | "json";
+};
+
+type StoreItem = {
+  key: string;
+  value: string;
+  expiry: number | null;
+  created: number;
+  modified: number;
 };
 
 export class Runner {
@@ -83,6 +92,98 @@ export class Runner {
       },
       Buffer.alloc(0)
     );
+  }
+
+  sendStoreSet(
+    key: string,
+    value: string,
+    option?: { ttl?: number }
+  ): Promise<StoreItem> {
+    const ttl = option?.ttl ?? null;
+
+    const traceId = `StoreSetTraceId-${randomBytes(24).toString("hex")}`;
+
+    return new Promise((resolve, reject) => {
+      this.traceResponses.set(traceId, (frame, data) => {
+        assert(frame.dataType === "json");
+
+        const body = JSON.parse(data.toString()) as StoreItem;
+
+        return resolve(body);
+      });
+
+      this.writeFrame(
+        {
+          name: "store-set",
+          runnerId: this.runnerId,
+          dataType: "json",
+          traceId: traceId,
+        },
+        Buffer.from(
+          JSON.stringify({
+            key,
+            value,
+            ttl,
+          })
+        )
+      );
+    });
+  }
+
+  sendStoreGet(key: string): Promise<StoreItem> {
+    const traceId = `StoreGetTraceId-${randomBytes(24).toString("hex")}`;
+
+    return new Promise((resolve, reject) => {
+      this.traceResponses.set(traceId, (frame, data) => {
+        assert(frame.dataType === "json");
+
+        const body = JSON.parse(data.toString()) as StoreItem;
+
+        return resolve(body);
+      });
+
+      this.writeFrame(
+        {
+          name: "store-get",
+          runnerId: this.runnerId,
+          dataType: "json",
+          traceId: traceId,
+        },
+        Buffer.from(
+          JSON.stringify({
+            key,
+          })
+        )
+      );
+    });
+  }
+
+  sendStoreDelete(key: string): Promise<StoreItem> {
+    const traceId = `StoreDeleteTraceId-${randomBytes(24).toString("hex")}`;
+
+    return new Promise((resolve, reject) => {
+      this.traceResponses.set(traceId, (frame, data) => {
+        assert(frame.dataType === "json");
+
+        const body = JSON.parse(data.toString()) as StoreItem;
+
+        return resolve(body);
+      });
+
+      this.writeFrame(
+        {
+          name: "store-delete",
+          runnerId: this.runnerId,
+          dataType: "json",
+          traceId: traceId,
+        },
+        Buffer.from(
+          JSON.stringify({
+            key,
+          })
+        )
+      );
+    });
   }
 
   async writeFrame(frame: FrameJson, data: Buffer) {
@@ -165,6 +266,11 @@ export class Runner {
 
       const jobberRequest = new JobberHandlerRequest(data);
       const jobberResponse = new JobberHandlerResponse(jobberRequest);
+      const jobberContext = new JobberHandlerContext(
+        this,
+        jobberRequest,
+        jobberResponse
+      );
 
       if (jobberRequest.type() === "http") {
         console.log(
@@ -180,7 +286,7 @@ export class Runner {
         console.log(`[Runner/onFrameHandle] MQTT ${jobberRequest.topic()}`);
       }
 
-      await clientModule.handler(jobberRequest, jobberResponse);
+      await clientModule.handler(jobberRequest, jobberResponse, jobberContext);
 
       const responseData: any = {
         success: true,

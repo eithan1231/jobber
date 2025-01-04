@@ -6,6 +6,7 @@ import { getConfigOption } from "~/config.js";
 import { ActionsTableType } from "~/db/schema/actions.js";
 import { getJobActionArchiveFile } from "~/paths.js";
 import { awaitTruthy, createToken, shortenString } from "~/util.js";
+import { Store } from "../store.js";
 
 export type HandleRequestHttp = {
   type: "http";
@@ -85,8 +86,12 @@ export class RunnerServer extends EventEmitter<{
 
   private server: Server;
 
-  constructor() {
+  private store: Store;
+
+  constructor(store: Store) {
     super();
+
+    this.store = store;
 
     this.server = new Server({
       noDelay: true,
@@ -415,6 +420,119 @@ export class RunnerServer extends EventEmitter<{
       this.emit("runner-ready", frame.runnerId);
 
       return;
+    }
+
+    if (frame.name.startsWith("store")) {
+      const connection = this.connections.get(frame.runnerId);
+
+      if (!connection) {
+        console.warn(
+          `[RunnerServer/onFrame] handle frame name "${
+            frame.name
+          }", cannot find connection for runner ${shortenString(
+            frame.runnerId
+          )}!`
+        );
+
+        return;
+      }
+
+      if (connection.status === "pending") {
+        console.warn(
+          `[RunnerServer/onFrame] handle frame name "${
+            frame.name
+          }", connection has not started! runner ${shortenString(
+            frame.runnerId
+          )}!`
+        );
+
+        return;
+      }
+
+      if (frame.dataType !== "json") {
+        console.warn(
+          `[RunnerServer/onFrame] handle frame name "${
+            frame.name
+          }", received unexpected dataType! runner ${shortenString(
+            frame.runnerId
+          )}!`
+        );
+
+        return;
+      }
+
+      if (frame.name === "store-get") {
+        const bodyParsed = JSON.parse(bodyBuffer.toString()) as { key: string };
+
+        const item = await this.store.getItem(
+          connection.action.jobId,
+          bodyParsed.key
+        );
+
+        await this.writeFrame(
+          {
+            dataType: "json",
+            name: "response",
+            runnerId: frame.runnerId,
+            traceId: frame.traceId,
+          },
+          Buffer.from(JSON.stringify(item))
+        );
+
+        return;
+      }
+
+      if (frame.name === "store-set") {
+        const bodyParsed = JSON.parse(bodyBuffer.toString()) as {
+          key: string;
+          value: string;
+          ttl?: number;
+        };
+
+        const item = await this.store.setItem(
+          connection.action.jobId,
+          bodyParsed.key,
+          {
+            value: bodyParsed.value,
+            ttl: bodyParsed.ttl,
+          }
+        );
+
+        await this.writeFrame(
+          {
+            dataType: "json",
+            name: "response",
+            runnerId: frame.runnerId,
+            traceId: frame.traceId,
+          },
+          Buffer.from(JSON.stringify(item))
+        );
+
+        return;
+      }
+
+      if (frame.name === "store-delete") {
+        const bodyParsed = JSON.parse(bodyBuffer.toString()) as {
+          key: string;
+        };
+
+        const item = await this.store.deleteItem(
+          connection.action.jobId,
+          bodyParsed.key
+        );
+
+        await this.writeFrame(
+          {
+            dataType: "json",
+            name: "response",
+            runnerId: frame.runnerId,
+            traceId: frame.traceId,
+          },
+          Buffer.from(JSON.stringify(item))
+        );
+
+        return;
+      }
     }
   }
 

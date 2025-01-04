@@ -23,14 +23,7 @@ export const logsTable = pgTable(
     created: integer().notNull(),
     message: text().notNull(),
   },
-  (table) => [
-    {
-      jobIdCreatedIndex: index("jobId_created_idx").on(
-        table.jobId,
-        table.created
-      ),
-    },
-  ]
+  (table) => [index("jobId_created_idx").on(table.jobId, table.created)]
 );
 
 export type LogsTableType = typeof logsTable.$inferSelect;

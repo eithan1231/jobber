@@ -29,7 +29,7 @@ export const ConfigurationOptionsSchema = z.object({
 
   RUNNER_CONTAINER_DOCKER_NETWORK: z.string().optional(),
 
-  LOG_DRIVER: z.enum(["database", "loki"]).default("loki"),
+  LOG_DRIVER: z.enum(["database", "loki"]).default("database"),
   LOG_DRIVER_LOKI_PUSH: z
     .string()
     .nullable()

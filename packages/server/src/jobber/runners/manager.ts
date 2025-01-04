@@ -24,6 +24,7 @@ import { getImage } from "../images.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
 import { StatusLifecycle } from "../types.js";
 import { HandleRequest, HandleResponse, RunnerServer } from "./server.js";
+import { Store } from "../store.js";
 
 type RunnerManagerItem = {
   status: "starting" | "ready" | "closing" | "closed";
@@ -45,6 +46,8 @@ type RunnerManagerItem = {
 export class RunnerManager {
   private logger: LogDriverBase;
 
+  private store: Store;
+
   private server: RunnerServer;
 
   private runners: Record<string, RunnerManagerItem> = {};
@@ -55,9 +58,12 @@ export class RunnerManager {
 
   private status: StatusLifecycle = "neutral";
 
-  constructor(logger: LogDriverBase) {
+  constructor(store: Store, logger: LogDriverBase) {
     this.logger = logger;
-    this.server = new RunnerServer();
+
+    this.store = store;
+
+    this.server = new RunnerServer(this.store);
 
     this.server.on("runner-starting", (runnerId) => {
       const runner = this.runners[runnerId];
