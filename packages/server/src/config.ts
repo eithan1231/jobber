@@ -29,7 +29,7 @@ export const ConfigurationOptionsSchema = z.object({
 
   RUNNER_CONTAINER_DOCKER_NETWORK: z.string().optional(),
 
-  LOG_DRIVER: z.enum(["database", "loki"]).default("database"),
+  LOG_DRIVER: z.enum(["database", "loki"]).default("loki"),
   LOG_DRIVER_LOKI_PUSH: z
     .string()
     .nullable()
@@ -39,7 +39,11 @@ export const ConfigurationOptionsSchema = z.object({
     .string()
     .nullable()
     .default(null)
-    .describe("Example: http://localhost/loki/api/v1/query"),
+    .describe("Example: http://localhost/loki/api/v1/query_range"),
+  LOG_DRIVER_LOKI_QUERY_RANGE: z.coerce
+    .number()
+    .default(60 * 60 * 24)
+    .describe("The maximum duration we can fetch logs from the past."),
 });
 
 export type ConfigurationOptionsSchemaType = z.infer<

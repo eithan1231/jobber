@@ -25,6 +25,7 @@ services:
       RUNNER_CONTAINER_DOCKER_NETWORK: jobber_network-jobber-runner
     ports:
       - 3000:3000
+      - 3001:3001
     restart: "unless-stopped"
     networks:
       - network-jobber-internal

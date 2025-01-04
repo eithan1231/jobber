@@ -1,4 +1,5 @@
-import assert from "assert";
+import { getConfigOption } from "~/config.js";
+import { getUnixTimestamp } from "~/util.js";
 import {
   LogDriverBase,
   LogDriverBaseItem,
@@ -112,6 +113,10 @@ export class LogDriverLoki extends LogDriverBase {
 
     params.set("query", `{${parts.join(", ")}}`);
     params.set("limit", "128");
+    params.set(
+      "start",
+      `${getUnixTimestamp() - getConfigOption("LOG_DRIVER_LOKI_QUERY_RANGE")}`
+    );
 
     const response = await fetch(
       `${this.options.queryUrl}?${params.toString()}`,
