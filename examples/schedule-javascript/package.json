@@ -1,0 +1,37 @@
+{
+  "name": "schedule-javascript",
+  "version": "0.0.1",
+  "description": "Jobber Example, Javascript Schedule",
+  "main": "./src/index.js",
+  "type": "module",
+  "action": {
+    "runnerAsynchronous": true,
+    "runnerMinCount": 0,
+    "runnerMaxCount": 1,
+    "runnerMaxAge": 300,
+    "runnerMaxAgeHard": 1200,
+    "runnerMode": "standard"
+  },
+  "triggers": [
+    {
+      "type": "schedule",
+      "cron": "* * * * * *",
+      "timezone": "Australia/Melbourne"
+    }
+  ],
+  "links": [
+    {
+      "name": "Google",
+      "url": "https://google.com"
+    }
+  ],
+  "scripts": {
+    "start": "node ./src/index.js"
+  },
+  "keywords": [],
+  "author": "Jobber",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.16.12"
+  }
+}
