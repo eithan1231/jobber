@@ -58,21 +58,21 @@ export class TriggerHttp {
 
       if (
         trigger.trigger.context.hostname &&
-        !trigger.trigger.context.hostname.includes(headerHost)
+        trigger.trigger.context.hostname !== headerHost
       ) {
         continue;
       }
 
       if (
         trigger.trigger.context.method &&
-        !trigger.trigger.context.method.includes(handleRequest.method)
+        trigger.trigger.context.method !== handleRequest.method
       ) {
         continue;
       }
 
       if (
         trigger.trigger.context.path &&
-        !trigger.trigger.context.path.includes(handleRequest.path)
+        trigger.trigger.context.path !== handleRequest.path
       ) {
         continue;
       }

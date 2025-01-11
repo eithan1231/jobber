@@ -108,9 +108,9 @@ const archivePackageJsonSchema = z.object({
       }),
       z.object({
         type: z.literal("http"),
-        hostname: z.array(z.string()).nullable().default(null),
-        method: z.array(z.string()).nullable().default(null),
-        path: z.array(z.string()).nullable().default(null),
+        hostname: z.string().nullable().default(null),
+        method: z.string().nullable().default(null),
+        path: z.string().nullable().default(null),
       }),
       z.object({
         type: z.literal("mqtt"),
