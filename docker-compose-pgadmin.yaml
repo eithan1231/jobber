@@ -3,7 +3,7 @@ services:
     image: dpage/pgadmin4
     restart: unless-stopped
     environment:
-      - PGADMIN_DEFAULT_EMAIL=eithantuit10@gmail.com
+      - PGADMIN_DEFAULT_EMAIL=localpart@example.com
       - PGADMIN_DEFAULT_PASSWORD=admin
     ports:
       - 4000:80

@@ -21,11 +21,11 @@ export const ConfigurationOptionsSchema = z.object({
 
   RUNNER_IMAGE_NODE22_URL: z
     .string()
-    .default("forgejo.eithan.me/eithan/runner-node-22:latest"),
+    .default("eithan1231/runner-node-22:latest"),
 
   RUNNER_IMAGE_NODE20_URL: z
     .string()
-    .default("forgejo.eithan.me/eithan/runner-node-20:latest"),
+    .default("eithan1231/runner-node-20:latest"),
 
   RUNNER_CONTAINER_DOCKER_NETWORK: z.string().optional(),
 
