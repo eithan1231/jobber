@@ -15,12 +15,8 @@
   "triggers": [
     {
       "type": "http",
-      "path": [
-        "/count"
-      ],
-      "method": [
-        "GET"
-      ]
+      "path": "/count",
+      "method": "GET"
     }
   ],
   "scripts": {

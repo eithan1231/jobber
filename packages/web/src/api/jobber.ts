@@ -58,9 +58,9 @@ export type JobberTrigger = {
       }
     | {
         type: "http";
-        path: string[] | null;
-        method: string[] | null;
-        hostname: string[] | null;
+        path: string | null;
+        method: string | null;
+        hostname: string | null;
       }
     | {
         type: "mqtt";

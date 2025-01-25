@@ -16,7 +16,7 @@ npm install
 npm run build
 
 # Archive essential files
-zip -rv archive.zip ./package.json ./src ./node_modules
+zip -rv archive.zip ./package.json ./dist ./src ./node_modules
 
 # Upload to Jobber
 curl \

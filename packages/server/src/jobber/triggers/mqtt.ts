@@ -12,6 +12,7 @@ import {
   EnvironmentsTableType,
 } from "~/db/schema/environments.js";
 import { connectAsync, IClientOptions, MqttClient } from "mqtt";
+import { counterTriggerMqtt } from "~/metrics.js";
 
 type TriggerMqttItem = {
   trigger: TriggersTableType;
@@ -264,6 +265,7 @@ export class TriggerMqtt {
 
       const handleResponse = await this.runnerManager.sendHandleRequest(
         triggerItem.action,
+        triggerItem.job,
         {
           type: "mqtt",
           topic,
@@ -272,9 +274,18 @@ export class TriggerMqtt {
         }
       );
 
+      counterTriggerMqtt
+        .labels({
+          job_id: triggerItem.job.id,
+          job_name: triggerItem.job.jobName,
+          version: triggerItem.trigger.version,
+          success: handleResponse.success ? 1 : 0,
+        })
+        .inc();
+
       if (!handleResponse.success) {
         console.log(
-          `[TriggerMqtt/onMqttMessage] Sending schedule handle event failed! ${handleResponse.error}`
+          `[TriggerMqtt/onMqttMessage] Sending MQTT handle event failed! ${handleResponse.error}`
         );
 
         return;

@@ -25,12 +25,14 @@ import { LogDriverBase } from "../log-drivers/abstract.js";
 import { StatusLifecycle } from "../types.js";
 import { HandleRequest, HandleResponse, RunnerServer } from "./server.js";
 import { Store } from "../store.js";
+import { counterRunnerRequests } from "~/metrics.js";
 
 type RunnerManagerItem = {
   status: "starting" | "ready" | "closing" | "closed";
 
   id: string;
   action: ActionsTableType;
+  job: JobsTableType;
   environment: EnvironmentsTableType | null;
 
   process: ChildProcessWithoutNullStreams;
@@ -135,6 +137,7 @@ export class RunnerManager {
 
   public async sendHandleRequest(
     action: ActionsTableType,
+    job: JobsTableType,
     handleRequest: HandleRequest
   ): Promise<HandleResponse> {
     const actionRunners = Object.values(this.runners).filter(
@@ -158,7 +161,7 @@ export class RunnerManager {
         };
       }
 
-      const runnerId = await this.createRunner(action, {
+      const runnerId = await this.createRunner(action, job, {
         dockerNamePrefix: "unknown",
       });
 
@@ -205,6 +208,16 @@ export class RunnerManager {
 
         await this.server.sendShutdownRequest(runner.id);
       }
+
+      counterRunnerRequests
+        .labels({
+          job_name: runner.job.jobName,
+          job_id: runner.job.id,
+          version: action.version,
+          trigger_type: handleRequest.type,
+          success: result.success ? 1 : 0,
+        })
+        .inc();
 
       return result;
     }
@@ -267,6 +280,16 @@ export class RunnerManager {
         runner.requestsProcessing--;
       }
 
+      counterRunnerRequests
+        .labels({
+          job_name: runner.job.jobName,
+          job_id: runner.job.id,
+          version: action.version,
+          trigger_type: handleRequest.type,
+          success: result.success ? 1 : 0,
+        })
+        .inc();
+
       return result;
     }
 
@@ -309,6 +332,7 @@ export class RunnerManager {
 
   private async createRunner(
     action: ActionsTableType,
+    job: JobsTableType,
     options?: {
       dockerNamePrefix?: string;
     }
@@ -434,6 +458,7 @@ export class RunnerManager {
 
     this.runners[id] = {
       action,
+      job,
       createdAt: getUnixTimestamp(),
       environment,
       id,
@@ -631,7 +656,7 @@ export class RunnerManager {
         );
 
         for (let i = 0; i < count; i++) {
-          const runnerId = await this.createRunner(action, {
+          const runnerId = await this.createRunner(action, job, {
             dockerNamePrefix: job.jobName,
           });
 

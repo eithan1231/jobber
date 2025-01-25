@@ -1,3 +1,5 @@
+name: jobber
+
 services:
   jobber-db:
     image: postgres
@@ -12,7 +14,7 @@ services:
       - network-jobber-internal
 
   jobber-server:
-    image: docker.io/library/jobber-server
+    image: eithan1231/jobber:latest
     container_name: "jobber-server"
     depends_on:
       - "jobber-db"
@@ -22,6 +24,11 @@ services:
     environment:
       DATABASE_URL: postgresql://pg-user:pg-pass@jobber-db/database
       DOCKER_HOST: unix:///var/run/docker.sock
+
+      # The Docker network that the jobber runners will attach to, this should
+      # be isolated form the jobber-db. The following is configured to access
+      # "network-jobber-runner" network, however docker-compose auto-prefixes
+      # the compose project name to all networks to avoid conflicts.
       RUNNER_CONTAINER_DOCKER_NETWORK: jobber_network-jobber-runner
     ports:
       - 3000:3000

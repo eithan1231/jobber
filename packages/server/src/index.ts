@@ -16,6 +16,8 @@ import { TriggerCron } from "./jobber/triggers/cron.js";
 import { TriggerHttp } from "./jobber/triggers/http.js";
 import { TriggerMqtt } from "./jobber/triggers/mqtt.js";
 
+import { Store } from "./jobber/store.js";
+import { createRouteGetMetrics } from "./routes/get-metrics.js";
 import { createRouteDeleteEnvironmentVariable } from "./routes/job/delete-environment-variable.js";
 import { createRouteDeleteJob } from "./routes/job/delete-job.js";
 import { createRouteGetActionRunners } from "./routes/job/get-action-runners.js";
@@ -30,7 +32,6 @@ import { createRouteGetTriggersLatest } from "./routes/job/get-triggers-latest.j
 import { createRouteGetTriggers } from "./routes/job/get-triggers.js";
 import { createRoutePostEnvironmentVariable } from "./routes/job/post-environment-variable.js";
 import { createRoutePostPublish } from "./routes/job/post-publish.js";
-import { Store } from "./jobber/store.js";
 
 async function createInternalHono(instances: {
   runnerManager: RunnerManager;
@@ -97,6 +98,7 @@ async function createInternalHono(instances: {
   app.route("/api/", await createRouteGetTriggersLatest());
   app.route("/api/", await createRoutePostEnvironmentVariable());
   app.route("/api/", await createRoutePostPublish());
+  app.route("/api/", await createRouteGetMetrics());
 
   app.get("/", async (c) => c.redirect("/jobber/"));
 

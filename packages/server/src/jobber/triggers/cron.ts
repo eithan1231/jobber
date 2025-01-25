@@ -8,6 +8,7 @@ import { triggersTable, TriggersTableType } from "~/db/schema/triggers.js";
 import { awaitTruthy, timeout } from "~/util.js";
 import { RunnerManager } from "../runners/manager.js";
 import { StatusLifecycle } from "../types.js";
+import { counterTriggerCron } from "~/metrics.js";
 
 type TriggerCronItem = {
   trigger: TriggersTableType;
@@ -165,10 +166,19 @@ export class TriggerCron {
       trigger.scheduledAt = trigger.cron.sendAt().toMillis();
 
       this.runnerManager
-        .sendHandleRequest(trigger.action, {
+        .sendHandleRequest(trigger.action, trigger.job, {
           type: "schedule",
         })
         .then((handleResponse) => {
+          counterTriggerCron
+            .labels({
+              job_id: trigger.job.id,
+              job_name: trigger.job.jobName,
+              version: trigger.trigger.version,
+              success: handleResponse.success ? 1 : 0,
+            })
+            .inc();
+
           if (!handleResponse.success) {
             console.log(
               `[TriggerCron/loopCheckTriggers] Sending schedule handle event failed! ${handleResponse.error}`

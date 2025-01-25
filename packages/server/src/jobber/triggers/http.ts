@@ -8,6 +8,7 @@ import { awaitTruthy, timeout } from "~/util.js";
 import { RunnerManager } from "../runners/manager.js";
 import { StatusLifecycle } from "../types.js";
 import { HandleRequestHttp } from "../runners/server.js";
+import { counterTriggerHttp } from "~/metrics.js";
 
 type TriggerHttpItem = {
   trigger: Omit<TriggersTableType, "context"> & {
@@ -77,10 +78,29 @@ export class TriggerHttp {
         continue;
       }
 
-      return await this.runnerManager.sendHandleRequest(
+      const result = await this.runnerManager.sendHandleRequest(
         trigger.action,
+        trigger.job,
         handleRequest
       );
+
+      if (result.success && result.http?.status) {
+        counterTriggerHttp
+          .labels({
+            host: trigger.trigger.context.hostname ?? undefined,
+            method: trigger.trigger.context.method ?? undefined,
+            path: trigger.trigger.context.path ?? undefined,
+
+            job_id: trigger.job.id,
+            job_name: trigger.job.jobName,
+            version: trigger.trigger.version,
+
+            status_code: result.http.status,
+          })
+          .inc();
+      }
+
+      return result;
     }
 
     return null;

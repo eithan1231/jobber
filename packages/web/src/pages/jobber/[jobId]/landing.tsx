@@ -187,7 +187,22 @@ const TriggersSectionComponent = ({
                 )}
 
                 {trigger.context.type === "http" && (
-                  <p className="text-sm">Type: HTTP</p>
+                  <div>
+                    <p className="text-sm">Type: HTTP</p>
+                    {trigger.context.path && (
+                      <p className="text-sm">Path: {trigger.context.path}</p>
+                    )}
+                    {trigger.context.method && (
+                      <p className="text-sm">
+                        Method: {trigger.context.method}
+                      </p>
+                    )}
+                    {trigger.context.hostname && (
+                      <p className="text-sm">
+                        Hostname: {trigger.context.hostname}
+                      </p>
+                    )}
+                  </div>
                 )}
 
                 {trigger.context.type === "mqtt" && (
