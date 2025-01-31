@@ -14,6 +14,8 @@ type TriggerHttpItem = {
   trigger: Omit<TriggersTableType, "context"> & {
     context: Extract<TriggersTableType["context"], { type: "http" }>;
   };
+  triggerPathRegex?: RegExp;
+  triggerPathString?: string;
   action: ActionsTableType;
   job: JobsTableType;
 };
@@ -72,8 +74,15 @@ export class TriggerHttp {
       }
 
       if (
-        trigger.trigger.context.path &&
-        trigger.trigger.context.path !== handleRequest.path
+        trigger.triggerPathRegex &&
+        !trigger.triggerPathRegex.test(handleRequest.path)
+      ) {
+        continue;
+      }
+
+      if (
+        trigger.triggerPathString &&
+        trigger.triggerPathString !== handleRequest.path
       ) {
         continue;
       }
@@ -164,10 +173,25 @@ export class TriggerHttp {
 
       assert(triggerSource.trigger.context.type === "http");
 
+      let triggerPathRegex: RegExp | undefined;
+      let triggerPathString: string | undefined;
+
+      if (triggerSource.trigger.context?.path) {
+        const pathString = triggerSource.trigger.context.path;
+
+        if (pathString.startsWith("^")) {
+          triggerPathRegex = new RegExp(pathString);
+        } else {
+          triggerPathString = pathString;
+        }
+      }
+
       this.triggers[triggerSource.trigger.id] = {
         trigger: structuredClone(
           triggerSource.trigger
         ) as TriggerHttpItem["trigger"],
+        triggerPathRegex,
+        triggerPathString,
         action: structuredClone(triggerSource.action),
         job: structuredClone(triggerSource.job),
       };
