@@ -143,7 +143,8 @@ export class TriggerHttp {
         .where(
           and(
             isNotNull(jobsTable.version),
-            sql`${triggersTable.context} ->> 'type' = 'http'`
+            sql`${triggersTable.context} ->> 'type' = 'http'`,
+            eq(jobsTable.status, "enabled")
           )
         );
 

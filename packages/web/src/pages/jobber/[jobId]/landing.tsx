@@ -266,9 +266,11 @@ const TriggersSectionComponent = ({
 };
 
 const RunnersSectionComponent = ({
+  job,
   runners,
   error,
 }: {
+  job: JobberJob;
   runners?: JobberRunner[];
   error?: string;
 }) => {
@@ -305,6 +307,11 @@ const RunnersSectionComponent = ({
             </tr>
           </thead>
           <tbody>
+            {job.status === "disabled" && (
+              <tr className="odd:bg-white even:bg-gray-100">
+                <td className={"px-4 py-2 text-red-500"}>Job is disabled</td>
+              </tr>
+            )}
             {runners.map((item) => (
               <tr key={item.id} className="odd:bg-white even:bg-gray-100">
                 <td
@@ -355,7 +362,7 @@ const Component = () => {
   const [environment, setEnvironment] = useState<JobberEnvironment>();
   const [environmentError, setEnvironmentError] = useState<string>();
 
-  useEffect(() => {
+  const updateJob = async () => {
     if (!params.jobId) {
       setJobError("parameter jobName not found");
 
@@ -372,6 +379,20 @@ const Component = () => {
       setJob(result.data);
     });
 
+    updateActions();
+
+    updateTriggers();
+
+    updateRunners();
+
+    updateEnvironment();
+  };
+
+  const updateActions = () => {
+    if (!params.jobId) {
+      return;
+    }
+
     getJobActionLatest(params.jobId).then((result) => {
       if (!result.success) {
         setActionError(
@@ -383,6 +404,12 @@ const Component = () => {
 
       setAction(result.data[0]);
     });
+  };
+
+  const updateTriggers = () => {
+    if (!params.jobId) {
+      return;
+    }
 
     getJobTriggersLatest(params.jobId).then((result) => {
       if (!result.success) {
@@ -395,6 +422,12 @@ const Component = () => {
 
       setTriggers(result.data);
     });
+  };
+
+  const updateRunners = () => {
+    if (!params.jobId) {
+      return;
+    }
 
     getJobRunners(params.jobId).then((result) => {
       if (!result.success) {
@@ -407,6 +440,12 @@ const Component = () => {
 
       setRunners(result.data);
     });
+  };
+
+  const updateEnvironment = () => {
+    if (!params.jobId) {
+      return;
+    }
 
     getJobEnvironment(params.jobId).then((result) => {
       if (!result.success) {
@@ -420,7 +459,21 @@ const Component = () => {
 
       setEnvironment(result.data);
     });
+  };
+
+  useEffect(() => {
+    updateJob();
   }, [params.jobId]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      updateRunners();
+    }, 1000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, []);
 
   return (
     <div>
@@ -428,7 +481,7 @@ const Component = () => {
 
       {job && (
         <>
-          <JobHeaderComponent job={job} />
+          <JobHeaderComponent job={job} jobUpdate={updateJob} />
 
           <ActionSectionComponent
             job={job}
@@ -441,7 +494,11 @@ const Component = () => {
             error={triggersError ?? environmentError}
             environment={environment}
           />
-          <RunnersSectionComponent runners={runners} error={runnersError} />
+          <RunnersSectionComponent
+            job={job}
+            runners={runners}
+            error={runnersError}
+          />
         </>
       )}
     </div>

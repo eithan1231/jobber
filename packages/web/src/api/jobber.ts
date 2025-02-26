@@ -12,6 +12,7 @@ export type JobberGenericResponse<T = undefined> =
 export type JobberJob = {
   id: string;
   jobName: string;
+  status: "enabled" | "disabled";
   description: string;
   version?: string;
   links: Array<{ name: string; url: string }>;
@@ -111,6 +112,21 @@ export const getJob = async (
   jobId: string
 ): Promise<JobberGenericResponse<JobberJob>> => {
   const result = await fetch(`/api/job/${jobId}`);
+
+  return await result.json();
+};
+
+export const putJob = async (
+  jobId: string,
+  body: Partial<Pick<JobberJob, "status" | "description">>
+): Promise<JobberGenericResponse<undefined>> => {
+  const result = await fetch(`/api/job/${jobId}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+    headers: {
+      "Content-Type": "text/json",
+    },
+  });
 
   return await result.json();
 };

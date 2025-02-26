@@ -17,6 +17,7 @@ export async function createRouteGetJob() {
           description: jobsTable.description,
           version: jobsTable.version,
           links: jobsTable.links,
+          status: jobsTable.status,
         })
         .from(jobsTable)
         .where(eq(jobsTable.id, jobId))

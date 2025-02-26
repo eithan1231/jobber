@@ -5,7 +5,7 @@ import { jobsTable } from "~/db/schema/jobs.js";
 export async function createRouteGetJobs() {
   const app = new Hono();
 
-  app.get("/job/", async (c, next) => {
+  app.get("/job/", async (c, _next) => {
     const jobs = await getDrizzle()
       .select({
         id: jobsTable.id,
@@ -13,6 +13,7 @@ export async function createRouteGetJobs() {
         description: jobsTable.description,
         version: jobsTable.version,
         links: jobsTable.links,
+        status: jobsTable.status,
       })
       .from(jobsTable);
 

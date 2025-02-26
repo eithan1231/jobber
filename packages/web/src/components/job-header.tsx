@@ -1,8 +1,34 @@
 import { Link } from "react-router-dom";
-import { JobberJob } from "../api/jobber";
+import { JobberJob, putJob } from "../api/jobber";
 import { JobDeleteConfirmButton } from "./job-delete-confirm";
 
-export const JobHeaderComponent = ({ job }: { job: JobberJob }) => {
+export const JobHeaderComponent = ({
+  job,
+  jobUpdate,
+}: {
+  job: JobberJob;
+  jobUpdate?: () => void;
+}) => {
+  const onDisable = () => {
+    putJob(job.id, {
+      status: "disabled",
+    }).then(() => {
+      if (jobUpdate) {
+        jobUpdate();
+      }
+    });
+  };
+
+  const onEnable = () => {
+    putJob(job.id, {
+      status: "enabled",
+    }).then(() => {
+      if (jobUpdate) {
+        jobUpdate();
+      }
+    });
+  };
+
   return (
     <div className="container mx-auto p-4 border-b border-gray-300 mb-3 mt-4">
       {/* Navigation to home */}
@@ -41,6 +67,18 @@ export const JobHeaderComponent = ({ job }: { job: JobberJob }) => {
               Version: <span className="font-medium">{job.version}</span>
             </p>
           )}
+
+          {job.status === "disabled" && (
+            <p className="text-sm text-gray-500 mt-1">
+              Status: <span className="font-medium text-red-400">Disabled</span>
+            </p>
+          )}
+
+          {job.status === "enabled" && (
+            <p className="text-sm text-gray-500 mt-1">
+              Status: <span className="font-medium">Enabled</span>
+            </p>
+          )}
         </div>
         <div className="mt-auto flex gap-4 pt-4 ">
           <Link
@@ -72,11 +110,25 @@ export const JobHeaderComponent = ({ job }: { job: JobberJob }) => {
             </Link>
           ))}
 
-          <JobDeleteConfirmButton
-            className="ml-auto"
-            job={job}
-            returnTo="/jobber/"
-          />
+          {job.status === "disabled" && (
+            <button
+              onClick={onEnable}
+              className={"text-green-600 hover:text-green-800 text-sm ml-auto"}
+            >
+              Enable
+            </button>
+          )}
+
+          {job.status === "enabled" && (
+            <button
+              onClick={onDisable}
+              className={"text-red-600 hover:text-red-800 text-sm ml-auto"}
+            >
+              Disable
+            </button>
+          )}
+
+          <JobDeleteConfirmButton job={job} returnTo="/jobber/" />
         </div>
       </div>
     </div>

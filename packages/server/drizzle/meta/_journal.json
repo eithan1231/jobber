@@ -50,6 +50,13 @@
       "when": 1736577890656,
       "tag": "0006_trigger-http-migration",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1740544071476,
+      "tag": "0007_silky_annihilus",
+      "breakpoints": true
     }
   ]
 }

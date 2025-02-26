@@ -1,0 +1,26 @@
+meta {
+  name: PUT Job -> (name)
+  type: http
+  seq: 14
+}
+
+put {
+  url: {{hostname}}/api/job/:jobId
+  body: json
+  auth: none
+}
+
+params:path {
+  jobId: {{get_jobs_first_id}}
+}
+
+body:json {
+  {
+    "status": "enabled"
+  }
+  
+}
+
+body:multipart-form {
+  archive: @file(test-v2.zip)
+}

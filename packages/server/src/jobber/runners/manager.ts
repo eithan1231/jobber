@@ -493,7 +493,9 @@ export class RunnerManager {
           )
         )
         .leftJoin(environmentsTable, eq(environmentsTable.jobId, jobsTable.id))
-        .where(isNotNull(jobsTable.version));
+        .where(
+          and(isNotNull(jobsTable.version), eq(jobsTable.status, "enabled"))
+        );
 
       await this.loopRunnerSpawner(currentActions);
       await this.loopCheckEnvironmentChanges(currentActions);

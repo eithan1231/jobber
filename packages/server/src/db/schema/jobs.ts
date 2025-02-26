@@ -6,6 +6,11 @@ export const jobsTable = pgTable("jobs", {
   description: text(),
   version: varchar({ length: 16 }),
 
+  status: varchar({
+    enum: ["enabled", "disabled"],
+    length: 16,
+  }).default("enabled"),
+
   links: jsonb()
     .$type<
       Array<{

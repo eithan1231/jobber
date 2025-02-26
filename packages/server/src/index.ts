@@ -32,6 +32,7 @@ import { createRouteGetTriggersLatest } from "./routes/job/get-triggers-latest.j
 import { createRouteGetTriggers } from "./routes/job/get-triggers.js";
 import { createRoutePostEnvironmentVariable } from "./routes/job/post-environment-variable.js";
 import { createRoutePostPublish } from "./routes/job/post-publish.js";
+import { createRoutePutJob } from "./routes/job/put-job.js";
 
 async function createInternalHono(instances: {
   runnerManager: RunnerManager;
@@ -98,6 +99,7 @@ async function createInternalHono(instances: {
   app.route("/api/", await createRouteGetTriggersLatest());
   app.route("/api/", await createRoutePostEnvironmentVariable());
   app.route("/api/", await createRoutePostPublish());
+  app.route("/api/", await createRoutePutJob());
   app.route("/api/", await createRouteGetMetrics());
 
   app.get("/", async (c) => c.redirect("/jobber/"));

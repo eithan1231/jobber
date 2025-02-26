@@ -97,7 +97,8 @@ export class TriggerMqtt {
         .where(
           and(
             isNotNull(jobsTable.version),
-            sql`${triggersTable.context} ->> 'type' = 'mqtt'`
+            sql`${triggersTable.context} ->> 'type' = 'mqtt'`,
+            eq(jobsTable.status, "enabled")
           )
         );
 

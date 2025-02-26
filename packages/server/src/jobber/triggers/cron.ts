@@ -81,7 +81,8 @@ export class TriggerCron {
         .where(
           and(
             isNotNull(jobsTable.version),
-            sql`${triggersTable.context} ->> 'type' = 'schedule'`
+            sql`${triggersTable.context} ->> 'type' = 'schedule'`,
+            eq(jobsTable.status, "enabled")
           )
         );
 

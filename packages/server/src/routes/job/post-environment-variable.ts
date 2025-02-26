@@ -7,6 +7,7 @@ import {
   environmentsTable,
 } from "~/db/schema/environments.js";
 import { getUnixTimestamp } from "~/util.js";
+import { jobNameSchema } from "./schemas-common.js";
 
 export async function createRoutePostEnvironmentVariable() {
   const app = new Hono();
@@ -16,8 +17,6 @@ export async function createRoutePostEnvironmentVariable() {
     // support a safe way way to delete an jsonb property... to my knowledge.
     // You will need to write a raw SQL query, which is not on my bucket-list.
 
-    const nameSchema = z.string().min(1).max(128);
-
     const schema = z.object({
       type: z.enum(["secret", "text"]),
       value: z.string().max(512),
@@ -25,7 +24,7 @@ export async function createRoutePostEnvironmentVariable() {
 
     const jobId = c.req.param("jobId");
 
-    const name = await nameSchema.parseAsync(c.req.param("name"), {
+    const name = await jobNameSchema.parseAsync(c.req.param("name"), {
       path: ["request", "param"],
     });
 

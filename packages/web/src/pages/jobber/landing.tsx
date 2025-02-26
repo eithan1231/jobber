@@ -31,6 +31,9 @@ const Component = () => {
             <th className="border border-gray-300 px-4 py-2 text-left">
               Actions
             </th>
+            <th className="border border-gray-300 px-4 py-2 text-left">
+              Status
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -52,6 +55,14 @@ const Component = () => {
                 >
                   View Page
                 </Link>
+              </td>
+              <td className="border border-gray-300 px-4 py-2">
+                {item.status === "enabled" && (
+                  <span className="text-green-500">Enabled</span>
+                )}
+                {item.status === "disabled" && (
+                  <span className="text-red-500">Disabled</span>
+                )}
               </td>
             </tr>
           ))}
