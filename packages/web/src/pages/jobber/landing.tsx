@@ -175,7 +175,7 @@ const JobCard = ({ job }: { job: JobberJob }) => {
   const { triggers, triggersError } = useTriggersLatest(job.id);
   const { runners, runnersError } = useRunners(job.id);
 
-  const [hasError, setHasError] = useState(false);
+  const [hasError, _setHasError] = useState(false);
 
   // TODO: Check trigger decoupled status.
 
@@ -296,7 +296,7 @@ const Component = () => {
   useEffect(() => {
     getJobs().then((result) => {
       if (result.success) {
-        setJobs(result.data.sort((a, b) => (a.status === "enabled" ? -1 : 1)));
+        setJobs(result.data.sort((a) => (a.status === "enabled" ? -1 : 1)));
       }
     });
   }, [location]);
