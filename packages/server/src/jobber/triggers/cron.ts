@@ -9,6 +9,7 @@ import { awaitTruthy, timeout } from "~/util.js";
 import { RunnerManager } from "../runners/manager.js";
 import { StatusLifecycle } from "../types.js";
 import { counterTriggerCron } from "~/metrics.js";
+import { DecoupledStatus } from "../decoupled-status.js";
 
 type TriggerCronItem = {
   trigger: TriggersTableType;
@@ -21,14 +22,18 @@ type TriggerCronItem = {
 export class TriggerCron {
   private runnerManager: RunnerManager;
 
+  private decoupledStatus: DecoupledStatus;
+
   private triggers: Record<string, TriggerCronItem> = {};
 
   private isLoopRunning = false;
 
   private status: StatusLifecycle = "neutral";
 
-  constructor(runnerManager: RunnerManager) {
+  constructor(runnerManager: RunnerManager, decoupledStatus: DecoupledStatus) {
     this.runnerManager = runnerManager;
+
+    this.decoupledStatus = decoupledStatus;
   }
 
   public async start() {
@@ -125,6 +130,10 @@ export class TriggerCron {
         cron: cron,
         scheduledAt: cron.sendAt().toMillis(),
       };
+
+      this.decoupledStatus.setItem(`trigger-id-${triggerSource.trigger.id}`, {
+        message: "Cron trigger registered",
+      });
     }
   }
 
@@ -144,6 +153,8 @@ export class TriggerCron {
       }
 
       delete this.triggers[triggerId];
+
+      this.decoupledStatus.deleteItem(`trigger-id-${triggerId}`);
     }
   }
 

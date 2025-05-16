@@ -23,6 +23,7 @@ import { createRouteDeleteJob } from "./routes/job/delete-job.js";
 import { createRouteGetActionRunners } from "./routes/job/get-action-runners.js";
 import { createRouteGetActionsLatest } from "./routes/job/get-actions-latest.js";
 import { createRouteGetActions } from "./routes/job/get-actions.js";
+import { createRouteGetDecoupledStatus } from "./routes/job/get-decoupled-status.js";
 import { createRouteGetEnvironment } from "./routes/job/get-environment.js";
 import { createRouteGetJobRunners } from "./routes/job/get-job-runners.js";
 import { createRouteGetJob } from "./routes/job/get-job.js";
@@ -33,10 +34,12 @@ import { createRouteGetTriggers } from "./routes/job/get-triggers.js";
 import { createRoutePostEnvironmentVariable } from "./routes/job/post-environment-variable.js";
 import { createRoutePostPublish } from "./routes/job/post-publish.js";
 import { createRoutePutJob } from "./routes/job/put-job.js";
+import { DecoupledStatus } from "./jobber/decoupled-status.js";
 
 async function createInternalHono(instances: {
   runnerManager: RunnerManager;
   logger: LogDriverBase;
+  decoupledStatus: DecoupledStatus;
 }) {
   const app = new Hono();
 
@@ -87,6 +90,10 @@ async function createInternalHono(instances: {
   app.route(
     "/api/",
     await createRouteGetActionRunners(instances.runnerManager)
+  );
+  app.route(
+    "/api/",
+    await createRouteGetDecoupledStatus(instances.decoupledStatus)
   );
   app.route("/api/", await createRouteGetActions());
   app.route("/api/", await createRouteGetActionsLatest());
@@ -212,6 +219,11 @@ async function main() {
   await logger.start();
   console.log(`[main] done.`);
 
+  console.log(`[main] Initialising decoupled status...`);
+  const decoupledStatus = new DecoupledStatus();
+  await decoupledStatus.start();
+  console.log(`[main] done.`);
+
   console.log(`[main] Initialising store...`);
   const store = new Store();
   await store.start();
@@ -223,9 +235,9 @@ async function main() {
   console.log(`[main] done.`);
 
   console.log(`[main] Initialising triggers (Cron, MQTT, HTTP)...`);
-  const triggerCron = new TriggerCron(runnerManager);
-  const triggerMqtt = new TriggerMqtt(runnerManager);
-  const triggerHttp = new TriggerHttp(runnerManager);
+  const triggerCron = new TriggerCron(runnerManager, decoupledStatus);
+  const triggerMqtt = new TriggerMqtt(runnerManager, decoupledStatus);
+  const triggerHttp = new TriggerHttp(runnerManager, decoupledStatus);
 
   await Promise.all([
     triggerCron.start(),
@@ -235,7 +247,11 @@ async function main() {
   console.log(`[main] done.`);
 
   console.log(`[main] Initialising APIs (API Internal, API Gateway)...`);
-  const appInternal = await createInternalHono({ runnerManager, logger });
+  const appInternal = await createInternalHono({
+    runnerManager,
+    logger,
+    decoupledStatus,
+  });
   const appGateway = await createGatewayHono(triggerHttp);
 
   const serverInternal = serve({

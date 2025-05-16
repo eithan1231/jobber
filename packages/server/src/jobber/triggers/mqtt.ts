@@ -13,6 +13,7 @@ import {
 } from "~/db/schema/environments.js";
 import { connectAsync, IClientOptions, MqttClient } from "mqtt";
 import { counterTriggerMqtt } from "~/metrics.js";
+import { DecoupledStatus } from "../decoupled-status.js";
 
 type TriggerMqttItem = {
   trigger: TriggersTableType;
@@ -32,14 +33,18 @@ type TriggerMqttItem = {
 export class TriggerMqtt {
   private runnerManager: RunnerManager;
 
+  private decoupledStatus: DecoupledStatus;
+
   private triggers: Record<string, TriggerMqttItem> = {};
 
   private isLoopRunning = false;
 
   private status: StatusLifecycle = "neutral";
 
-  constructor(runnerManager: RunnerManager) {
+  constructor(runnerManager: RunnerManager, decoupledStatus: DecoupledStatus) {
     this.runnerManager = runnerManager;
+
+    this.decoupledStatus = decoupledStatus;
   }
 
   public async start() {
@@ -157,7 +162,7 @@ export class TriggerMqtt {
 
   /**
    * Validates triggers and their connection hash, if connection hash has
-   * changed, it will end tje client.
+   * changed, it will end the client.
    */
   private async loopCheckConnection(
     triggersSource: {
@@ -184,13 +189,26 @@ export class TriggerMqtt {
           continue;
         }
 
-        if (config.configHash === trigger.clientConfigHash) {
+        if (
+          config.configHash === trigger.clientConfigHash &&
+          trigger.client.connected
+        ) {
+          this.decoupledStatus.setItem(`trigger-id-${trigger.trigger.id}`, {
+            message: `Connected`,
+          });
+
           continue;
         }
+
+        this.decoupledStatus.setItem(`trigger-id-${trigger.trigger.id}`, {
+          message: `Disconnecting...`,
+        });
 
         await trigger.client.endAsync();
 
         delete this.triggers[trigger.trigger.id];
+
+        this.decoupledStatus.deleteItem(`trigger-id-${trigger.trigger.id}`);
       } catch (err) {
         console.error(err);
       }
@@ -216,6 +234,10 @@ export class TriggerMqtt {
 
         assert(triggerSource.trigger.context.type === "mqtt");
 
+        this.decoupledStatus.setItem(`trigger-id-${triggerSource.trigger.id}`, {
+          message: `Connecting...`,
+        });
+
         const config = this.buildMqttConfig(
           triggerSource.trigger,
           triggerSource.environment
@@ -225,6 +247,14 @@ export class TriggerMqtt {
           console.warn(
             `[TriggerMqtt/loopCheckNewTriggers] Failed to build MQTT config! Errors...`,
             config.errors
+          );
+
+          this.decoupledStatus.setItem(
+            `trigger-id-${triggerSource.trigger.id}`,
+            {
+              message: `Configuration error: ${config.errorsSimple.join(", ")}`,
+              level: "error",
+            }
           );
 
           continue;
@@ -246,8 +276,34 @@ export class TriggerMqtt {
           client: client,
           clientConfigHash: config.configHash,
         };
+
+        this.decoupledStatus.setItem(`trigger-id-${triggerSource.trigger.id}`, {
+          message: `Connected`,
+        });
       } catch (err) {
         console.error(err);
+
+        if (err instanceof Error) {
+          const code = (err as { code?: string }).code ?? null;
+
+          let message = "Connection error, see logs";
+
+          if (code === "ECONNREFUSED") {
+            message = `Connection refused, ECONNREFUSED.`;
+          } else if (code === "ENOTFOUND") {
+            message = `Connection error, see logs. ENOTFOUND.`;
+          } else if (code === "EAI_AGAIN") {
+            message = `Connection error, see logs. EAI_AGAIN.`;
+          }
+
+          this.decoupledStatus.setItem(
+            `trigger-id-${triggerSource.trigger.id}`,
+            {
+              message,
+              level: "error",
+            }
+          );
+        }
       }
     }
   }
@@ -322,6 +378,7 @@ export class TriggerMqtt {
     const result: IClientOptions = {};
 
     const errors: string[] = [];
+    const errorsSimple: string[] = [];
 
     if (trigger.context.connection.clientId) {
       result.clientId = trigger.context.connection.clientId;
@@ -332,6 +389,10 @@ export class TriggerMqtt {
       } else {
         errors.push(
           `MQTT Config Building: clientId from  environment failure, ${trigger.context.connection.clientIdVariable} missing`
+        );
+
+        errorsSimple.push(
+          `${trigger.context.connection.clientIdVariable} missing`
         );
       }
     }
@@ -345,6 +406,8 @@ export class TriggerMqtt {
         errors.push(
           `MQTT Config Building: host from  environment failure, ${trigger.context.connection.hostVariable} missing`
         );
+
+        errorsSimple.push(`${trigger.context.connection.hostVariable} missing`);
       }
     }
 
@@ -357,6 +420,10 @@ export class TriggerMqtt {
       } else {
         errors.push(
           `MQTT Config Building: password from  environment failure, ${trigger.context.connection.passwordVariable} missing`
+        );
+
+        errorsSimple.push(
+          `${trigger.context.connection.passwordVariable} missing`
         );
       }
     }
@@ -372,12 +439,18 @@ export class TriggerMqtt {
         errors.push(
           `MQTT Config Building: port from  environment failure, ${trigger.context.connection.portVariable} missing`
         );
+
+        errorsSimple.push(`${trigger.context.connection.portVariable} missing`);
       }
     }
 
     if (Number.isNaN(result.port)) {
       errors.push(
         `MQTT Config Building: port from  environment failure, ${trigger.context.connection.portVariable} expected valid number`
+      );
+
+      errorsSimple.push(
+        `${trigger.context.connection.portVariable} expected valid number`
       );
     }
 
@@ -390,6 +463,10 @@ export class TriggerMqtt {
       } else {
         errors.push(
           `MQTT Config Building: protocol from  environment failure, ${trigger.context.connection.protocolVariable} missing`
+        );
+
+        errorsSimple.push(
+          `${trigger.context.connection.protocolVariable} missing`
         );
       }
     }
@@ -404,6 +481,10 @@ export class TriggerMqtt {
         errors.push(
           `MQTT Config Building: username from  environment failure, ${trigger.context.connection.usernameVariable} missing`
         );
+
+        errorsSimple.push(
+          `${trigger.context.connection.usernameVariable} missing`
+        );
       }
     }
 
@@ -411,6 +492,7 @@ export class TriggerMqtt {
       return {
         success: false,
         errors,
+        errorsSimple,
       } as const;
     }
 

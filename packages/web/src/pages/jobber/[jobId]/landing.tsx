@@ -13,6 +13,7 @@ import {
 import { useEffect, useState } from "react";
 import { Link, RouteObject, useParams } from "react-router-dom";
 import { JobHeaderComponent } from "../../../components/job-header.js";
+import { useDecoupledStatus } from "../../../hooks/decoupled-status.js";
 
 const ActionSectionComponent = ({
   job,
@@ -87,6 +88,32 @@ const ActionSectionComponent = ({
       </div>
     </div>
   );
+};
+
+const TriggersSectionStatusComponent = ({
+  triggerId,
+}: {
+  triggerId: string;
+}) => {
+  const { level, message } = useDecoupledStatus(`trigger-id-${triggerId}`);
+
+  if (level === null || message === null) {
+    return <span>Unknown</span>;
+  }
+
+  if (level === "error") {
+    return <span className="text-red-500">{message}</span>;
+  }
+
+  if (level === "warn") {
+    return <span className="text-yellow-500">{message}</span>;
+  }
+
+  if (level === "info") {
+    return <span>{message}</span>;
+  }
+
+  return null;
 };
 
 const TriggersSectionComponent = ({
@@ -168,6 +195,10 @@ const TriggersSectionComponent = ({
               className="border rounded shadow-md p-4 bg-white flex flex-col"
             >
               <h2 className="text-xl font-semibold mb-2">{job?.jobName}</h2>
+              <p className="text-sm text-gray-600">
+                Status:{" "}
+                <TriggersSectionStatusComponent triggerId={trigger.id} />
+              </p>
               <p className="text-sm text-gray-600">
                 Version: {trigger.version}
               </p>

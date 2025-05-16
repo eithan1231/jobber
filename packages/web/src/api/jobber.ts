@@ -100,6 +100,14 @@ export type JobberRunner = {
   closedAt?: number;
 };
 
+export type JobberDecoupledStatus = {
+  level: "info" | "warn" | "error";
+  message: string;
+  created: number;
+  updated: number;
+  ttl?: number;
+};
+
 export const getJobs = async (): Promise<
   JobberGenericResponse<JobberJob[]>
 > => {
@@ -191,6 +199,14 @@ export const getJobActionLatest = async (
   jobId: string
 ): Promise<JobberGenericResponse<JobberAction[]>> => {
   const result = await fetch(`/api/job/${jobId}/actions:latest`);
+
+  return await result.json();
+};
+
+export const getDecoupledStatus = async (
+  key: string
+): Promise<JobberGenericResponse<JobberDecoupledStatus>> => {
+  const result = await fetch(`/api/decoupled-status/${key}`);
 
   return await result.json();
 };

@@ -9,6 +9,7 @@ import { RunnerManager } from "../runners/manager.js";
 import { StatusLifecycle } from "../types.js";
 import { HandleRequestHttp } from "../runners/server.js";
 import { counterTriggerHttp } from "~/metrics.js";
+import { DecoupledStatus } from "../decoupled-status.js";
 
 type TriggerHttpItem = {
   trigger: Omit<TriggersTableType, "context"> & {
@@ -23,14 +24,18 @@ type TriggerHttpItem = {
 export class TriggerHttp {
   private runnerManager: RunnerManager;
 
+  private decoupledStatus: DecoupledStatus;
+
   private triggers: Record<string, TriggerHttpItem> = {};
 
   private isLoopRunning = false;
 
   private status: StatusLifecycle = "neutral";
 
-  constructor(runnerManager: RunnerManager) {
+  constructor(runnerManager: RunnerManager, decoupledStatus: DecoupledStatus) {
     this.runnerManager = runnerManager;
+
+    this.decoupledStatus = decoupledStatus;
   }
 
   public async start() {
@@ -196,6 +201,10 @@ export class TriggerHttp {
         action: structuredClone(triggerSource.action),
         job: structuredClone(triggerSource.job),
       };
+
+      this.decoupledStatus.setItem(`trigger-id-${triggerSource.trigger.id}`, {
+        message: "HTTP trigger registered",
+      });
     }
   }
 
@@ -215,6 +224,8 @@ export class TriggerHttp {
       }
 
       delete this.triggers[triggerId];
+
+      this.decoupledStatus.deleteItem(`trigger-id-${triggerId}`);
     }
   }
 }
