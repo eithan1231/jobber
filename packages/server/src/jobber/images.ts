@@ -26,7 +26,7 @@ const images: Array<ImagesEntry> = [
     name: "node20",
     status: "active",
     runtime: "node",
-    version: "v22",
+    version: "v20",
     imageUrl: getConfigOption("RUNNER_IMAGE_NODE20_URL"),
   },
   {
