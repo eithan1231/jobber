@@ -4,6 +4,7 @@ import { getJobRunners, JobberRunner } from "../api/jobber";
 export const useRunners = (jobId: string) => {
   const [runners, setRunners] = useState<JobberRunner[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [reloadFlag, setReloadFlag] = useState(0);
 
   const handleUpdate = () => {
     getJobRunners(jobId).then((res) => {
@@ -19,9 +20,13 @@ export const useRunners = (jobId: string) => {
     });
   };
 
+  const reload = () => {
+    setReloadFlag((prev) => prev + 1);
+  };
+
   useEffect(() => {
     handleUpdate();
-  }, [jobId]);
+  }, [jobId, reloadFlag]);
 
-  return { runners, runnersError: error };
+  return { runners, runnersError: error, reloadRunners: reload };
 };

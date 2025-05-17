@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
-import { getJobTriggersLatest, JobberTrigger } from "../api/jobber";
+import { getJobTriggers, JobberTrigger } from "../api/jobber";
 
-export const useTriggersLatest = (jobId: string) => {
+export const useTriggers = (jobId: string) => {
   const [triggers, setTriggers] = useState<JobberTrigger[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [reloadFlag, setReloadFlag] = useState(0);
 
   const handleUpdate = () => {
-    getJobTriggersLatest(jobId).then((res) => {
+    getJobTriggers(jobId).then((res) => {
       if (!res.success) {
-        setError("Failed to fetch latest triggers");
+        setError("Failed to fetch triggers");
 
-        console.error("Failed to fetch latest triggers", res.message);
+        console.error("Failed to fetch triggers", res.message);
 
         return;
       }
@@ -28,5 +28,5 @@ export const useTriggersLatest = (jobId: string) => {
     handleUpdate();
   }, [jobId, reloadFlag]);
 
-  return { triggers, triggersError: error, reloadTriggersLatest: reload };
+  return { triggers, triggersError: error, reloadTriggers: reload };
 };

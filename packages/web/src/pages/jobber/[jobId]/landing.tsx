@@ -1,19 +1,19 @@
 import {
-  getJob,
-  getJobActionLatest,
-  getJobEnvironment,
-  getJobRunners,
-  getJobTriggersLatest,
   JobberAction,
   JobberEnvironment,
   JobberJob,
   JobberRunner,
   JobberTrigger,
 } from "../../../api/jobber.js";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Link, RouteObject, useParams } from "react-router-dom";
 import { JobHeaderComponent } from "../../../components/job-header.js";
 import { useDecoupledStatus } from "../../../hooks/decoupled-status.js";
+import { useJob } from "../../../hooks/job.js";
+import { useActionLatest } from "../../../hooks/action-latest.js";
+import { useRunners } from "../../../hooks/runners.js";
+import { useEnvironment } from "../../../hooks/environment.js";
+import { useTriggersLatest } from "../../../hooks/triggers-latest.js";
 
 const ActionSectionComponent = ({
   job,
@@ -378,133 +378,45 @@ const RunnersSectionComponent = ({
 const Component = () => {
   const params = useParams();
 
-  const [jobError, setJobError] = useState<string>();
-  const [job, setJob] = useState<JobberJob>();
+  const jobId = params.jobId;
 
-  const [actionError, setActionError] = useState<string>();
-  const [action, setAction] = useState<JobberAction>();
+  if (!jobId) {
+    return <div>Job ID is required</div>;
+  }
 
-  const [triggers, setTriggers] = useState<JobberTrigger[]>();
-  const [triggersError, setTriggersError] = useState<string>();
+  const { job, jobError, reloadJob } = useJob(jobId);
 
-  const [runners, setRunners] = useState<JobberRunner[]>();
-  const [runnersError, setRunnersError] = useState<string>();
+  const { action, actionError, reloadActionLatest } = useActionLatest(jobId);
 
-  const [environment, setEnvironment] = useState<JobberEnvironment>();
-  const [environmentError, setEnvironmentError] = useState<string>();
+  const { triggers, triggersError, reloadTriggersLatest } =
+    useTriggersLatest(jobId);
+
+  const { runners, runnersError, reloadRunners } = useRunners(jobId);
+
+  const { environment, environmentError, reloadEnvironment } =
+    useEnvironment(jobId);
 
   const updateJob = async () => {
-    if (!params.jobId) {
-      setJobError("parameter jobName not found");
-
-      return;
-    }
-
-    getJob(params.jobId).then((result) => {
-      if (!result.success) {
-        setJobError(result.message ?? "Failed to get job due to unknown error");
-
-        return;
-      }
-
-      setJob(result.data);
-    });
-
-    updateActions();
-
-    updateTriggers();
-
-    updateRunners();
-
-    updateEnvironment();
-  };
-
-  const updateActions = () => {
-    if (!params.jobId) {
-      return;
-    }
-
-    getJobActionLatest(params.jobId).then((result) => {
-      if (!result.success) {
-        setActionError(
-          result.message ?? "Failed to get action due to unknown error"
-        );
-
-        return;
-      }
-
-      setAction(result.data[0]);
-    });
-  };
-
-  const updateTriggers = () => {
-    if (!params.jobId) {
-      return;
-    }
-
-    getJobTriggersLatest(params.jobId).then((result) => {
-      if (!result.success) {
-        setTriggersError(
-          result.message ?? "Failed to get triggers due to unknown error"
-        );
-
-        return;
-      }
-
-      setTriggers(result.data);
-    });
-  };
-
-  const updateRunners = () => {
-    if (!params.jobId) {
-      return;
-    }
-
-    getJobRunners(params.jobId).then((result) => {
-      if (!result.success) {
-        setRunnersError(
-          result.message ?? "Failed to get triggers due to unknown error"
-        );
-
-        return;
-      }
-
-      setRunners(result.data);
-    });
-  };
-
-  const updateEnvironment = () => {
-    if (!params.jobId) {
-      return;
-    }
-
-    getJobEnvironment(params.jobId).then((result) => {
-      if (!result.success) {
-        setEnvironmentError(
-          result.message ??
-            "Failed to get environment variables due to unknown error"
-        );
-
-        return;
-      }
-
-      setEnvironment(result.data);
-    });
+    await Promise.all([
+      reloadJob(),
+      reloadActionLatest(),
+      reloadTriggersLatest(),
+      reloadRunners(),
+      reloadEnvironment(),
+    ]);
   };
 
   useEffect(() => {
     updateJob();
-  }, [params.jobId]);
 
-  useEffect(() => {
     const interval = setInterval(() => {
-      updateRunners();
+      updateJob();
     }, 1000);
 
     return () => {
       clearInterval(interval);
     };
-  }, []);
+  }, [params.jobId]);
 
   return (
     <div>
@@ -516,19 +428,19 @@ const Component = () => {
 
           <ActionSectionComponent
             job={job}
-            action={action}
-            error={actionError}
+            action={action ?? undefined}
+            error={actionError ?? undefined}
           />
           <TriggersSectionComponent
             job={job}
             triggers={triggers}
-            error={triggersError ?? environmentError}
-            environment={environment}
+            error={triggersError ?? environmentError ?? undefined}
+            environment={environment ?? undefined}
           />
           <RunnersSectionComponent
             job={job}
             runners={runners}
-            error={runnersError}
+            error={runnersError ?? undefined}
           />
         </>
       )}
@@ -538,5 +450,5 @@ const Component = () => {
 
 export const pagesJobberJobRoute: RouteObject = {
   path: "/jobber/:jobId/",
-  Component: Component,
+  Component,
 };

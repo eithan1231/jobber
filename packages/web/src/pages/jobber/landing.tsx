@@ -1,14 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, RouteObject, useLocation } from "react-router-dom";
-import {
-  getJobs,
-  JobberJob,
-  JobberRunner,
-  JobberTrigger,
-} from "../../api/jobber.js";
+import { JobberJob, JobberRunner, JobberTrigger } from "../../api/jobber.js";
 import { useTriggersLatest } from "../../hooks/triggers-latest.js";
 import { useDecoupledStatus } from "../../hooks/decoupled-status.js";
 import { useRunners } from "../../hooks/runners.js";
+import { useJobs } from "../../hooks/jobs.js";
 
 export const TriggerDetails = ({ trigger }: { trigger: JobberTrigger }) => {
   const { context } = trigger;
@@ -290,22 +286,28 @@ const JobCard = ({ job }: { job: JobberJob }) => {
 };
 
 const Component = () => {
-  const [jobs, setJobs] = useState<JobberJob[]>([]);
+  const { jobs, reloadJobs } = useJobs();
+  const [jobsSorted, setJobsSorted] = useState<JobberJob[]>([]);
   const location = useLocation();
 
+  // Sort jobs by status, enabled first
   useEffect(() => {
-    getJobs().then((result) => {
-      if (result.success) {
-        setJobs(result.data.sort((a) => (a.status === "enabled" ? -1 : 1)));
-      }
-    });
+    if (!jobs) {
+      return;
+    }
+    setJobsSorted(jobs?.sort((a) => (a.status === "enabled" ? -1 : 1)) || []);
+  }, [jobs]);
+
+  // Reload jobs when location changes
+  useEffect(() => {
+    reloadJobs();
   }, [location]);
 
   return (
     <div className="container mx-auto my-8 p-4">
       <h1 className="text-2xl font-bold mb-6">Jobber Jobs</h1>
       <div className="space-y-4">
-        {jobs.map((job) => (
+        {jobsSorted.map((job) => (
           <JobCard key={job.id} job={job} />
         ))}
       </div>

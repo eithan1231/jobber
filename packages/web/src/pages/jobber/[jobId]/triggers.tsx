@@ -1,54 +1,32 @@
-import {
-  getJob,
-  getJobEnvironment,
-  getJobTriggers,
-  JobberEnvironment,
-  JobberJob,
-  JobberTrigger,
-} from "../../../api/jobber.js";
 import { useEffect, useState } from "react";
 import { RouteObject, useParams } from "react-router-dom";
 import { JobHeaderComponent } from "../../../components/job-header.js";
+import { useJob } from "../../../hooks/job.js";
+import { useTriggers } from "../../../hooks/triggers.js";
+import { useEnvironment } from "../../../hooks/environment.js";
 
 const Component = () => {
   const params = useParams();
 
-  const [job, setJob] = useState<JobberJob>();
+  if (!params.jobId) {
+    return "Job not found";
+  }
+
+  const { job } = useJob(params.jobId);
+  const { triggers } = useTriggers(params.jobId);
+  const { environment } = useEnvironment(params.jobId);
+
   const [triggerVersions, setTriggerVersions] = useState<string[]>([]);
-  const [triggers, setTriggers] = useState<JobberTrigger[]>([]);
-  const [environment, setEnvironment] = useState<JobberEnvironment>();
 
   useEffect(() => {
-    if (!params.jobId) {
-      return;
+    const versions: string[] = [];
+    for (const trigger of triggers) {
+      if (!versions.includes(trigger.version)) {
+        versions.push(trigger.version);
+      }
     }
-
-    getJob(params.jobId).then((result) => {
-      if (result.success) {
-        setJob(result.data);
-      }
-    });
-
-    getJobTriggers(params.jobId).then((result) => {
-      if (result.success) {
-        setTriggers(result.data);
-
-        const versions: string[] = [];
-        for (const trigger of result.data) {
-          if (!versions.includes(trigger.version)) {
-            versions.push(trigger.version);
-          }
-        }
-        setTriggerVersions(versions);
-      }
-    });
-
-    getJobEnvironment(params.jobId).then((result) => {
-      if (result.success) {
-        setEnvironment(result.data);
-      }
-    });
-  }, [params.jobId]);
+    setTriggerVersions(versions.sort((a, b) => b.localeCompare(a)));
+  }, [triggers]);
 
   const EnvironmentParameter = (params: {
     displayName: string;

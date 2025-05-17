@@ -1,43 +1,17 @@
-import {
-  getJob,
-  getJobLogs,
-  JobberJob,
-  JobberLogLine,
-} from "../../../api/jobber.js";
-import { useEffect, useState } from "react";
 import { RouteObject, useParams } from "react-router-dom";
 import { JobHeaderComponent } from "../../../components/job-header.js";
+import { useJob } from "../../../hooks/job.js";
+import { useLogs } from "../../../hooks/logs.js";
 
 const Component = () => {
   const params = useParams();
 
-  const [status, setStatus] = useState<"loading" | "loaded" | "error">();
-  const [logs, setLogs] = useState<JobberLogLine[]>();
-  const [job, setJob] = useState<JobberJob>();
+  if (!params.jobId) {
+    return "Job not found";
+  }
 
-  useEffect(() => {
-    if (!params.jobId) {
-      return;
-    }
-
-    getJob(params.jobId).then((result) => {
-      if (result.success) {
-        setJob(result.data);
-      }
-    });
-
-    setStatus("loading");
-
-    getJobLogs(params.jobId).then((result) => {
-      if (result.success) {
-        setStatus("loaded");
-
-        setLogs(result.data);
-      } else {
-        setStatus("error");
-      }
-    });
-  }, [params.jobId]);
+  const { job } = useJob(params.jobId);
+  const { logs, logsError } = useLogs(params.jobId);
 
   if (!job) {
     return "Please wait, loading..";
@@ -61,16 +35,11 @@ const Component = () => {
               </tr>
             </thead>
             <tbody>
-              {status === "loading" && (
-                <td className="text-sm text-gray-600">Loading...</td>
+              {logsError && (
+                <td className="text-sm text-gray-600">Uh oh! {logsError}.</td>
               )}
 
-              {status === "error" && (
-                <td className="text-sm text-gray-600">Uh oh! Error...</td>
-              )}
-
-              {status === "loaded" &&
-                logs &&
+              {logs &&
                 logs.map((log, index) => (
                   <tr
                     key={index}

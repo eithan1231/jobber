@@ -6,6 +6,7 @@ export const useDecoupledStatus = (keyName: string) => {
   const [level, setLevel] = useState<JobberDecoupledStatus["level"] | null>(
     null
   );
+  const [reloadFlag, setReloadFlag] = useState(0);
 
   const handleUpdate = () => {
     getDecoupledStatus(keyName).then((result) => {
@@ -18,6 +19,10 @@ export const useDecoupledStatus = (keyName: string) => {
     });
   };
 
+  const reload = () => {
+    setReloadFlag((prev) => prev + 1);
+  };
+
   useEffect(() => {
     const interval = setInterval(() => {
       handleUpdate();
@@ -26,7 +31,7 @@ export const useDecoupledStatus = (keyName: string) => {
     handleUpdate();
 
     return () => clearInterval(interval);
-  }, []);
+  }, [keyName, reloadFlag]);
 
-  return { message, level };
+  return { message, level, reloadDecoupledStatus: reload };
 };

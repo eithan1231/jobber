@@ -1,36 +1,13 @@
-import {
-  getJob,
-  getJobActions,
-  JobberAction,
-  JobberJob,
-} from "../../../api/jobber.js";
-import { useEffect, useState } from "react";
 import { RouteObject, useParams } from "react-router-dom";
 import { JobHeaderComponent } from "../../../components/job-header.js";
+import { useJob } from "../../../hooks/job.js";
+import { useActions } from "../../../hooks/actions.js";
 
 const Component = () => {
   const params = useParams();
 
-  const [job, setJob] = useState<JobberJob>();
-  const [actions, setActions] = useState<JobberAction[]>([]);
-
-  useEffect(() => {
-    if (!params.jobId) {
-      return;
-    }
-
-    getJob(params.jobId).then((result) => {
-      if (result.success) {
-        setJob(result.data);
-      }
-    });
-
-    getJobActions(params.jobId).then((result) => {
-      if (result.success) {
-        setActions(result.data);
-      }
-    });
-  }, [params.jobId]);
+  const { job } = useJob(params.jobId ?? "");
+  const { actions } = useActions(params.jobId ?? "");
 
   if (!job) {
     return "Please wait, loading..";

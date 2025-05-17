@@ -1,52 +1,35 @@
 import {
   createJobEnvironmentVariable,
   deleteJobEnvironmentVariable,
-  getJob,
   getJobEnvironment,
-  JobberEnvironment,
-  JobberJob,
 } from "../../../api/jobber.js";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { RouteObject, useParams } from "react-router-dom";
 import { JobHeaderComponent } from "../../../components/job-header.js";
 import { FormEnvironmentVariableComponent } from "../../../components/form-environment-variable.js";
+import { useJob } from "../../../hooks/job.js";
+import { useEnvironment } from "../../../hooks/environment.js";
 
 const Component = () => {
   const params = useParams();
 
-  const [job, setJob] = useState<JobberJob>();
-  const [variables, setVariables] = useState<JobberEnvironment>();
+  if (!params.jobId) {
+    return "Job not found";
+  }
+
+  const { job } = useJob(params.jobId);
+  const { environment, reloadEnvironment } = useEnvironment(params.jobId);
 
   const [nameInternal, setNameInternal] = useState<string>("");
   const [valueInternal, setValueInternal] = useState<string>("");
   const [typeInternal, setTypeInternal] = useState<"text" | "secret">("text");
 
-  useEffect(() => {
-    if (!params.jobId) {
-      return;
-    }
-
-    getJob(params.jobId).then((result) => {
-      if (result.success) {
-        setJob(result.data);
-      }
-    });
-
-    getJobEnvironment(params.jobId).then((result) => {
-      if (result.success) {
-        setVariables(result.data);
-      }
-    });
-  }, [params.jobId]);
-
   const deleteVariable = async (name: string) => {
-    if (params.jobId) {
-      await deleteJobEnvironmentVariable(params.jobId, name);
+    await deleteJobEnvironmentVariable(params.jobId!, name);
 
-      const result = await getJobEnvironment(params.jobId);
-      if (result.success) {
-        setVariables(result.data);
-      }
+    const result = await getJobEnvironment(params.jobId!);
+    if (result.success) {
+      reloadEnvironment();
     }
   };
 
@@ -55,13 +38,11 @@ const Component = () => {
     type: "text" | "secret",
     value: string
   ) => {
-    if (params.jobId) {
-      await createJobEnvironmentVariable(params.jobId, name, value, type);
+    await createJobEnvironmentVariable(params.jobId!, name, value, type);
 
-      const result = await getJobEnvironment(params.jobId);
-      if (result.success) {
-        setVariables(result.data);
-      }
+    const result = await getJobEnvironment(params.jobId!);
+    if (result.success) {
+      reloadEnvironment();
     }
   };
 
@@ -83,8 +64,8 @@ const Component = () => {
           }}
         />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {variables &&
-            Object.entries(variables).map(([name, value]) => {
+          {environment &&
+            Object.entries(environment).map(([name, value]) => {
               return (
                 <div key={name} className="bg-white border rounded shadow p-4">
                   <div className="text-gray-700 font-medium">{name}</div>

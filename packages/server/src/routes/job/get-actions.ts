@@ -9,7 +9,7 @@ export async function createRouteGetActions() {
   app.get("/job/:jobId/actions", async (c, next) => {
     const jobId = c.req.param("jobId");
 
-    const triggers = await getDrizzle()
+    const actions = await getDrizzle()
       .select({
         id: actionsTable.id,
         jobId: actionsTable.jobId,
@@ -27,7 +27,7 @@ export async function createRouteGetActions() {
 
     return c.json({
       success: true,
-      data: triggers,
+      data: actions,
     });
   });
 
