@@ -13,7 +13,6 @@ export const storeTable = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom().notNull(),
     jobId: uuid()
-      .unique()
       .notNull()
       .references(() => jobsTable.id, { onDelete: "cascade" }),
 
