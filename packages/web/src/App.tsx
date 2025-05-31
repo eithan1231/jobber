@@ -6,6 +6,7 @@ import { pagesJobberJobLogsRoute } from "./pages/jobber/[jobId]/logs";
 import { pagesJobberJobEnvironmentRoute } from "./pages/jobber/[jobId]/environment";
 import { pagesJobberJobActionsRoute } from "./pages/jobber/[jobId]/actions";
 import { pagesJobberJobTriggersRoute } from "./pages/jobber/[jobId]/triggers";
+import { pagesJobberJobStoreRoute } from "./pages/jobber/[jobId]/store";
 
 const router = createBrowserRouter([
   pagesLandingRoute,
@@ -13,6 +14,7 @@ const router = createBrowserRouter([
   pagesJobberJobRoute,
   pagesJobberJobLogsRoute,
   pagesJobberJobEnvironmentRoute,
+  pagesJobberJobStoreRoute,
   pagesJobberJobActionsRoute,
   pagesJobberJobTriggersRoute,
 ]);

@@ -11,9 +11,9 @@ export const useEnvironment = (jobId: string) => {
   const handleUpdate = () => {
     getJobEnvironment(jobId).then((res) => {
       if (!res.success) {
-        setError("Failed to fetch actions");
+        setError("Failed to fetch environment");
 
-        console.error("Failed to fetch actions", res.message);
+        console.error("Failed to fetch environment", res.message);
 
         return;
       }

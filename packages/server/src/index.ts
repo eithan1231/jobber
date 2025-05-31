@@ -35,11 +35,14 @@ import { createRoutePostEnvironmentVariable } from "./routes/job/post-environmen
 import { createRoutePostPublish } from "./routes/job/post-publish.js";
 import { createRoutePutJob } from "./routes/job/put-job.js";
 import { DecoupledStatus } from "./jobber/decoupled-status.js";
+import { createRouteDeleteStore } from "./routes/job/delete-store.js";
+import { createRouteGetStore } from "./routes/job/get-store.js";
 
 async function createInternalHono(instances: {
   runnerManager: RunnerManager;
   logger: LogDriverBase;
   decoupledStatus: DecoupledStatus;
+  store: Store;
 }) {
   const app = new Hono();
 
@@ -87,6 +90,7 @@ async function createInternalHono(instances: {
 
   app.route("/api/", await createRouteDeleteEnvironmentVariable());
   app.route("/api/", await createRouteDeleteJob());
+  app.route("/api/", await createRouteDeleteStore(instances.store));
   app.route(
     "/api/",
     await createRouteGetActionRunners(instances.runnerManager)
@@ -102,6 +106,7 @@ async function createInternalHono(instances: {
   app.route("/api/", await createRouteGetJobRunners(instances.runnerManager));
   app.route("/api/", await createRouteGetJobs());
   app.route("/api/", await createRouteGetLogs(instances.logger));
+  app.route("/api/", await createRouteGetStore(instances.store));
   app.route("/api/", await createRouteGetTriggers());
   app.route("/api/", await createRouteGetTriggersLatest());
   app.route("/api/", await createRoutePostEnvironmentVariable());
@@ -251,6 +256,7 @@ async function main() {
     runnerManager,
     logger,
     decoupledStatus,
+    store,
   });
   const appGateway = await createGatewayHono(triggerHttp);
 

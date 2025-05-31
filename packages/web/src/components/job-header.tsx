@@ -99,6 +99,12 @@ export const JobHeaderComponent = ({
           >
             View Environment Variables
           </Link>
+          <Link
+            to={`/jobber/${job.id}/store`}
+            className="text-blue-600 hover:text-blue-800 text-sm"
+          >
+            View Store
+          </Link>
 
           {job.links.map((link, index) => (
             <Link

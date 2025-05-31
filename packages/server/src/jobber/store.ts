@@ -4,9 +4,10 @@ import { getDrizzle } from "~/db/index.js";
 import { storeTable } from "~/db/schema/store.js";
 import { awaitTruthy, getUnixTimestamp, timeout } from "~/util.js";
 import { StatusLifecycle } from "./types.js";
-import { jobsTable } from "~/db/schema/jobs.js";
 
 type StoreItem = {
+  id: string;
+  jobId: string;
   key: string;
   value: string;
   expiry: number | null;
@@ -41,6 +42,23 @@ export class Store {
     this.status = "neutral";
   }
 
+  public async getItems(jobId: string): Promise<StoreItem[]> {
+    const results = await getDrizzle()
+      .select()
+      .from(storeTable)
+      .where(eq(storeTable.jobId, jobId));
+
+    return results.map((result) => ({
+      id: result.id,
+      jobId: result.jobId,
+      key: result.storeKey,
+      value: result.storeValue,
+      created: result.created,
+      modified: result.modified,
+      expiry: result.expiry,
+    }));
+  }
+
   public async getItem(jobId: string, key: string): Promise<StoreItem | null> {
     const result = (
       await getDrizzle()
@@ -55,6 +73,35 @@ export class Store {
     }
 
     return {
+      id: result.id,
+      jobId: result.jobId,
+      key: result.storeKey,
+      value: result.storeValue,
+      created: result.created,
+      modified: result.modified,
+      expiry: result.expiry,
+    };
+  }
+
+  public async getItemById(
+    jobId: string,
+    id: string
+  ): Promise<StoreItem | null> {
+    const result = (
+      await getDrizzle()
+        .select()
+        .from(storeTable)
+        .where(and(eq(storeTable.jobId, jobId), eq(storeTable.id, id)))
+        .limit(1)
+    ).at(0);
+
+    if (!result) {
+      return null;
+    }
+
+    return {
+      id: result.id,
+      jobId: result.jobId,
       key: result.storeKey,
       value: result.storeValue,
       created: result.created,
@@ -100,6 +147,8 @@ export class Store {
     }
 
     return {
+      id: result.id,
+      jobId: result.jobId,
       key: result.storeKey,
       value: result.storeValue,
       created: result.created,
@@ -124,6 +173,34 @@ export class Store {
     }
 
     return {
+      id: result.id,
+      jobId: result.jobId,
+      key: result.storeKey,
+      value: result.storeValue,
+      created: result.created,
+      modified: result.modified,
+      expiry: result.expiry,
+    };
+  }
+
+  public async deleteItemById(
+    jobId: string,
+    id: string
+  ): Promise<StoreItem | null> {
+    const result = (
+      await getDrizzle()
+        .delete(storeTable)
+        .where(and(eq(storeTable.jobId, jobId), eq(storeTable.id, id)))
+        .returning()
+    ).at(0);
+
+    if (!result) {
+      return null;
+    }
+
+    return {
+      id: result.id,
+      jobId: result.jobId,
       key: result.storeKey,
       value: result.storeValue,
       created: result.created,

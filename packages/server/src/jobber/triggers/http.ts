@@ -174,6 +174,10 @@ export class TriggerHttp {
   ) {
     for (const triggerSource of triggersSource) {
       if (this.triggers[triggerSource.trigger.id]) {
+        this.decoupledStatus.setItem(`trigger-id-${triggerSource.trigger.id}`, {
+          message: "HTTP trigger registered",
+        });
+
         continue;
       }
 

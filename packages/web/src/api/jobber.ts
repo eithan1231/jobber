@@ -47,6 +47,16 @@ export type JobberAction = {
   runnerMode: "standard" | "run-once";
 };
 
+export type JobberStoreItem = {
+  id: string;
+  jobId: string;
+  key: string;
+  value: string;
+  expiry?: number;
+  modified: number;
+  created: number;
+};
+
 export type JobberTrigger = {
   id: string;
   jobId: string;
@@ -262,6 +272,23 @@ export const runJob = async (
   });
 
   return await result.text();
+};
+
+export const getJobStore = async (
+  jobId: string
+): Promise<JobberGenericResponse<JobberStoreItem[]>> => {
+  const result = await fetch(`/api/job/${jobId}/store/`);
+  return await result.json();
+};
+
+export const deleteJobStoreItem = async (
+  jobId: string,
+  storeId: string
+): Promise<JobberGenericResponse<JobberStoreItem>> => {
+  const result = await fetch(`/api/job/${jobId}/store/${storeId}`, {
+    method: "DELETE",
+  });
+  return await result.json();
 };
 
 export const postJobPublish = async () => {

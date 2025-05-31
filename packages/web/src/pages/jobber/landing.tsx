@@ -178,109 +178,130 @@ const JobCard = ({ job }: { job: JobberJob }) => {
   return (
     <div
       className={`
-        border border-gray-300 rounded-2xl shadow p-4 mb-4 bg-white transition-all
+        border border-gray-300 rounded-2xl shadow pt-4 mb-4 bg-white transition-all
         ${hasError ? "ring-2 ring-red-200" : ""}
       `}
     >
-      <div className="flex justify-between items-center">
-        <div className="flex items-center">
-          <div>
-            <h2 className="text-xl font-semibold">{job.jobName}</h2>
-            <p className="text-sm text-gray-600">{job.description}</p>
-          </div>
-          {hasError && (
-            <span
-              className="ml-2 inline-block w-2 h-2 bg-red-500 rounded-full"
-              title="Some details failed to load"
-            />
-          )}
-        </div>
-        <div className="flex items-center gap-4">
-          <span
-            className={`text-sm font-medium ${
-              job.status === "enabled" ? "text-green-600" : "text-red-600"
-            }`}
-          >
-            {job.status}
-          </span>
-          <button
+      <div className="pr-4 pl-6">
+        <div className="flex justify-between items-center">
+          <div
+            className="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
             onClick={() => setExpanded(!expanded)}
-            className="text-blue-500 hover:underline"
           >
-            {expanded ? "Collapse" : "Expand"}
-          </button>
-        </div>
-      </div>
-
-      {expanded && (
-        <div className="mt-4 space-y-3 text-sm text-gray-700">
-          {job.version && (
             <div>
-              <strong>Version:</strong> {job.version}
+              <h2 className="text-xl font-semibold">{job.jobName}</h2>
+              <p className="text-sm text-gray-600">{job.description}</p>
             </div>
-          )}
-
-          {job.links?.length > 0 && (
-            <div>
-              <strong>Links:</strong>
-              <ul className="list-disc ml-6">
-                {job.links.map((link, idx) => (
-                  <li key={idx}>
-                    <a
-                      href={link.url}
-                      className="text-blue-600 hover:underline"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {link.name}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <div>
-            {triggersError && (
-              <p className="text-red-600 text-sm">
-                Triggers Error: {triggersError}
-              </p>
-            )}
-            <div className="space-y-2 mt-2">
-              {triggers.map((trigger) => (
-                <div
-                  key={trigger.id}
-                  className="border p-2 rounded-md bg-gray-50"
-                >
-                  <TriggerDetails key={trigger.id} trigger={trigger} />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            {runnersError && (
-              <p className="text-red-500 text-sm">
-                Runners Error: {runnersError}
-              </p>
-            )}
-            {runners && (
-              <div className="space-y-2 mt-2">
-                <RunnerSummary runners={runners} />
-              </div>
+            {hasError && (
+              <span
+                className="ml-2 inline-block w-2 h-2 bg-red-500 rounded-full"
+                title="Some details failed to load"
+              />
             )}
           </div>
-
-          <div>
-            <Link
-              to={`${job.id}/`}
-              className="inline-block mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          <div className="flex items-center gap-4">
+            <span
+              className={`text-sm font-medium ${
+                job.status === "enabled" ? "text-green-600" : "text-red-600"
+              }`}
             >
-              View Page
+              {job.status}
+            </span>
+            <Link
+              to={`/jobber/${job.id}/`}
+              className="text-blue-500 hover:underline"
+            >
+              View Job
             </Link>
           </div>
         </div>
-      )}
+
+        {expanded && (
+          <div className="mt-4 space-y-3 text-sm text-gray-700">
+            {job.version && (
+              <div>
+                <strong>Version:</strong> {job.version}
+              </div>
+            )}
+
+            {job.links?.length > 0 && (
+              <div>
+                <strong>Links:</strong>
+                <ul className="list-disc ml-6">
+                  {job.links.map((link, idx) => (
+                    <li key={idx}>
+                      <a
+                        href={link.url}
+                        className="text-blue-600 hover:underline"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {link.name}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div>
+              {triggersError && (
+                <p className="text-red-600 text-sm">
+                  Triggers Error: {triggersError}
+                </p>
+              )}
+              <div className="space-y-2 mt-2">
+                {triggers.map((trigger) => (
+                  <div
+                    key={trigger.id}
+                    className="border p-2 rounded-md bg-gray-50"
+                  >
+                    <TriggerDetails key={trigger.id} trigger={trigger} />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              {runnersError && (
+                <p className="text-red-500 text-sm">
+                  Runners Error: {runnersError}
+                </p>
+              )}
+              {runners && (
+                <div className="space-y-2 mt-2">
+                  <RunnerSummary runners={runners} />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div
+        className="flex justify-center items-center mt-2 cursor-pointer hover:bg-gray-100 p-2 transition-colors border-t border-gray-300"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <span className="text-sm font-medium text-gray-600">
+          {expanded ? "Collapse" : "Expand"}
+        </span>
+        <svg
+          className={`w-4 h-4 ml-2 transition-transform ${
+            expanded ? "rotate-180" : ""
+          }`}
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+          />
+        </svg>
+      </div>
     </div>
   );
 };
