@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { createWriteStream } from "fs";
 import { cp } from "fs/promises";
 import { Hono } from "hono";
+import { setMetric, timing } from "hono/timing";
 import { ReadableStream } from "node:stream/web";
 import { getDrizzle } from "~/db/index.js";
 import { actionsTable } from "~/db/schema/actions.js";
@@ -10,13 +11,23 @@ import { jobsTable } from "~/db/schema/jobs.js";
 import { triggersTable } from "~/db/schema/triggers.js";
 import { classifyArchiveFile } from "~/jobber/images.js";
 import { getJobActionArchiveFile } from "~/paths.js";
-import { getTmpFile, handleReadableStreamPipe } from "~/util.js";
+import {
+  createBenchmark,
+  getTmpFile,
+  handleReadableStreamPipe,
+} from "~/util.js";
 
 export async function createRoutePostPublish() {
   const app = new Hono();
 
   app.post("/job/publish/", async (c, _next) => {
+    const benchmark = createBenchmark();
+
+    console.log(`[/publish/] ${benchmark()}ms - Starting job publish`);
+
     const body = await c.req.parseBody();
+
+    console.log(`[/publish/] ${benchmark()}ms - Parsed request body`);
 
     const archiveFile = body["archive"];
 
@@ -52,6 +63,8 @@ export async function createRoutePostPublish() {
       writeStream
     );
 
+    console.log(`[/publish/] ${benchmark()}ms - File streamed to disk`);
+
     const classification = await classifyArchiveFile(filename);
 
     if (!classification) {
@@ -63,6 +76,8 @@ export async function createRoutePostPublish() {
         400
       );
     }
+
+    console.log(`[/publish/] ${benchmark()}ms - File classified`);
 
     // TODO: Support for other runtimes.
     assert(classification.type === "node");
@@ -84,6 +99,8 @@ export async function createRoutePostPublish() {
         links: packageJson.links,
       });
     }
+
+    console.log(`[/publish/] ${benchmark()}ms - Queried job`);
 
     return await getDrizzle().transaction(async (tx) => {
       const job = (
@@ -113,6 +130,8 @@ export async function createRoutePostPublish() {
           message: "Creation failed",
         });
       }
+
+      console.log(`[/publish/] ${benchmark()}ms - Upserted job`);
 
       const existingActions = await tx
         .select()
@@ -225,6 +244,8 @@ export async function createRoutePostPublish() {
       if (actions.length === 1) {
         await cp(filename, getJobActionArchiveFile(actions[0]));
       }
+
+      console.log(`[/publish/] ${benchmark()}ms - Finished`);
 
       return c.json({
         success: true,
