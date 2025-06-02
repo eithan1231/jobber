@@ -57,6 +57,15 @@ export type JobberStoreItem = {
   created: number;
 };
 
+export type JobberStoreItemNoValue = {
+  id: string;
+  jobId: string;
+  key: string;
+  expiry?: number;
+  modified: number;
+  created: number;
+};
+
 export type JobberTrigger = {
   id: string;
   jobId: string;
@@ -276,8 +285,21 @@ export const runJob = async (
 
 export const getJobStore = async (
   jobId: string
-): Promise<JobberGenericResponse<JobberStoreItem[]>> => {
+): Promise<JobberGenericResponse<JobberStoreItemNoValue[]>> => {
   const result = await fetch(`/api/job/${jobId}/store/`);
+  return await result.json();
+};
+
+export const getJobStoreItem = async (
+  jobId: string,
+  storeId: string
+): Promise<JobberGenericResponse<JobberStoreItem>> => {
+  if (!storeId) {
+    throw new Error("Store ID is required to fetch a store item.");
+  }
+
+  const result = await fetch(`/api/job/${jobId}/store/${storeId}`);
+
   return await result.json();
 };
 
@@ -288,6 +310,7 @@ export const deleteJobStoreItem = async (
   const result = await fetch(`/api/job/${jobId}/store/${storeId}`, {
     method: "DELETE",
   });
+
   return await result.json();
 };
 

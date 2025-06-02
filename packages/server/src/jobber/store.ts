@@ -15,6 +15,8 @@ type StoreItem = {
   modified: number;
 };
 
+type StoreItemNoValue = Omit<StoreItem, "value">;
+
 export class Store {
   private isLoopRunning = false;
 
@@ -56,6 +58,29 @@ export class Store {
       created: result.created,
       modified: result.modified,
       expiry: result.expiry,
+    }));
+  }
+
+  public async getItemsNoValue(jobId: string): Promise<StoreItemNoValue[]> {
+    const results = await getDrizzle()
+      .select({
+        id: storeTable.id,
+        jobId: storeTable.jobId,
+        storeKey: storeTable.storeKey,
+        expiry: storeTable.expiry,
+        created: storeTable.created,
+        modified: storeTable.modified,
+      })
+      .from(storeTable)
+      .where(eq(storeTable.jobId, jobId));
+
+    return results.map((result) => ({
+      id: result.id,
+      jobId: result.jobId,
+      key: result.storeKey,
+      expiry: result.expiry,
+      created: result.created,
+      modified: result.modified,
     }));
   }
 

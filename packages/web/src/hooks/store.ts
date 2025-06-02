@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { getJobStore, JobberStoreItem } from "../api/jobber";
+import { getJobStore, JobberStoreItemNoValue } from "../api/jobber";
 
 export const useStore = (jobId: string) => {
-  const [store, setStore] = useState<JobberStoreItem[] | null>(null);
+  const [store, setStore] = useState<JobberStoreItemNoValue[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reloadFlag, setReloadFlag] = useState(0);
 

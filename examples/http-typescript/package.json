@@ -1,6 +1,6 @@
 {
   "name": "http-typescript",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "description": "Jobber Example, Javascript Schedule",
   "main": "./dist/index.js",
   "type": "module",

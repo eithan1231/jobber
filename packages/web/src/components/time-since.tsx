@@ -47,5 +47,47 @@ export const TimeSince = ({ timestamp }: { timestamp: number }) => {
     );
   }
 
-  return <span title={fullDate}>Just now</span>;
+  if (difference > 0) {
+    return <span title={fullDate}>Just now</span>;
+  }
+
+  // Calculate this area for "time until"
+
+  if (difference < -day) {
+    const days = Math.ceil(-difference / day);
+    return (
+      <span title={fullDate}>
+        {days} day{days > 1 ? "s" : ""} until
+      </span>
+    );
+  }
+
+  if (difference < -hour) {
+    const hours = Math.ceil(-difference / hour);
+    return (
+      <span title={fullDate}>
+        {hours} hour{hours > 1 ? "s" : ""} until
+      </span>
+    );
+  }
+
+  if (difference < -minute) {
+    const minutes = Math.ceil(-difference / minute);
+    return (
+      <span title={fullDate}>
+        {minutes} minute{minutes > 1 ? "s" : ""} until
+      </span>
+    );
+  }
+
+  if (difference < -15) {
+    const seconds = Math.ceil(-difference);
+    return (
+      <span title={fullDate}>
+        {seconds} second{seconds > 1 ? "s" : ""} until
+      </span>
+    );
+  }
+
+  return <span title={fullDate}>In a few seconds</span>;
 };
