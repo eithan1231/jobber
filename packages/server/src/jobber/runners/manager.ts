@@ -94,6 +94,12 @@ export class RunnerManager {
       runner.readyAt = getUnixTimestamp();
       runner.status = "ready";
 
+      console.log(
+        `[RunnerManager/runner-ready] Runner is ready at ${new Date(
+          runner.readyAt * 1000
+        ).toISOString()}`
+      );
+
       histogramRunnerStartupDuration
         .labels({
           job_id: runner.job.id,
@@ -775,6 +781,12 @@ export class RunnerManager {
 
       // Runner started with no environment, and environment has since been configured.
       if (!runner.environment && currentAction.environment) {
+        console.log(
+          `[RunnerManager/loopCheckEnvironmentChanges] Shutting down ${shortenString(
+            runner.id
+          )} due to environment change. Runner started without environment, but environment has now been configured.`
+        );
+
         await this.server.sendShutdownRequest(runner.id);
 
         continue;
@@ -782,6 +794,12 @@ export class RunnerManager {
 
       // Runner started with an environment, and its since been deleted.
       if (runner.environment && !currentAction.environment) {
+        console.log(
+          `[RunnerManager/loopCheckEnvironmentChanges] Shutting down ${shortenString(
+            runner.id
+          )} due to environment change. Runner started with an environment, but environment has now been deleted.`
+        );
+
         await this.server.sendShutdownRequest(runner.id);
 
         continue;
@@ -791,6 +809,12 @@ export class RunnerManager {
       if (
         runner.environment?.modified !== currentAction.environment?.modified
       ) {
+        console.log(
+          `[RunnerManager/loopCheckEnvironmentChanges] Shutting down ${shortenString(
+            runner.id
+          )} due to environment change. Environment has been updated while runner was running.`
+        );
+
         await this.server.sendShutdownRequest(runner.id);
 
         continue;
@@ -811,7 +835,7 @@ export class RunnerManager {
       console.log(
         `[RunnerManager/loopCheckVersion] Shutting down ${shortenString(
           runner.id
-        )}`
+        )} due to action version change.`
       );
 
       await this.server.sendShutdownRequest(runner.id);
@@ -826,11 +850,23 @@ export class RunnerManager {
         continue;
       }
 
+      if (runner.action.runnerMaxAge === 0) {
+        continue;
+      }
+
       const duration = getUnixTimestamp() - runner.readyAt;
 
       if (duration < runner.action.runnerMaxAge) {
         continue;
       }
+
+      console.log(
+        `[RunnerManager/loopCheckMaxAge] Shutting down ${shortenString(
+          runner.id
+        )} due to max age exceeded. duration ${duration}s, maxAge ${
+          runner.action.runnerMaxAge
+        }s`
+      );
 
       await this.server.sendShutdownRequest(runner.id);
     }
@@ -844,11 +880,23 @@ export class RunnerManager {
         continue;
       }
 
+      if (runner.action.runnerMaxAgeHard === 0) {
+        continue;
+      }
+
       const duration = getUnixTimestamp() - runner.readyAt;
 
       if (duration < runner.action.runnerMaxAgeHard) {
         continue;
       }
+
+      console.log(
+        `[RunnerManager/loopCheckHardMaxAge] Shutting down ${shortenString(
+          runner.id
+        )} due to hard max age exceeded. duration ${duration}s, hardMaxAge ${
+          runner.action.runnerMaxAgeHard
+        }s`
+      );
 
       runner.process.kill("SIGTERM");
     }
