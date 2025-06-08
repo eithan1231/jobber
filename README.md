@@ -6,6 +6,12 @@ The objective of this project is to provide nothing more than a basic interface 
 
 <hr>
 
+### Screenshots
+
+[Click Here](/docs/pictures.md) to see some demo pictures of the application in action!
+
+<hr>
+
 ### Terminology
 
 - Jobber: This application/service
@@ -84,7 +90,7 @@ scrape_configs:
 
 ### Creating your first function
 
-TODO: Provide an examples directory. Describe the format of the custom attributes in the package.json file.
+Documentation for this will be finalised in the future, though don't hold me to that. We will be providing a jobber-template repository which includes everything you need to create your first TypeScript job. In the meantime, feel free to reference the examples we have provided in the [/Examples Directory](/examples/). We have an example for [http-typescript](/examples/http-typescript/) and a [schedule-javascript](/examples/schedule-javascript/) application.
 
 <hr>
 
