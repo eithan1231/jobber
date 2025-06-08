@@ -62,8 +62,6 @@ const queryPrometheus = async (options: PrometheusQueryOptions) => {
     url.searchParams.set("limit", String(options.limit));
   }
 
-  console.log(url.toString());
-
   const response = await fetch(url.toString(), {
     method: "GET",
     headers: {
@@ -165,9 +163,11 @@ export async function createRouteJobMetrics() {
           runner_request_duration: {
             label: `{job_name} @ {version}`,
             query: [
-              `rate(jobber_runner_request_duration_sum{job="${promJobName}", job_id=${jobIdEscaped}, version=${versionEscaped}}[${durationString}])`,
-              `/`,
-              `rate(jobber_runner_request_duration_count{job="${promJobName}", job_id=${jobIdEscaped}, version=${versionEscaped}}[${durationString}])`,
+              `avg by (job_name, version) (`,
+              `  rate(jobber_runner_request_duration_sum{job="${promJobName}", job_id=${jobIdEscaped}, version=${versionEscaped}}[${durationString}])`,
+              `  /`,
+              `  rate(jobber_runner_request_duration_count{job="${promJobName}", job_id=${jobIdEscaped}, version=${versionEscaped}}[${durationString}])`,
+              `)`,
             ],
           },
 
