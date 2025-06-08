@@ -1,0 +1,7 @@
+scrape_configs:
+  - job_name: 'jobber'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['127.0.0.1:3000']
+    metrics_path: /api/metrics
+    scheme: http

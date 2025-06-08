@@ -6,6 +6,7 @@ export type LogDriverBaseItem = {
   actionId: string;
   created: number;
   jobId: string;
+  jobName: string;
   message: string;
   source: "system" | "runner";
 };

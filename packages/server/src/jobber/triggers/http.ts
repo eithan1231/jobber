@@ -4,12 +4,13 @@ import { getDrizzle } from "~/db/index.js";
 import { actionsTable, ActionsTableType } from "~/db/schema/actions.js";
 import { jobsTable, JobsTableType } from "~/db/schema/jobs.js";
 import { triggersTable, TriggersTableType } from "~/db/schema/triggers.js";
-import { awaitTruthy, timeout } from "~/util.js";
+import { awaitTruthy, getUnixTimestamp, timeout } from "~/util.js";
 import { RunnerManager } from "../runners/manager.js";
 import { StatusLifecycle } from "../types.js";
 import { HandleRequestHttp } from "../runners/server.js";
 import { counterTriggerHttp } from "~/metrics.js";
 import { DecoupledStatus } from "../decoupled-status.js";
+import { LogDriverBase } from "../log-drivers/abstract.js";
 
 type TriggerHttpItem = {
   trigger: Omit<TriggersTableType, "context"> & {
@@ -24,6 +25,8 @@ type TriggerHttpItem = {
 export class TriggerHttp {
   private runnerManager: RunnerManager;
 
+  private logger: LogDriverBase;
+
   private decoupledStatus: DecoupledStatus;
 
   private triggers: Record<string, TriggerHttpItem> = {};
@@ -32,8 +35,14 @@ export class TriggerHttp {
 
   private status: StatusLifecycle = "neutral";
 
-  constructor(runnerManager: RunnerManager, decoupledStatus: DecoupledStatus) {
+  constructor(
+    runnerManager: RunnerManager,
+    logger: LogDriverBase,
+    decoupledStatus: DecoupledStatus
+  ) {
     this.runnerManager = runnerManager;
+
+    this.logger = logger;
 
     this.decoupledStatus = decoupledStatus;
   }
@@ -101,9 +110,12 @@ export class TriggerHttp {
       if (result.success && result.http?.status) {
         counterTriggerHttp
           .labels({
-            host: trigger.trigger.context.hostname ?? undefined,
-            method: trigger.trigger.context.method ?? undefined,
-            path: trigger.trigger.context.path ?? undefined,
+            host: trigger.trigger.context.hostname ?? "",
+            method: trigger.trigger.context.method ?? "",
+            path: trigger.trigger.context.path ?? "",
+            request_host: headerHost ?? "",
+            request_method: handleRequest.method,
+            request_path: handleRequest.path,
 
             job_id: trigger.job.id,
             job_name: trigger.job.jobName,
@@ -209,6 +221,15 @@ export class TriggerHttp {
       this.decoupledStatus.setItem(`trigger-id-${triggerSource.trigger.id}`, {
         message: "HTTP trigger registered",
       });
+
+      this.logger.write({
+        source: "system",
+        jobId: triggerSource.job.id,
+        jobName: triggerSource.job.jobName,
+        actionId: triggerSource.action.id,
+        message: `[SYSTEM] HTTP trigger (version: ${triggerSource.trigger.version}) ${triggerSource.trigger.id} registered`,
+        created: getUnixTimestamp(),
+      });
     }
   }
 
@@ -230,6 +251,15 @@ export class TriggerHttp {
       delete this.triggers[triggerId];
 
       this.decoupledStatus.deleteItem(`trigger-id-${triggerId}`);
+
+      this.logger.write({
+        source: "system",
+        jobId: trigger.job.id,
+        jobName: trigger.job.jobName,
+        actionId: trigger.action.id,
+        message: `[SYSTEM] HTTP trigger (version: ${trigger.trigger.version}) ${triggerId} removed`,
+        created: getUnixTimestamp(),
+      });
     }
   }
 }

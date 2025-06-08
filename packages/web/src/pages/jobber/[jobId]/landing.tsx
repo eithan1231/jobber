@@ -14,6 +14,7 @@ import { useActionLatest } from "../../../hooks/action-latest.js";
 import { useRunners } from "../../../hooks/runners.js";
 import { useEnvironment } from "../../../hooks/environment.js";
 import { useTriggersLatest } from "../../../hooks/triggers-latest.js";
+import { formatRelativeTime } from "../../../util.js";
 
 const ActionSectionComponent = ({
   job,
@@ -329,6 +330,9 @@ const RunnersSectionComponent = ({
                 Status
               </th>
               <th className="border border-gray-300 px-4 py-2 text-left">
+                Created
+              </th>
+              <th className="border border-gray-300 px-4 py-2 text-left">
                 Requests in flight
               </th>
               <th className="border border-gray-300 px-4 py-2 text-left">Id</th>
@@ -357,10 +361,28 @@ const RunnersSectionComponent = ({
                   {item.status}
                 </td>
                 <td className="border border-gray-300 px-4 py-2 text-gray-700">
-                  {item.requestsProcessing}
+                  {formatRelativeTime(item.createdAt)}
+                  {item.readyAt && (
+                    <span className="text-sm text-gray-500 ml-2">
+                      (Ready: {formatRelativeTime(item.readyAt)})
+                    </span>
+                  )}
+                  {item.closingAt && (
+                    <span className="text-sm text-gray-500 ml-2">
+                      (Closing: {formatRelativeTime(item.closingAt)})
+                    </span>
+                  )}
+                  {item.closedAt && (
+                    <span className="text-sm text-gray-500 ml-2">
+                      (Closed: {formatRelativeTime(item.closedAt)})
+                    </span>
+                  )}
                 </td>
                 <td className="border border-gray-300 px-4 py-2 text-gray-700">
-                  {item.id.substring(0, 32)}...
+                  {item.requestsProcessing}
+                </td>
+                <td className="border border-gray-300 px-4 py-2 text-gray-700 overflow-hidden text-ellipsis whitespace-nowrap">
+                  {item.id.substring(0, 40)}...
                 </td>
 
                 <td className="border border-gray-300 px-4 py-2 text-gray-700">
@@ -425,7 +447,6 @@ const Component = () => {
       {job && (
         <>
           <JobHeaderComponent job={job} jobUpdate={updateJob} />
-
           <ActionSectionComponent
             job={job}
             action={action ?? undefined}

@@ -17,7 +17,7 @@ import {
   handleReadableStreamPipe,
 } from "~/util.js";
 
-export async function createRoutePostPublish() {
+export async function createRouteJobPublish() {
   const app = new Hono();
 
   app.post("/job/publish/", async (c, _next) => {

@@ -25,7 +25,14 @@ import { LogDriverBase } from "../log-drivers/abstract.js";
 import { StatusLifecycle } from "../types.js";
 import { HandleRequest, HandleResponse, RunnerServer } from "./server.js";
 import { Store } from "../store.js";
-import { counterRunnerRequests } from "~/metrics.js";
+import {
+  counterRunnerRequests,
+  gaugeActiveRunners,
+  histogramJobManagerLoopDuration,
+  histogramRunnerRequestDuration,
+  histogramRunnerShutdownDuration,
+  histogramRunnerStartupDuration,
+} from "~/metrics.js";
 
 type RunnerManagerItem = {
   status: "starting" | "ready" | "closing" | "closed";
@@ -84,7 +91,16 @@ export class RunnerManager {
         return;
       }
 
+      runner.readyAt = getUnixTimestamp();
       runner.status = "ready";
+
+      histogramRunnerStartupDuration
+        .labels({
+          job_id: runner.job.id,
+          job_name: runner.job.jobName,
+          version: runner.action.version,
+        })
+        .observe(runner.readyAt - runner.createdAt);
     });
 
     this.server.on("runner-closing", (runnerId) => {
@@ -94,6 +110,7 @@ export class RunnerManager {
         return;
       }
 
+      runner.closingAt = getUnixTimestamp();
       runner.status = "closing";
     });
 
@@ -104,8 +121,19 @@ export class RunnerManager {
         return;
       }
 
+      runner.closedAt = getUnixTimestamp();
       runner.status = "closed";
       runner.process.kill("SIGKILL");
+
+      if (runner.closingAt) {
+        histogramRunnerShutdownDuration
+          .labels({
+            job_id: runner.job.id,
+            job_name: runner.job.jobName,
+            version: runner.action.version,
+          })
+          .observe(runner.closingAt - runner.closedAt);
+      }
     });
   }
 
@@ -209,6 +237,15 @@ export class RunnerManager {
         await this.server.sendShutdownRequest(runner.id);
       }
 
+      histogramRunnerRequestDuration
+        .labels({
+          job_name: runner.job.jobName,
+          job_id: runner.job.id,
+          version: action.version,
+          trigger_type: handleRequest.type,
+        })
+        .observe(result.duration);
+
       counterRunnerRequests
         .labels({
           job_name: runner.job.jobName,
@@ -279,6 +316,15 @@ export class RunnerManager {
       } finally {
         runner.requestsProcessing--;
       }
+
+      histogramRunnerRequestDuration
+        .labels({
+          job_name: runner.job.jobName,
+          job_id: runner.job.id,
+          version: action.version,
+          trigger_type: handleRequest.type,
+        })
+        .observe(result.duration);
 
       counterRunnerRequests
         .labels({
@@ -428,6 +474,14 @@ export class RunnerManager {
 
     process.once("exit", () => {
       delete this.runners[id];
+
+      gaugeActiveRunners
+        .labels({
+          job_name: job.jobName,
+          job_id: job.id,
+          version: action.version,
+        })
+        .dec();
     });
 
     process.stderr.on("data", (buffer: Buffer) => {
@@ -435,7 +489,8 @@ export class RunnerManager {
       for (const chunk of chunks) {
         this.logger.write({
           actionId: action.id,
-          jobId: action.jobId,
+          jobId: job.id,
+          jobName: job.jobName,
           created: getUnixTimestamp(),
           source: "runner",
           message: chunk.toString(),
@@ -448,7 +503,8 @@ export class RunnerManager {
       for (const chunk of chunks) {
         this.logger.write({
           actionId: action.id,
-          jobId: action.jobId,
+          jobId: job.id,
+          jobName: job.jobName,
           created: getUnixTimestamp(),
           source: "runner",
           message: chunk.toString(),
@@ -467,6 +523,14 @@ export class RunnerManager {
       status: "starting",
     };
 
+    gaugeActiveRunners
+      .labels({
+        job_name: job.jobName,
+        job_id: job.id,
+        version: action.version,
+      })
+      .inc();
+
     return id;
   }
 
@@ -477,6 +541,7 @@ export class RunnerManager {
 
     while (this.status === "starting" || this.status === "started") {
       const benchmark = createBenchmark();
+      const end = histogramJobManagerLoopDuration.startTimer();
 
       const currentActions = await getDrizzle()
         .select({
@@ -517,6 +582,8 @@ export class RunnerManager {
           )}ms to complete!`
         );
       }
+
+      end();
 
       await timeout(500);
     }
@@ -572,6 +639,20 @@ export class RunnerManager {
       );
 
       if (!isJobberRunner) {
+        continue;
+      }
+
+      const jobberManager = labels
+        .find(([labelName]) => labelName === "jobber-manager")
+        ?.at(1);
+
+      if (jobberManager !== getConfigOption("JOBBER_NAME")) {
+        if (getConfigOption("DEBUG_RUNNER")) {
+          console.log(
+            `[RunnerManager/loopCheckDanglingContainers] Found dangling container that is not owned by this Jobber instance. container: ${container.ID}, jobber-owner: ${jobberManager}`
+          );
+        }
+
         continue;
       }
 

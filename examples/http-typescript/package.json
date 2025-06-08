@@ -1,15 +1,15 @@
 {
   "name": "http-typescript",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Jobber Example, Javascript Schedule",
   "main": "./dist/index.js",
   "type": "module",
   "action": {
     "runnerAsynchronous": true,
     "runnerMinCount": 1,
-    "runnerMaxCount": 64,
-    "runnerMaxAge": 300,
-    "runnerMaxAgeHard": 1200,
+    "runnerMaxCount": 16,
+    "runnerMaxAge": 30,
+    "runnerMaxAgeHard": 60,
     "runnerMode": "standard"
   },
   "triggers": [

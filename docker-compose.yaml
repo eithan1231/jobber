@@ -30,6 +30,15 @@ services:
       # "network-jobber-runner" network, however docker-compose auto-prefixes
       # the compose project name to all networks to avoid conflicts.
       RUNNER_CONTAINER_DOCKER_NETWORK: jobber_network-jobber-runner
+
+      # Each instance of jobber-server should have a unique name. If you have
+      # multiple instances of jobber-server running, each instance should have
+      # a unique JOBBER_NAME. This is used for multiple reasons, such as
+      # - If jobber-server unexpectedly crashes, this is crucial for
+      #   identifying which dangling containers are managed by jobber-server
+      # - Attached to metrics to identify which jobber-server instance
+      #   is responsible for which jobs
+      JOBBER_NAME: Jobba
     ports:
       - 3000:3000
       - 3001:3001

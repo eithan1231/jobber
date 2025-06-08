@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { register } from "prom-client";
 
-export async function createRouteGetMetrics() {
+export async function createRouteMetrics() {
   const app = new Hono();
 
   app.get("/metrics", async (c, next) => {

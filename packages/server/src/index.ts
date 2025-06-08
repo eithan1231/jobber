@@ -17,26 +17,19 @@ import { TriggerHttp } from "./jobber/triggers/http.js";
 import { TriggerMqtt } from "./jobber/triggers/mqtt.js";
 
 import { Store } from "./jobber/store.js";
-import { createRouteGetMetrics } from "./routes/get-metrics.js";
-import { createRouteDeleteEnvironmentVariable } from "./routes/job/delete-environment-variable.js";
-import { createRouteDeleteJob } from "./routes/job/delete-job.js";
-import { createRouteGetActionRunners } from "./routes/job/get-action-runners.js";
-import { createRouteGetActionsLatest } from "./routes/job/get-actions-latest.js";
-import { createRouteGetActions } from "./routes/job/get-actions.js";
-import { createRouteGetDecoupledStatus } from "./routes/job/get-decoupled-status.js";
-import { createRouteGetEnvironment } from "./routes/job/get-environment.js";
-import { createRouteGetJobRunners } from "./routes/job/get-job-runners.js";
-import { createRouteGetJob } from "./routes/job/get-job.js";
-import { createRouteGetJobs } from "./routes/job/get-jobs.js";
-import { createRouteGetLogs } from "./routes/job/get-logs.js";
-import { createRouteGetTriggersLatest } from "./routes/job/get-triggers-latest.js";
-import { createRouteGetTriggers } from "./routes/job/get-triggers.js";
-import { createRoutePostEnvironmentVariable } from "./routes/job/post-environment-variable.js";
-import { createRoutePostPublish } from "./routes/job/post-publish.js";
-import { createRoutePutJob } from "./routes/job/put-job.js";
+import { Telemetry } from "./jobber/telemetry.js";
+import { getUnixTimestamp } from "./util.js";
 import { DecoupledStatus } from "./jobber/decoupled-status.js";
-import { createRouteDeleteStore } from "./routes/job/delete-store.js";
-import { createRouteGetStore } from "./routes/job/get-store.js";
+import { createRouteJobActions } from "./routes/job/actions.js";
+import { createRouteJobEnvironment } from "./routes/job/environment.js";
+import { createRouteJob } from "./routes/job/job.js";
+import { createRouteJobMetrics } from "./routes/job/metrics.js";
+import { createRouteMetrics } from "./routes/metrics.js";
+import { createRouteJobLogs } from "./routes/job/logs.js";
+import { createRouteJobPublish } from "./routes/job/publish.js";
+import { createRouteJobStore } from "./routes/job/store.js";
+import { createRouteJobTriggers } from "./routes/job/triggers.js";
+import { createRouteConfig } from "./routes/config.js";
 
 async function createInternalHono(instances: {
   runnerManager: RunnerManager;
@@ -88,31 +81,17 @@ async function createInternalHono(instances: {
     );
   });
 
-  app.route("/api/", await createRouteDeleteEnvironmentVariable());
-  app.route("/api/", await createRouteDeleteJob());
-  app.route("/api/", await createRouteDeleteStore(instances.store));
-  app.route(
-    "/api/",
-    await createRouteGetActionRunners(instances.runnerManager)
-  );
-  app.route(
-    "/api/",
-    await createRouteGetDecoupledStatus(instances.decoupledStatus)
-  );
-  app.route("/api/", await createRouteGetActions());
-  app.route("/api/", await createRouteGetActionsLatest());
-  app.route("/api/", await createRouteGetEnvironment());
-  app.route("/api/", await createRouteGetJob());
-  app.route("/api/", await createRouteGetJobRunners(instances.runnerManager));
-  app.route("/api/", await createRouteGetJobs());
-  app.route("/api/", await createRouteGetLogs(instances.logger));
-  app.route("/api/", await createRouteGetStore(instances.store));
-  app.route("/api/", await createRouteGetTriggers());
-  app.route("/api/", await createRouteGetTriggersLatest());
-  app.route("/api/", await createRoutePostEnvironmentVariable());
-  app.route("/api/", await createRoutePostPublish());
-  app.route("/api/", await createRoutePutJob());
-  app.route("/api/", await createRouteGetMetrics());
+  app.route("/api/", await createRouteJobActions(instances.runnerManager));
+  app.route("/api/", await createRouteJobEnvironment());
+  app.route("/api/", await createRouteJob(instances.runnerManager));
+  app.route("/api/", await createRouteJobMetrics());
+  app.route("/api/", await createRouteJobLogs(instances.logger));
+  app.route("/api/", await createRouteJobPublish());
+  app.route("/api/", await createRouteJobStore(instances.store));
+  app.route("/api/", await createRouteJobTriggers());
+  app.route("/api/", await createRouteConfig());
+
+  app.route("/api/", await createRouteMetrics());
 
   app.get("/", async (c) => c.redirect("/jobber/"));
 
@@ -196,6 +175,8 @@ async function createGatewayHono(triggerHttp: TriggerHttp) {
 }
 
 async function main() {
+  const timestamp = getUnixTimestamp();
+
   console.log(
     "WARNING: This is an experimental runtime, and issues ARE expected! Report any issue, or raise a PR with a fix. Issues WILL be investigated and fixed."
   );
@@ -240,15 +221,20 @@ async function main() {
   console.log(`[main] done.`);
 
   console.log(`[main] Initialising triggers (Cron, MQTT, HTTP)...`);
-  const triggerCron = new TriggerCron(runnerManager, decoupledStatus);
-  const triggerMqtt = new TriggerMqtt(runnerManager, decoupledStatus);
-  const triggerHttp = new TriggerHttp(runnerManager, decoupledStatus);
+  const triggerCron = new TriggerCron(runnerManager, logger, decoupledStatus);
+  const triggerMqtt = new TriggerMqtt(runnerManager, logger, decoupledStatus);
+  const triggerHttp = new TriggerHttp(runnerManager, logger, decoupledStatus);
 
   await Promise.all([
     triggerCron.start(),
     triggerMqtt.start(),
     triggerHttp.start(),
   ]);
+  console.log(`[main] done.`);
+
+  console.log(`[main] Initialising telemetry...`);
+  const telemetry = new Telemetry(timestamp);
+  await telemetry.start();
   console.log(`[main] done.`);
 
   console.log(`[main] Initialising APIs (API Internal, API Gateway)...`);

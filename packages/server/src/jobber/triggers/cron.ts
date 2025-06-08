@@ -10,6 +10,7 @@ import { RunnerManager } from "../runners/manager.js";
 import { StatusLifecycle } from "../types.js";
 import { counterTriggerCron } from "~/metrics.js";
 import { DecoupledStatus } from "../decoupled-status.js";
+import { LogDriverBase } from "../log-drivers/abstract.js";
 
 type TriggerCronItem = {
   trigger: TriggersTableType;
@@ -22,6 +23,8 @@ type TriggerCronItem = {
 export class TriggerCron {
   private runnerManager: RunnerManager;
 
+  private logger: LogDriverBase;
+
   private decoupledStatus: DecoupledStatus;
 
   private triggers: Record<string, TriggerCronItem> = {};
@@ -30,8 +33,14 @@ export class TriggerCron {
 
   private status: StatusLifecycle = "neutral";
 
-  constructor(runnerManager: RunnerManager, decoupledStatus: DecoupledStatus) {
+  constructor(
+    runnerManager: RunnerManager,
+    logger: LogDriverBase,
+    decoupledStatus: DecoupledStatus
+  ) {
     this.runnerManager = runnerManager;
+
+    this.logger = logger;
 
     this.decoupledStatus = decoupledStatus;
   }

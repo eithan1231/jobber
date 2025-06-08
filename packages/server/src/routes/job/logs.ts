@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { LogDriverBase } from "~/jobber/log-drivers/abstract.js";
 
-export async function createRouteGetLogs(logger: LogDriverBase) {
+export async function createRouteJobLogs(logger: LogDriverBase) {
   const app = new Hono();
 
   app.get("/job/:jobId/logs", async (c, next) => {

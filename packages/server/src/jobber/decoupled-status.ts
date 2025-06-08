@@ -1,6 +1,5 @@
-import assert from "node:assert";
-import { StatusLifecycle } from "./types.js";
-import { awaitTruthy, getUnixTimestamp, timeout } from "~/util.js";
+import { getUnixTimestamp } from "~/util.js";
+import { LoopBase } from "~/loop-base.js";
 
 type DecoupledStatusItem = {
   level: "info" | "warn" | "error";
@@ -10,33 +9,21 @@ type DecoupledStatusItem = {
   ttl: number;
 };
 
-export class DecoupledStatus {
-  private isLoopRunning = false;
-
-  private status: StatusLifecycle = "neutral";
+export class DecoupledStatus extends LoopBase {
+  protected loopDuration = 1000;
+  protected loopShutdown = undefined;
+  protected loopStartup = undefined;
 
   private records = new Map<string, DecoupledStatusItem>();
 
-  public async start() {
-    assert(this.status === "neutral");
+  protected async loopIteration() {
+    const now = getUnixTimestamp();
 
-    this.status = "starting";
-
-    this.loop();
-
-    await awaitTruthy(() => Promise.resolve(this.isLoopRunning));
-
-    this.status = "started";
-  }
-
-  public async stop() {
-    assert(this.status === "started");
-
-    this.status = "stopping";
-
-    await awaitTruthy(() => Promise.resolve(!this.isLoopRunning));
-
-    this.status = "neutral";
+    for (const [key, item] of this.records.entries()) {
+      if (now - item.created > item.ttl) {
+        this.records.delete(key);
+      }
+    }
   }
 
   public async setItem(
@@ -73,27 +60,5 @@ export class DecoupledStatus {
 
   public async deleteItem(key: string) {
     this.records.delete(key);
-  }
-
-  private async loop() {
-    this.isLoopRunning = true;
-
-    while (this.status === "starting" || this.status === "started") {
-      await this.loopCleanup();
-
-      await timeout(1000);
-    }
-
-    this.isLoopRunning = false;
-  }
-
-  private async loopCleanup() {
-    const now = getUnixTimestamp();
-
-    for (const [key, item] of this.records.entries()) {
-      if (now - item.created > item.ttl) {
-        this.records.delete(key);
-      }
-    }
   }
 }

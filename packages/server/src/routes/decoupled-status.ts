@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { DecoupledStatus } from "~/jobber/decoupled-status.js";
 
-export async function createRouteGetDecoupledStatus(
+export async function createRouteDecoupledStatus(
   decoupledStatus: DecoupledStatus
 ) {
   const app = new Hono();

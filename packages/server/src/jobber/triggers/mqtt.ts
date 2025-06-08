@@ -1,5 +1,10 @@
 import assert from "assert";
-import { awaitTruthy, createSha1Hash, timeout } from "~/util.js";
+import {
+  awaitTruthy,
+  createSha1Hash,
+  getUnixTimestamp,
+  timeout,
+} from "~/util.js";
 import { StatusLifecycle } from "../types.js";
 import { getDrizzle } from "~/db/index.js";
 import { jobsTable, JobsTableType } from "~/db/schema/jobs.js";
@@ -12,8 +17,9 @@ import {
   EnvironmentsTableType,
 } from "~/db/schema/environments.js";
 import { connectAsync, IClientOptions, MqttClient } from "mqtt";
-import { counterTriggerMqtt } from "~/metrics.js";
+import { counterTriggerMqtt, counterTriggerMqttPublish } from "~/metrics.js";
 import { DecoupledStatus } from "../decoupled-status.js";
+import { LogDriverBase } from "../log-drivers/abstract.js";
 
 type TriggerMqttItem = {
   trigger: TriggersTableType;
@@ -33,6 +39,8 @@ type TriggerMqttItem = {
 export class TriggerMqtt {
   private runnerManager: RunnerManager;
 
+  private logger: LogDriverBase;
+
   private decoupledStatus: DecoupledStatus;
 
   private triggers: Record<string, TriggerMqttItem> = {};
@@ -41,8 +49,14 @@ export class TriggerMqtt {
 
   private status: StatusLifecycle = "neutral";
 
-  constructor(runnerManager: RunnerManager, decoupledStatus: DecoupledStatus) {
+  constructor(
+    runnerManager: RunnerManager,
+    logger: LogDriverBase,
+    decoupledStatus: DecoupledStatus
+  ) {
     this.runnerManager = runnerManager;
+
+    this.logger = logger;
 
     this.decoupledStatus = decoupledStatus;
   }
@@ -151,6 +165,15 @@ export class TriggerMqtt {
           continue;
         }
 
+        this.logger.write({
+          source: "system",
+          actionId: trigger.action.id,
+          jobId: trigger.job.id,
+          jobName: trigger.job.jobName,
+          message: `[SYSTEM] MQTT disconnection process started for trigger (version: ${trigger.trigger.version}) "${triggerId}"`,
+          created: getUnixTimestamp(),
+        });
+
         await trigger.client.endAsync();
 
         delete this.triggers[triggerId];
@@ -173,13 +196,13 @@ export class TriggerMqtt {
     }[]
   ) {
     for (const triggerSource of triggersSource) {
+      const trigger = this.triggers[triggerSource.trigger.id];
+
+      if (!trigger) {
+        continue;
+      }
+
       try {
-        const trigger = this.triggers[triggerSource.trigger.id];
-
-        if (!trigger) {
-          continue;
-        }
-
         const config = this.buildMqttConfig(
           triggerSource.trigger,
           triggerSource.environment
@@ -200,6 +223,15 @@ export class TriggerMqtt {
           continue;
         }
 
+        this.logger.write({
+          source: "system",
+          actionId: triggerSource.action.id,
+          jobId: triggerSource.job.id,
+          jobName: triggerSource.job.jobName,
+          message: `[SYSTEM] MQTT disconnection process started, connection dropped or config changed`,
+          created: getUnixTimestamp(),
+        });
+
         this.decoupledStatus.setItem(`trigger-id-${trigger.trigger.id}`, {
           message: `Disconnecting...`,
         });
@@ -211,6 +243,17 @@ export class TriggerMqtt {
         this.decoupledStatus.deleteItem(`trigger-id-${trigger.trigger.id}`);
       } catch (err) {
         console.error(err);
+
+        this.logger.write({
+          source: "system",
+          actionId: triggerSource.action.id,
+          jobId: triggerSource.job.id,
+          jobName: triggerSource.job.jobName,
+          message: `[SYSTEM] MQTT connection check error! ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+          created: getUnixTimestamp(),
+        });
       }
     }
   }
@@ -284,7 +327,7 @@ export class TriggerMqtt {
         console.error(err);
 
         if (err instanceof Error) {
-          const code = (err as { code?: string }).code ?? null;
+          const code = (err as { code?: string })?.code ?? null;
 
           let message = "Connection error, see logs";
 
@@ -295,6 +338,15 @@ export class TriggerMqtt {
           } else if (code === "EAI_AGAIN") {
             message = `Connection error, see logs. EAI_AGAIN.`;
           }
+
+          this.logger.write({
+            source: "system",
+            actionId: triggerSource.action.id,
+            jobId: triggerSource.job.id,
+            jobName: triggerSource.job.jobName,
+            message: `[SYSTEM] MQTT Initialisation error! ${message}`,
+            created: getUnixTimestamp(),
+          });
 
           this.decoupledStatus.setItem(
             `trigger-id-${triggerSource.trigger.id}`,
@@ -313,12 +365,21 @@ export class TriggerMqtt {
     topic: string,
     payload: Buffer
   ) {
-    try {
-      const triggerItem = this.triggers[triggerId];
+    const triggerItem = this.triggers[triggerId];
 
-      if (!triggerItem) {
-        return;
-      }
+    if (!triggerItem) {
+      return;
+    }
+
+    try {
+      this.logger.write({
+        source: "system",
+        actionId: triggerItem.action.id,
+        jobId: triggerItem.job.id,
+        jobName: triggerItem.job.jobName,
+        message: `[SYSTEM] MQTT message received on topic "${topic}"`,
+        created: getUnixTimestamp(),
+      });
 
       const handleResponse = await this.runnerManager.sendHandleRequest(
         triggerItem.action,
@@ -357,13 +418,42 @@ export class TriggerMqtt {
       }
 
       for (const publishItem of handleResponse.mqtt.publish) {
+        this.logger.write({
+          source: "system",
+          actionId: triggerItem.action.id,
+          jobId: triggerItem.job.id,
+          jobName: triggerItem.job.jobName,
+          message: `[SYSTEM] MQTT message published to topic "${publishItem.topic}"`,
+          created: getUnixTimestamp(),
+        });
+
         await triggerItem.client.publishAsync(
           publishItem.topic,
           publishItem.body
         );
+
+        counterTriggerMqttPublish
+          .labels({
+            job_id: triggerItem.job.id,
+            job_name: triggerItem.job.jobName,
+            version: triggerItem.trigger.version,
+            topic: publishItem.topic,
+          })
+          .inc();
       }
     } catch (err) {
       console.error(err);
+
+      this.logger.write({
+        source: "system",
+        actionId: triggerItem.action.id,
+        jobId: triggerItem.job.id,
+        jobName: triggerItem.job.jobName,
+        message: `[SYSTEM] MQTT message handling error! ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+        created: getUnixTimestamp(),
+      });
     }
   }
 

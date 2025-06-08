@@ -46,11 +46,39 @@ Port 3001: HTTP Gateway (Router for HTTP triggers)
 - `LOG_DRIVER_LOKI_PUSH`: Loki log push url. Example: `http://localhost/loki/api/v1/push`
 - `LOG_DRIVER_LOKI_QUERY`: Loki log query url. Example: `http://localhost/loki/api/v1/query_range`
 - `LOG_DRIVER_LOKI_QUERY_RANGE`: Loki log query maximum look-back period, in seconds. Default is 60\*60\*24 (1d)
+- `METRICS_PROMETHEUS_QUERY`: Prometheus metrics query url. Example: `http://localhost/api/v1/query_range`
+- `METRICS_PROMETHEUS_JOB_NAME`: The `job_name` in your prometheus.yaml scraping config.
+- `METRICS_PROMETHEUS_QUERY_STEP`: The step in seconds for the Prometheus query. Default is 15 seconds. Configure to your scrape_interval in Prometheus
 <hr>
 
 ### Logging (Loki and Database)
 
 It is highly suggested to use loki as your log driver if you have a decent amount of log-spam, especially high bandwidth logging. This will defer a lot of load from the database.
+
+<hr>
+
+### Metrics (Prometheus)
+
+By default an endpoint of `/api/metrics` is available for prometheus scraping. This will allow you to record time-series data within your prometheus instance.
+
+With addition to this, Jobber supports querying prometheus within the Jobber Dashboard to provide metrics and oversights without leaving Jobber. To achieve this, you need to configure the environment variables for `METRICS_PROMETHEUS_QUERY` and `METRICS_PROMETHEUS_JOB_NAME`.
+
+Your prometheus config should look similar to:
+
+```yaml
+scrape_configs:
+  - job_name: jobber_job_name
+    metrics_path: /api/metrics
+    scrape_interval: 15s
+    static_configs:
+      - targets: ["127.0.0.1"]
+```
+
+`METRICS_PROMETHEUS_QUERY` Environment variable should be set to `http://localhost/api/v1/query_range` if your prometheus is running locally.
+
+`METRICS_PROMETHEUS_JOB_NAME` Environment variable should reflect the `job_name` option in your prometheus scraping config, as seen above. As per the configuration above, we should set it to `jobber_job_name`
+
+`METRICS_PROMETHEUS_QUERY_STEP`: Environment variable should reflect your `scrape_interval` in prometheus.
 
 <hr>
 

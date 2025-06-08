@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { JobberJob, putJob } from "../api/jobber";
 import { JobDeleteConfirmButton } from "./job-delete-confirm";
+import { useConfig } from "../hooks/config";
 
 export const JobHeaderComponent = ({
   job,
@@ -9,6 +10,8 @@ export const JobHeaderComponent = ({
   job: JobberJob;
   jobUpdate?: () => void;
 }) => {
+  const { config } = useConfig();
+
   const onDisable = () => {
     putJob(job.id, {
       status: "disabled",
@@ -87,18 +90,30 @@ export const JobHeaderComponent = ({
           >
             Overview
           </Link>
+
+          {config?.features.metricsEnabled && (
+            <Link
+              to={`/jobber/${job.id}/metrics`}
+              className="text-blue-600 hover:text-blue-800 text-sm"
+            >
+              View Metrics
+            </Link>
+          )}
+
           <Link
             to={`/jobber/${job.id}/logs`}
             className="text-blue-600 hover:text-blue-800 text-sm"
           >
             View Logs
           </Link>
+
           <Link
             to={`/jobber/${job.id}/environment`}
             className="text-blue-600 hover:text-blue-800 text-sm"
           >
             View Environment Variables
           </Link>
+
           <Link
             to={`/jobber/${job.id}/store`}
             className="text-blue-600 hover:text-blue-800 text-sm"
@@ -109,7 +124,12 @@ export const JobHeaderComponent = ({
           {job.links.map((link, index) => (
             <Link
               key={index}
-              to={link.url}
+              to={link.url
+                .replace("{jobId}", job.id)
+                .replace("{version}", job.version || "latest")
+                .replace("{jobName}", job.jobName)}
+              rel="noopener noreferrer"
+              target="_blank"
               className="text-blue-600 hover:text-blue-800 text-sm"
             >
               {link.name}

@@ -8,11 +8,18 @@ import { pagesJobberJobActionsRoute } from "./pages/jobber/[jobId]/actions";
 import { pagesJobberJobTriggersRoute } from "./pages/jobber/[jobId]/triggers";
 import { pagesJobberJobStoreRoute } from "./pages/jobber/[jobId]/store";
 
+import { CategoryScale } from "chart.js";
+import Chart from "chart.js/auto";
+import { pagesJobberJobMetricsRoute } from "./pages/jobber/[jobId]/metrics";
+
+Chart.register(CategoryScale);
+
 const router = createBrowserRouter([
   pagesLandingRoute,
   pagesJobberLandingRoute,
   pagesJobberJobRoute,
   pagesJobberJobLogsRoute,
+  pagesJobberJobMetricsRoute,
   pagesJobberJobEnvironmentRoute,
   pagesJobberJobStoreRoute,
   pagesJobberJobActionsRoute,

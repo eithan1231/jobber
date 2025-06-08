@@ -4,6 +4,8 @@ import { z } from "zod";
 export const ConfigurationOptionsSchema = z.object({
   DATABASE_URL: z.string(),
 
+  JOBBER_NAME: z.string().default("Jobber"),
+
   DEBUG_HTTP: z
     .string()
     .transform((val) => val.toLowerCase() === "true")
@@ -44,6 +46,26 @@ export const ConfigurationOptionsSchema = z.object({
     .number()
     .default(60 * 60 * 24)
     .describe("The maximum duration we can fetch logs from the past."),
+
+  METRICS_PROMETHEUS_QUERY: z
+    .string()
+    .nullable()
+    .default(null)
+    .describe("Example: http://localhost/api/v1/query_range"),
+
+  METRICS_PROMETHEUS_JOB_NAME: z
+    .string()
+    .nullable()
+    .default(null)
+    .describe("the job_name in your prometheus scrape config"),
+
+  METRICS_PROMETHEUS_QUERY_STEP: z.coerce
+    .number()
+    .min(1)
+    .default(15)
+    .describe(
+      "The step in seconds for the Prometheus query. Default is 15 seconds."
+    ),
 });
 
 export type ConfigurationOptionsSchemaType = z.infer<
