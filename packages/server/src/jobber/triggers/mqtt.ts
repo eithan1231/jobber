@@ -1,30 +1,29 @@
 import assert from "assert";
-import {
-  awaitTruthy,
-  createSha1Hash,
-  getUnixTimestamp,
-  timeout,
-} from "~/util.js";
-import { StatusLifecycle } from "../types.js";
-import { getDrizzle } from "~/db/index.js";
-import { jobsTable, JobsTableType } from "~/db/schema/jobs.js";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
-import { triggersTable, TriggersTableType } from "~/db/schema/triggers.js";
-import { RunnerManager } from "../runners/manager.js";
+import { connectAsync, IClientOptions, MqttClient } from "mqtt";
+import { getDrizzle } from "~/db/index.js";
 import { actionsTable, ActionsTableType } from "~/db/schema/actions.js";
 import {
   environmentsTable,
   EnvironmentsTableType,
 } from "~/db/schema/environments.js";
-import { connectAsync, IClientOptions, MqttClient } from "mqtt";
+import {
+  jobVersionsTable,
+  JobVersionsTableType,
+} from "~/db/schema/job-versions.js";
+import { jobsTable, JobsTableType } from "~/db/schema/jobs.js";
+import { triggersTable, TriggersTableType } from "~/db/schema/triggers.js";
+import { LoopBase } from "~/loop-base.js";
 import { counterTriggerMqtt, counterTriggerMqttPublish } from "~/metrics.js";
+import { createSha1Hash, getUnixTimestamp } from "~/util.js";
 import { DecoupledStatus } from "../decoupled-status.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
-import { LoopBase } from "~/loop-base.js";
+import { RunnerManager } from "../runners/manager.js";
 
 type TriggerMqttItem = {
   trigger: TriggersTableType;
   action: ActionsTableType;
+  version: JobVersionsTableType;
   job: JobsTableType;
   environment: EnvironmentsTableType | null;
 
@@ -69,23 +68,31 @@ export class TriggerMqtt extends LoopBase {
     const triggers = await getDrizzle()
       .select({
         trigger: triggersTable,
+        version: jobVersionsTable,
         action: actionsTable,
         job: jobsTable,
         environment: environmentsTable,
       })
       .from(triggersTable)
       .innerJoin(
+        jobVersionsTable,
+        and(
+          eq(triggersTable.jobId, jobVersionsTable.jobId),
+          eq(triggersTable.jobVersionId, jobVersionsTable.id)
+        )
+      )
+      .innerJoin(
         jobsTable,
         and(
           eq(triggersTable.jobId, jobsTable.id),
-          eq(triggersTable.version, jobsTable.version)
+          eq(triggersTable.jobVersionId, jobsTable.jobVersionId)
         )
       )
       .innerJoin(
         actionsTable,
         and(
-          eq(actionsTable.jobId, triggersTable.jobId),
-          eq(actionsTable.version, triggersTable.version)
+          eq(triggersTable.jobId, actionsTable.jobId),
+          eq(triggersTable.jobVersionId, actionsTable.jobVersionId)
         )
       )
       .leftJoin(
@@ -94,7 +101,7 @@ export class TriggerMqtt extends LoopBase {
       )
       .where(
         and(
-          isNotNull(jobsTable.version),
+          isNotNull(jobsTable.jobVersionId),
           sql`${triggersTable.context} ->> 'type' = 'mqtt'`,
           eq(jobsTable.status, "enabled")
         )
@@ -142,7 +149,7 @@ export class TriggerMqtt extends LoopBase {
           actionId: trigger.action.id,
           jobId: trigger.job.id,
           jobName: trigger.job.jobName,
-          message: `[SYSTEM] MQTT disconnection process started for trigger (version: ${trigger.trigger.version}) "${triggerId}"`,
+          message: `[SYSTEM] MQTT disconnection process started for trigger (version: ${trigger.version.version}) "${triggerId}"`,
           created: getUnixTimestamp(),
         });
 
@@ -235,6 +242,7 @@ export class TriggerMqtt extends LoopBase {
    */
   private async loopCheckNewTriggers(
     triggersSource: {
+      version: JobVersionsTableType;
       trigger: TriggersTableType;
       action: ActionsTableType;
       job: JobsTableType;
@@ -286,6 +294,7 @@ export class TriggerMqtt extends LoopBase {
         this.triggers[triggerSource.trigger.id] = {
           trigger: structuredClone(triggerSource.trigger),
           action: structuredClone(triggerSource.action),
+          version: structuredClone(triggerSource.version),
           job: structuredClone(triggerSource.job),
           environment: structuredClone(triggerSource.environment),
           client: client,
@@ -354,8 +363,9 @@ export class TriggerMqtt extends LoopBase {
       });
 
       const handleResponse = await this.runnerManager.sendHandleRequest(
-        triggerItem.action,
+        triggerItem.version,
         triggerItem.job,
+        triggerItem.action,
         {
           type: "mqtt",
           topic,
@@ -368,7 +378,7 @@ export class TriggerMqtt extends LoopBase {
         .labels({
           job_id: triggerItem.job.id,
           job_name: triggerItem.job.jobName,
-          version: triggerItem.trigger.version,
+          version: triggerItem.version.version,
           success: handleResponse.success ? 1 : 0,
         })
         .inc();
@@ -408,7 +418,7 @@ export class TriggerMqtt extends LoopBase {
           .labels({
             job_id: triggerItem.job.id,
             job_name: triggerItem.job.jobName,
-            version: triggerItem.trigger.version,
+            version: triggerItem.version.version,
             topic: publishItem.topic,
           })
           .inc();

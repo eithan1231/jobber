@@ -4,6 +4,7 @@ import { readFile } from "fs/promises";
 import { Server } from "net";
 import { getConfigOption } from "~/config.js";
 import { ActionsTableType } from "~/db/schema/actions.js";
+import { JobVersionsTableType } from "~/db/schema/job-versions.js";
 import { getJobActionArchiveFile } from "~/paths.js";
 import { awaitTruthy, createToken, shortenString } from "~/util.js";
 import { Store } from "../store.js";
@@ -54,6 +55,7 @@ export type HandleResponse = (
 type RunnerServerItem = {
   runnerId: string;
   action: ActionsTableType;
+  version: JobVersionsTableType;
 } & (
   | {
       status: "pending";
@@ -122,10 +124,15 @@ export class RunnerServer extends EventEmitter<{
     });
   }
 
-  public registerConnection(runnerId: string, action: ActionsTableType) {
+  public registerConnection(
+    runnerId: string,
+    action: ActionsTableType,
+    version: JobVersionsTableType
+  ) {
     this.connections.set(runnerId, {
       status: "pending",
       action,
+      version,
       runnerId,
     });
   }
@@ -378,7 +385,9 @@ export class RunnerServer extends EventEmitter<{
           traceId: frame.traceId,
           dataType: "buffer",
         },
-        await readFile(getJobActionArchiveFile(connection.action))
+        await readFile(
+          getJobActionArchiveFile(connection.version, connection.action)
+        )
       );
 
       return;

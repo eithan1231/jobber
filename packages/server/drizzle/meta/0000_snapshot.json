@@ -1,5 +1,5 @@
 {
-  "id": "48385fb3-f924-4105-ae7e-bd0848b7ada0",
+  "id": "a9f71f3d-83c0-4112-bb63-995a8d9ad109",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -21,11 +21,18 @@
           "primaryKey": false,
           "notNull": true
         },
-        "version": {
-          "name": "version",
-          "type": "varchar(16)",
+        "jobVersionId": {
+          "name": "jobVersionId",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "runnerImage": {
+          "name": "runnerImage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'node22'"
         },
         "runnerAsynchronous": {
           "name": "runnerAsynchronous",
@@ -85,6 +92,19 @@
           "tableTo": "jobs",
           "columnsFrom": [
             "jobId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "actions_jobVersionId_job-versions_id_fk": {
+          "name": "actions_jobVersionId_job-versions_id_fk",
+          "tableFrom": "actions",
+          "tableTo": "job-versions",
+          "columnsFrom": [
+            "jobVersionId"
           ],
           "columnsTo": [
             "id"
@@ -160,6 +180,73 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.job-versions": {
+      "name": "job-versions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "jobId": {
+          "name": "jobId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "modified": {
+          "name": "modified",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created": {
+          "name": "created",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "job-versions_jobId_jobs_id_fk": {
+          "name": "job-versions_jobId_jobs_id_fk",
+          "tableFrom": "job-versions",
+          "tableTo": "jobs",
+          "columnsFrom": [
+            "jobId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "job-versions_jobId_version_unique": {
+          "name": "job-versions_jobId_version_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "jobId",
+            "version"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.jobs": {
       "name": "jobs",
       "schema": "",
@@ -183,11 +270,18 @@
           "primaryKey": false,
           "notNull": false
         },
-        "version": {
-          "name": "version",
-          "type": "varchar(16)",
+        "jobVersionId": {
+          "name": "jobVersionId",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'enabled'"
         },
         "links": {
           "name": "links",
@@ -198,7 +292,21 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "jobs_jobVersionId_job-versions_id_fk": {
+          "name": "jobs_jobVersionId_job-versions_id_fk",
+          "tableFrom": "jobs",
+          "tableTo": "job-versions",
+          "columnsFrom": [
+            "jobVersionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "jobs_jobName_unique": {
@@ -228,13 +336,13 @@
           "name": "jobId",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "actionId": {
           "name": "actionId",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "source": {
           "name": "source",
@@ -255,11 +363,89 @@
           "notNull": true
         }
       },
+      "indexes": {
+        "jobId_created_idx": {
+          "name": "jobId_created_idx",
+          "columns": [
+            {
+              "expression": "jobId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.store": {
+      "name": "store",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "jobId": {
+          "name": "jobId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "storeKey": {
+          "name": "storeKey",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "storeValue": {
+          "name": "storeValue",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expiry": {
+          "name": "expiry",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "modified": {
+          "name": "modified",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created": {
+          "name": "created",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
       "indexes": {},
       "foreignKeys": {
-        "logs_jobId_jobs_id_fk": {
-          "name": "logs_jobId_jobs_id_fk",
-          "tableFrom": "logs",
+        "store_jobId_jobs_id_fk": {
+          "name": "store_jobId_jobs_id_fk",
+          "tableFrom": "store",
           "tableTo": "jobs",
           "columnsFrom": [
             "jobId"
@@ -269,23 +455,19 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
-        },
-        "logs_actionId_actions_id_fk": {
-          "name": "logs_actionId_actions_id_fk",
-          "tableFrom": "logs",
-          "tableTo": "actions",
-          "columnsFrom": [
-            "actionId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "store_jobId_storeKey_unique": {
+          "name": "store_jobId_storeKey_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "jobId",
+            "storeKey"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -307,9 +489,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "version": {
-          "name": "version",
-          "type": "varchar(16)",
+        "jobVersionId": {
+          "name": "jobVersionId",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -328,6 +510,19 @@
           "tableTo": "jobs",
           "columnsFrom": [
             "jobId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "triggers_jobVersionId_job-versions_id_fk": {
+          "name": "triggers_jobVersionId_job-versions_id_fk",
+          "tableFrom": "triggers",
+          "tableTo": "job-versions",
+          "columnsFrom": [
+            "jobVersionId"
           ],
           "columnsTo": [
             "id"

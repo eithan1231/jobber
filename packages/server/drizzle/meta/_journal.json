@@ -5,64 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1734856949853,
-      "tag": "0000_polite_the_stranger",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1735094654342,
-      "tag": "0001_keen_revanche",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1735349797035,
-      "tag": "0002_brainy_alex_wilder",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1735974961925,
-      "tag": "0003_petite_serpent_society",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1735979786998,
-      "tag": "0004_mute_the_stranger",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1735979811030,
-      "tag": "0005_yellow_tenebrous",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1736577890656,
-      "tag": "0006_trigger-http-migration",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1740544071476,
-      "tag": "0007_silky_annihilus",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1748356611414,
-      "tag": "0008_light_agent_zero",
+      "when": 1749453794520,
+      "tag": "0000_tough_hydra",
       "breakpoints": true
     }
   ]

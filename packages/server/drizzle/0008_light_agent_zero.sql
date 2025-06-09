@@ -1,1 +1,0 @@
-ALTER TABLE "store" DROP CONSTRAINT "store_jobId_unique";

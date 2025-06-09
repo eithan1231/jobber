@@ -95,6 +95,13 @@ export class JobberHandlerResponse {
 
     this.header("Content-Type", "text/json");
 
+    const removed = this._body.splice(0, this._body.length).length;
+    if (removed > 0) {
+      console.warn(
+        `[JobberHandlerResponse] json() called, but body was not empty. Cleared ${removed} buffers.`
+      );
+    }
+
     this._body.push(Buffer.from(JSON.stringify(data)));
 
     this._status = status;

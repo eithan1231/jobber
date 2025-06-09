@@ -1,10 +1,10 @@
 import {
-  pgTable,
-  integer,
-  uuid,
-  text,
-  varchar,
   index,
+  integer,
+  pgTable,
+  text,
+  uuid,
+  varchar,
 } from "drizzle-orm/pg-core";
 
 export const logsTable = pgTable(
