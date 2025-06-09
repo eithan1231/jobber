@@ -14,11 +14,19 @@ export abstract class LoopBase {
 
     this.status = "starting";
 
+    if (this.loopStarting) {
+      await this.loopStarting();
+    }
+
     this.loop();
 
     await awaitTruthy(() => Promise.resolve(this.isLoopRunning));
 
     this.status = "started";
+
+    if (this.loopStarted) {
+      await this.loopStarted();
+    }
   }
 
   public async stop() {
@@ -26,17 +34,21 @@ export abstract class LoopBase {
 
     this.status = "stopping";
 
+    if (this.loopClosing) {
+      await this.loopClosing();
+    }
+
     await awaitTruthy(() => Promise.resolve(!this.isLoopRunning));
 
     this.status = "neutral";
+
+    if (this.loopClosed) {
+      await this.loopClosed();
+    }
   }
 
   private async loop() {
     this.isLoopRunning = true;
-
-    if (this.loopStartup) {
-      await this.loopStartup();
-    }
 
     while (this.status === "starting" || this.status === "started") {
       await this.loopIteration();
@@ -44,14 +56,12 @@ export abstract class LoopBase {
       await timeout(this.loopDuration);
     }
 
-    if (this.loopShutdown) {
-      await this.loopShutdown();
-    }
-
     this.isLoopRunning = false;
   }
 
   protected abstract loopIteration(): Promise<void>;
-  protected abstract loopShutdown?(): Promise<void>;
-  protected abstract loopStartup?(): Promise<void>;
+  protected abstract loopClosing?(): Promise<void>;
+  protected abstract loopClosed?(): Promise<void>;
+  protected abstract loopStarting?(): Promise<void>;
+  protected abstract loopStarted?(): Promise<void>;
 }

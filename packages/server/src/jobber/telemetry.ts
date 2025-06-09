@@ -7,7 +7,9 @@ import { gaugeJobStoreCount, gaugeAppInfo, gaugeJobsInfo } from "~/metrics.js";
 
 export class Telemetry extends LoopBase {
   protected loopDuration = 1000;
-  protected loopShutdown = undefined;
+  protected loopStarted = undefined;
+  protected loopClosing = undefined;
+  protected loopClosed = undefined;
 
   private startTime: number;
 
@@ -17,7 +19,7 @@ export class Telemetry extends LoopBase {
     this.startTime = startTime;
   }
 
-  protected async loopStartup() {
+  protected async loopStarting() {
     this.gaugeAppInfo();
   }
 

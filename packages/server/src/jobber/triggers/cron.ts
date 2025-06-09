@@ -11,6 +11,7 @@ import { StatusLifecycle } from "../types.js";
 import { counterTriggerCron } from "~/metrics.js";
 import { DecoupledStatus } from "../decoupled-status.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
+import { LoopBase } from "~/loop-base.js";
 
 type TriggerCronItem = {
   trigger: TriggersTableType;
@@ -20,7 +21,13 @@ type TriggerCronItem = {
   scheduledAt: number;
 };
 
-export class TriggerCron {
+export class TriggerCron extends LoopBase {
+  protected loopDuration = 1000;
+  protected loopStarting = undefined;
+  protected loopStarted = undefined;
+  protected loopClosing = undefined;
+  protected loopClosed = undefined;
+
   private runnerManager: RunnerManager;
 
   private logger: LogDriverBase;
@@ -29,15 +36,13 @@ export class TriggerCron {
 
   private triggers: Record<string, TriggerCronItem> = {};
 
-  private isLoopRunning = false;
-
-  private status: StatusLifecycle = "neutral";
-
   constructor(
     runnerManager: RunnerManager,
     logger: LogDriverBase,
     decoupledStatus: DecoupledStatus
   ) {
+    super();
+
     this.runnerManager = runnerManager;
 
     this.logger = logger;
@@ -45,69 +50,39 @@ export class TriggerCron {
     this.decoupledStatus = decoupledStatus;
   }
 
-  public async start() {
-    assert(this.status === "neutral");
-
-    this.status = "starting";
-
-    this.loop();
-
-    await awaitTruthy(() => Promise.resolve(this.isLoopRunning));
-
-    this.status = "started";
-  }
-
-  public async stop() {
-    assert(this.status === "started");
-
-    this.status = "stopping";
-
-    await awaitTruthy(() => Promise.resolve(!this.isLoopRunning));
-
-    this.status = "neutral";
-  }
-
-  private async loop() {
-    this.isLoopRunning = true;
-
-    while (this.status === "starting" || this.status === "started") {
-      const triggers = await getDrizzle()
-        .select({
-          trigger: triggersTable,
-          action: actionsTable,
-          job: jobsTable,
-        })
-        .from(triggersTable)
-        .innerJoin(
-          jobsTable,
-          and(
-            eq(triggersTable.jobId, jobsTable.id),
-            eq(triggersTable.version, jobsTable.version)
-          )
+  protected async loopIteration() {
+    const triggers = await getDrizzle()
+      .select({
+        trigger: triggersTable,
+        action: actionsTable,
+        job: jobsTable,
+      })
+      .from(triggersTable)
+      .innerJoin(
+        jobsTable,
+        and(
+          eq(triggersTable.jobId, jobsTable.id),
+          eq(triggersTable.version, jobsTable.version)
         )
-        .innerJoin(
-          actionsTable,
-          and(
-            eq(actionsTable.jobId, triggersTable.jobId),
-            eq(actionsTable.version, triggersTable.version)
-          )
+      )
+      .innerJoin(
+        actionsTable,
+        and(
+          eq(actionsTable.jobId, triggersTable.jobId),
+          eq(actionsTable.version, triggersTable.version)
         )
-        .where(
-          and(
-            isNotNull(jobsTable.version),
-            sql`${triggersTable.context} ->> 'type' = 'schedule'`,
-            eq(jobsTable.status, "enabled")
-          )
-        );
+      )
+      .where(
+        and(
+          isNotNull(jobsTable.version),
+          sql`${triggersTable.context} ->> 'type' = 'schedule'`,
+          eq(jobsTable.status, "enabled")
+        )
+      );
 
-      await this.loopCheckNewTriggers(triggers);
-      await this.loopCheckOldTriggers(triggers);
-      await this.loopCheckTriggers(triggers);
-
-      await timeout(1000);
-    }
-
-    this.isLoopRunning = false;
+    await this.loopCheckNewTriggers(triggers);
+    await this.loopCheckOldTriggers(triggers);
+    await this.loopCheckTriggers(triggers);
   }
 
   /**

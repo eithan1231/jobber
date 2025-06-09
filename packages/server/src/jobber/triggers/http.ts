@@ -11,6 +11,7 @@ import { HandleRequestHttp } from "../runners/server.js";
 import { counterTriggerHttp } from "~/metrics.js";
 import { DecoupledStatus } from "../decoupled-status.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
+import { LoopBase } from "~/loop-base.js";
 
 type TriggerHttpItem = {
   trigger: Omit<TriggersTableType, "context"> & {
@@ -22,7 +23,13 @@ type TriggerHttpItem = {
   job: JobsTableType;
 };
 
-export class TriggerHttp {
+export class TriggerHttp extends LoopBase {
+  protected loopDuration = 1000;
+  protected loopStarting = undefined;
+  protected loopStarted = undefined;
+  protected loopClosing = undefined;
+  protected loopClosed = undefined;
+
   private runnerManager: RunnerManager;
 
   private logger: LogDriverBase;
@@ -31,15 +38,13 @@ export class TriggerHttp {
 
   private triggers: Record<string, TriggerHttpItem> = {};
 
-  private isLoopRunning = false;
-
-  private status: StatusLifecycle = "neutral";
-
   constructor(
     runnerManager: RunnerManager,
     logger: LogDriverBase,
     decoupledStatus: DecoupledStatus
   ) {
+    super();
+
     this.runnerManager = runnerManager;
 
     this.logger = logger;
@@ -47,26 +52,38 @@ export class TriggerHttp {
     this.decoupledStatus = decoupledStatus;
   }
 
-  public async start() {
-    assert(this.status === "neutral");
+  protected async loopIteration() {
+    const triggers = await getDrizzle()
+      .select({
+        trigger: triggersTable,
+        action: actionsTable,
+        job: jobsTable,
+      })
+      .from(triggersTable)
+      .innerJoin(
+        jobsTable,
+        and(
+          eq(triggersTable.jobId, jobsTable.id),
+          eq(triggersTable.version, jobsTable.version)
+        )
+      )
+      .innerJoin(
+        actionsTable,
+        and(
+          eq(actionsTable.jobId, triggersTable.jobId),
+          eq(actionsTable.version, triggersTable.version)
+        )
+      )
+      .where(
+        and(
+          isNotNull(jobsTable.version),
+          sql`${triggersTable.context} ->> 'type' = 'http'`,
+          eq(jobsTable.status, "enabled")
+        )
+      );
 
-    this.status = "starting";
-
-    this.loop();
-
-    await awaitTruthy(() => Promise.resolve(this.isLoopRunning));
-
-    this.status = "started";
-  }
-
-  public async stop() {
-    assert(this.status === "started");
-
-    this.status = "stopping";
-
-    await awaitTruthy(() => Promise.resolve(!this.isLoopRunning));
-
-    this.status = "neutral";
+    await this.loopCheckNewTriggers(triggers);
+    await this.loopCheckOldTriggers(triggers);
   }
 
   public async sendHandleRequest(handleRequest: HandleRequestHttp) {
@@ -130,48 +147,6 @@ export class TriggerHttp {
     }
 
     return null;
-  }
-
-  private async loop() {
-    this.isLoopRunning = true;
-
-    while (this.status === "starting" || this.status === "started") {
-      const triggers = await getDrizzle()
-        .select({
-          trigger: triggersTable,
-          action: actionsTable,
-          job: jobsTable,
-        })
-        .from(triggersTable)
-        .innerJoin(
-          jobsTable,
-          and(
-            eq(triggersTable.jobId, jobsTable.id),
-            eq(triggersTable.version, jobsTable.version)
-          )
-        )
-        .innerJoin(
-          actionsTable,
-          and(
-            eq(actionsTable.jobId, triggersTable.jobId),
-            eq(actionsTable.version, triggersTable.version)
-          )
-        )
-        .where(
-          and(
-            isNotNull(jobsTable.version),
-            sql`${triggersTable.context} ->> 'type' = 'http'`,
-            eq(jobsTable.status, "enabled")
-          )
-        );
-
-      await this.loopCheckNewTriggers(triggers);
-      await this.loopCheckOldTriggers(triggers);
-
-      await timeout(1000);
-    }
-
-    this.isLoopRunning = false;
   }
 
   /**

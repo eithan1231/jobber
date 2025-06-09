@@ -1,6 +1,7 @@
 import assert from "assert";
 import { awaitTruthy, timeout } from "~/util.js";
 import { StatusLifecycle } from "../types.js";
+import { LoopBase } from "~/loop-base.js";
 
 export type LogDriverBaseItem = {
   actionId: string;
@@ -21,12 +22,14 @@ export type LogDriverBaseQueryItem = {
   message: string;
 };
 
-export abstract class LogDriverBase {
+export abstract class LogDriverBase extends LoopBase {
+  protected loopDuration = 2500;
+  protected loopStarting = undefined;
+  protected loopStarted = undefined;
+  protected loopClosing = undefined;
+  protected loopClosed = undefined;
+
   private logs = new Array<LogDriverBaseItem>();
-
-  private isLoopRunning = false;
-
-  private status: StatusLifecycle = "neutral";
 
   protected abstract flushChunk(logs: LogDriverBaseItem[]): Promise<void>;
   protected abstract cleanup(): Promise<void>;
@@ -36,44 +39,12 @@ export abstract class LogDriverBase {
 
   public abstract isQueryEnabled(): boolean;
 
-  public async start() {
-    assert(this.status === "neutral");
-
-    this.status = "starting";
-
-    this.loop();
-
-    await awaitTruthy(() => Promise.resolve(this.isLoopRunning));
-
-    this.status = "started";
-  }
-
-  public async stop() {
-    assert(this.status === "started");
-
-    this.status = "stopping";
-
-    await awaitTruthy(() => Promise.resolve(!this.isLoopRunning));
-
-    this.status = "neutral";
+  protected async loopIteration() {
+    await this.flushLogs();
   }
 
   public write(log: LogDriverBaseItem) {
     this.logs.push(log);
-  }
-
-  private async loop() {
-    this.isLoopRunning = true;
-
-    while (this.status === "starting" || this.status === "started") {
-      await this.flushLogs();
-
-      await timeout(2500);
-    }
-
-    await this.flushLogs();
-
-    this.isLoopRunning = false;
   }
 
   private async flushLogs() {

@@ -33,6 +33,7 @@ import {
   histogramRunnerShutdownDuration,
   histogramRunnerStartupDuration,
 } from "~/metrics.js";
+import { LoopBase } from "~/loop-base.js";
 
 type RunnerManagerItem = {
   status: "starting" | "ready" | "closing" | "closed";
@@ -52,7 +53,11 @@ type RunnerManagerItem = {
   closedAt?: number;
 };
 
-export class RunnerManager {
+export class RunnerManager extends LoopBase {
+  protected loopDuration = 500;
+  protected loopClosing = undefined;
+  protected loopStarting = undefined;
+
   private logger: LogDriverBase;
 
   private store: Store;
@@ -63,11 +68,11 @@ export class RunnerManager {
 
   private requestedActionIds = new Set<string>();
 
-  private isLoopRunning = false;
-
-  private status: StatusLifecycle = "neutral";
+  private danglingLastRun = 0;
 
   constructor(store: Store, logger: LogDriverBase) {
+    super();
+
     this.logger = logger;
 
     this.store = store;
@@ -143,30 +148,59 @@ export class RunnerManager {
     });
   }
 
-  public async start() {
-    assert(this.status === "neutral");
-
-    this.status = "starting";
-
-    this.loop();
-
-    await awaitTruthy(() => Promise.resolve(this.isLoopRunning));
-
+  protected async loopStarted() {
     await this.server.start();
-
-    this.status = "started";
   }
 
-  public async stop() {
-    assert(this.status === "started");
-
-    this.status = "stopping";
-
-    await awaitTruthy(() => Promise.resolve(!this.isLoopRunning));
-
+  protected async loopClosed() {
     await this.server.stop();
+  }
 
-    this.status = "neutral";
+  protected async loopIteration() {
+    const benchmark = createBenchmark();
+    const end = histogramJobManagerLoopDuration.startTimer();
+
+    const currentActions = await getDrizzle()
+      .select({
+        action: actionsTable,
+        job: jobsTable,
+        environment: environmentsTable,
+      })
+      .from(actionsTable)
+      .innerJoin(
+        jobsTable,
+        and(
+          eq(actionsTable.jobId, jobsTable.id),
+          eq(actionsTable.version, jobsTable.version)
+        )
+      )
+      .leftJoin(environmentsTable, eq(environmentsTable.jobId, jobsTable.id))
+      .where(
+        and(isNotNull(jobsTable.version), eq(jobsTable.status, "enabled"))
+      );
+
+    await this.loopRunnerSpawner(currentActions);
+    await this.loopCheckEnvironmentChanges(currentActions);
+    await this.loopCheckVersion(currentActions);
+    await this.loopCheckMaxAge(currentActions);
+    await this.loopCheckHardMaxAge(currentActions);
+
+    if (getUnixTimestamp() - this.danglingLastRun > 60) {
+      await this.loopCheckDanglingContainers(currentActions);
+
+      this.danglingLastRun = getUnixTimestamp();
+    }
+
+    const benchmarkResult = benchmark();
+    if (benchmarkResult >= 10_000) {
+      console.log(
+        `[RunnerManager/loop] loop iteration exceeded 10,000ms (10s), took ${benchmarkResult.toFixed(
+          2
+        )}ms to complete!`
+      );
+    }
+
+    end();
   }
 
   public async sendHandleRequest(
@@ -538,65 +572,6 @@ export class RunnerManager {
       .inc();
 
     return id;
-  }
-
-  private async loop() {
-    this.isLoopRunning = true;
-
-    let danglingLastRun = 0;
-
-    while (this.status === "starting" || this.status === "started") {
-      const benchmark = createBenchmark();
-      const end = histogramJobManagerLoopDuration.startTimer();
-
-      const currentActions = await getDrizzle()
-        .select({
-          action: actionsTable,
-          job: jobsTable,
-          environment: environmentsTable,
-        })
-        .from(actionsTable)
-        .innerJoin(
-          jobsTable,
-          and(
-            eq(actionsTable.jobId, jobsTable.id),
-            eq(actionsTable.version, jobsTable.version)
-          )
-        )
-        .leftJoin(environmentsTable, eq(environmentsTable.jobId, jobsTable.id))
-        .where(
-          and(isNotNull(jobsTable.version), eq(jobsTable.status, "enabled"))
-        );
-
-      await this.loopRunnerSpawner(currentActions);
-      await this.loopCheckEnvironmentChanges(currentActions);
-      await this.loopCheckVersion(currentActions);
-      await this.loopCheckMaxAge(currentActions);
-      await this.loopCheckHardMaxAge(currentActions);
-
-      if (getUnixTimestamp() - danglingLastRun > 60) {
-        await this.loopCheckDanglingContainers(currentActions);
-
-        danglingLastRun = getUnixTimestamp();
-      }
-
-      const benchmarkResult = benchmark();
-      if (benchmarkResult >= 10_000) {
-        console.log(
-          `[RunnerManager/loop] loop iteration exceeded 10,000ms (10s), took ${benchmarkResult.toFixed(
-            2
-          )}ms to complete!`
-        );
-      }
-
-      end();
-
-      await timeout(500);
-    }
-
-    await this.loopClose();
-
-    this.isLoopRunning = false;
   }
 
   private async loopClose() {

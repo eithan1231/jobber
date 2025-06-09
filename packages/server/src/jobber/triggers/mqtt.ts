@@ -20,6 +20,7 @@ import { connectAsync, IClientOptions, MqttClient } from "mqtt";
 import { counterTriggerMqtt, counterTriggerMqttPublish } from "~/metrics.js";
 import { DecoupledStatus } from "../decoupled-status.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
+import { LoopBase } from "~/loop-base.js";
 
 type TriggerMqttItem = {
   trigger: TriggersTableType;
@@ -36,7 +37,12 @@ type TriggerMqttItem = {
   clientConfigHash: string;
 };
 
-export class TriggerMqtt {
+export class TriggerMqtt extends LoopBase {
+  protected loopDuration = 1000;
+  protected loopStarting = undefined;
+  protected loopStarted = undefined;
+  protected loopClosing = undefined;
+
   private runnerManager: RunnerManager;
 
   private logger: LogDriverBase;
@@ -45,15 +51,13 @@ export class TriggerMqtt {
 
   private triggers: Record<string, TriggerMqttItem> = {};
 
-  private isLoopRunning = false;
-
-  private status: StatusLifecycle = "neutral";
-
   constructor(
     runnerManager: RunnerManager,
     logger: LogDriverBase,
     decoupledStatus: DecoupledStatus
   ) {
+    super();
+
     this.runnerManager = runnerManager;
 
     this.logger = logger;
@@ -61,82 +65,50 @@ export class TriggerMqtt {
     this.decoupledStatus = decoupledStatus;
   }
 
-  public async start() {
-    assert(this.status === "neutral");
-
-    this.status = "starting";
-
-    this.loop();
-
-    await awaitTruthy(() => Promise.resolve(this.isLoopRunning));
-
-    this.status = "started";
-  }
-
-  public async stop() {
-    assert(this.status === "started");
-
-    this.status = "stopping";
-
-    await awaitTruthy(() => Promise.resolve(!this.isLoopRunning));
-
-    this.status = "neutral";
-  }
-
-  private async loop() {
-    this.isLoopRunning = true;
-
-    while (this.status === "starting" || this.status === "started") {
-      const triggers = await getDrizzle()
-        .select({
-          trigger: triggersTable,
-          action: actionsTable,
-          job: jobsTable,
-          environment: environmentsTable,
-        })
-        .from(triggersTable)
-        .innerJoin(
-          jobsTable,
-          and(
-            eq(triggersTable.jobId, jobsTable.id),
-            eq(triggersTable.version, jobsTable.version)
-          )
+  protected async loopIteration() {
+    const triggers = await getDrizzle()
+      .select({
+        trigger: triggersTable,
+        action: actionsTable,
+        job: jobsTable,
+        environment: environmentsTable,
+      })
+      .from(triggersTable)
+      .innerJoin(
+        jobsTable,
+        and(
+          eq(triggersTable.jobId, jobsTable.id),
+          eq(triggersTable.version, jobsTable.version)
         )
-        .innerJoin(
-          actionsTable,
-          and(
-            eq(actionsTable.jobId, triggersTable.jobId),
-            eq(actionsTable.version, triggersTable.version)
-          )
+      )
+      .innerJoin(
+        actionsTable,
+        and(
+          eq(actionsTable.jobId, triggersTable.jobId),
+          eq(actionsTable.version, triggersTable.version)
         )
-        .leftJoin(
-          environmentsTable,
-          eq(environmentsTable.jobId, triggersTable.jobId)
+      )
+      .leftJoin(
+        environmentsTable,
+        eq(environmentsTable.jobId, triggersTable.jobId)
+      )
+      .where(
+        and(
+          isNotNull(jobsTable.version),
+          sql`${triggersTable.context} ->> 'type' = 'mqtt'`,
+          eq(jobsTable.status, "enabled")
         )
-        .where(
-          and(
-            isNotNull(jobsTable.version),
-            sql`${triggersTable.context} ->> 'type' = 'mqtt'`,
-            eq(jobsTable.status, "enabled")
-          )
-        );
+      );
 
-      await this.loopCheckOldTriggers(triggers);
-      await this.loopCheckConnection(triggers);
-      await this.loopCheckNewTriggers(triggers);
-
-      await timeout(1000);
-    }
-
-    await this.loopClose();
-
-    this.isLoopRunning = false;
+    await this.loopCheckOldTriggers(triggers);
+    await this.loopCheckConnection(triggers);
+    await this.loopCheckNewTriggers(triggers);
   }
 
   /**
    * Handle the event loop closure.
    */
-  private async loopClose() {
+  protected async loopClosed() {
     for (const [triggerId, trigger] of Object.entries(this.triggers)) {
       try {
         await trigger.client.endAsync();

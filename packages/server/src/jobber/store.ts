@@ -4,6 +4,7 @@ import { getDrizzle } from "~/db/index.js";
 import { storeTable } from "~/db/schema/store.js";
 import { awaitTruthy, getUnixTimestamp, timeout } from "~/util.js";
 import { StatusLifecycle } from "./types.js";
+import { LoopBase } from "~/loop-base.js";
 
 type StoreItem = {
   id: string;
@@ -17,31 +18,15 @@ type StoreItem = {
 
 type StoreItemNoValue = Omit<StoreItem, "value">;
 
-export class Store {
-  private isLoopRunning = false;
+export class Store extends LoopBase {
+  protected loopDuration = 1000;
+  protected loopStarting = undefined;
+  protected loopStarted = undefined;
+  protected loopClosing = undefined;
+  protected loopClosed = undefined;
 
-  private status: StatusLifecycle = "neutral";
-
-  public async start() {
-    assert(this.status === "neutral");
-
-    this.status = "starting";
-
-    this.loop();
-
-    await awaitTruthy(() => Promise.resolve(this.isLoopRunning));
-
-    this.status = "started";
-  }
-
-  public async stop() {
-    assert(this.status === "started");
-
-    this.status = "stopping";
-
-    await awaitTruthy(() => Promise.resolve(!this.isLoopRunning));
-
-    this.status = "neutral";
+  protected async loopIteration() {
+    await this.loopCleanup();
   }
 
   public async getItems(jobId: string): Promise<StoreItem[]> {
@@ -232,18 +217,6 @@ export class Store {
       modified: result.modified,
       expiry: result.expiry,
     };
-  }
-
-  private async loop() {
-    this.isLoopRunning = true;
-
-    while (this.status === "starting" || this.status === "started") {
-      await this.loopCleanup();
-
-      await timeout(1000);
-    }
-
-    this.isLoopRunning = false;
   }
 
   private async loopCleanup() {

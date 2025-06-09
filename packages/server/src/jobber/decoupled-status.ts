@@ -11,8 +11,10 @@ type DecoupledStatusItem = {
 
 export class DecoupledStatus extends LoopBase {
   protected loopDuration = 1000;
-  protected loopShutdown = undefined;
-  protected loopStartup = undefined;
+  protected loopStarting = undefined;
+  protected loopStarted = undefined;
+  protected loopClosing = undefined;
+  protected loopClosed = undefined;
 
   private records = new Map<string, DecoupledStatusItem>();
 
