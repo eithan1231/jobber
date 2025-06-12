@@ -385,7 +385,7 @@ export class TriggerMqtt extends LoopBase {
 
       if (!handleResponse.success) {
         console.log(
-          `[TriggerMqtt/onMqttMessage] Sending MQTT handle event failed! ${handleResponse.error}`
+          `[TriggerMqtt/onMqttMessage] Sending MQTT handle event failed! topic "${topic}", error: ${handleResponse.error}`
         );
 
         return;
@@ -400,28 +400,43 @@ export class TriggerMqtt extends LoopBase {
       }
 
       for (const publishItem of handleResponse.mqtt.publish) {
-        this.logger.write({
-          source: "system",
-          actionId: triggerItem.action.id,
-          jobId: triggerItem.job.id,
-          jobName: triggerItem.job.jobName,
-          message: `[SYSTEM] MQTT message published to topic "${publishItem.topic}"`,
-          created: getUnixTimestamp(),
-        });
+        try {
+          this.logger.write({
+            source: "system",
+            actionId: triggerItem.action.id,
+            jobId: triggerItem.job.id,
+            jobName: triggerItem.job.jobName,
+            message: `[SYSTEM] MQTT message published to topic "${publishItem.topic}"`,
+            created: getUnixTimestamp(),
+          });
 
-        await triggerItem.client.publishAsync(
-          publishItem.topic,
-          publishItem.body
-        );
+          counterTriggerMqttPublish
+            .labels({
+              job_id: triggerItem.job.id,
+              job_name: triggerItem.job.jobName,
+              version: triggerItem.version.version,
+              topic: publishItem.topic,
+            })
+            .inc();
 
-        counterTriggerMqttPublish
-          .labels({
-            job_id: triggerItem.job.id,
-            job_name: triggerItem.job.jobName,
-            version: triggerItem.version.version,
-            topic: publishItem.topic,
-          })
-          .inc();
+          await triggerItem.client.publishAsync(
+            publishItem.topic,
+            publishItem.body
+          );
+        } catch (err) {
+          console.error(err);
+
+          this.logger.write({
+            source: "system",
+            actionId: triggerItem.action.id,
+            jobId: triggerItem.job.id,
+            jobName: triggerItem.job.jobName,
+            message: `[SYSTEM] MQTT publish error! topic: ${
+              publishItem.topic
+            }, ${err instanceof Error ? err.message : String(err)}`,
+            created: getUnixTimestamp(),
+          });
+        }
       }
     } catch (err) {
       console.error(err);
