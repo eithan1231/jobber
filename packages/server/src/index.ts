@@ -30,6 +30,7 @@ import { createRouteJobPublish } from "./routes/job/publish.js";
 import { createRouteJobStore } from "./routes/job/store.js";
 import { createRouteJobTriggers } from "./routes/job/triggers.js";
 import { createRouteMetrics } from "./routes/metrics.js";
+import { createRouteVersions } from "./routes/job/versions.js";
 
 async function createInternalHono(instances: {
   runnerManager: RunnerManager;
@@ -90,6 +91,7 @@ async function createInternalHono(instances: {
   app.route("/api/", await createRouteJobStore(instances.store));
   app.route("/api/", await createRouteJobTriggers());
   app.route("/api/", await createRouteConfig());
+  app.route("/api/", await createRouteVersions());
 
   app.route("/api/", await createRouteMetrics());
 
