@@ -1,12 +1,12 @@
 import assert from "assert";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { createWriteStream } from "fs";
 import { cp } from "fs/promises";
 import { Hono } from "hono";
-import { setMetric, timing } from "hono/timing";
 import { ReadableStream } from "node:stream/web";
 import { getDrizzle } from "~/db/index.js";
 import { actionsTable } from "~/db/schema/actions.js";
+import { jobVersionsTable } from "~/db/schema/job-versions.js";
 import { jobsTable } from "~/db/schema/jobs.js";
 import { triggersTable } from "~/db/schema/triggers.js";
 import { classifyArchiveFile } from "~/jobber/images.js";
@@ -14,6 +14,7 @@ import { getJobActionArchiveFile } from "~/paths.js";
 import {
   createBenchmark,
   getTmpFile,
+  getUnixTimestamp,
   handleReadableStreamPipe,
 } from "~/util.js";
 
@@ -84,25 +85,11 @@ export async function createRouteJobPublish() {
 
     const packageJson = classification.package;
 
-    const existingJob = (
-      await getDrizzle()
-        .select()
-        .from(jobsTable)
-        .where(eq(jobsTable.jobName, packageJson.name))
-        .limit(1)
-    ).at(0);
-
-    if (!existingJob) {
-      await getDrizzle().insert(jobsTable).values({
-        jobName: packageJson.name,
-        description: packageJson.description,
-        links: packageJson.links,
-      });
-    }
-
     console.log(`[/publish/] ${benchmark()}ms - Queried job`);
 
     return await getDrizzle().transaction(async (tx) => {
+      const timestamp = getUnixTimestamp();
+
       const job = (
         await getDrizzle()
           .insert(jobsTable)
@@ -115,7 +102,6 @@ export async function createRouteJobPublish() {
             set: {
               description: packageJson.description,
               links: packageJson.links,
-              version: packageJson.version,
             },
             target: jobsTable.jobName,
           })
@@ -123,7 +109,7 @@ export async function createRouteJobPublish() {
       ).at(0);
 
       if (!job) {
-        tx.rollback();
+        console.log(`[/publish/] Failed to create job for ${packageJson.name}`);
 
         return c.json({
           success: false,
@@ -131,78 +117,67 @@ export async function createRouteJobPublish() {
         });
       }
 
-      console.log(`[/publish/] ${benchmark()}ms - Upserted job`);
+      const version = (
+        await getDrizzle()
+          .insert(jobVersionsTable)
+          .values({
+            jobId: job.id,
+            version: packageJson.version,
+            created: timestamp,
+            modified: timestamp,
+          })
+          .onConflictDoNothing({
+            target: [jobVersionsTable.jobId, jobVersionsTable.version],
+          })
+          .returning()
+      ).at(0);
 
-      const existingActions = await tx
-        .select()
-        .from(actionsTable)
-        .where(
-          and(
-            eq(actionsTable.jobId, job.id),
-            eq(actionsTable.version, packageJson.version)
-          )
-        );
-
-      if (existingActions.length > 0) {
+      if (!version) {
         console.log(
-          `[${c.req.path}] Failed due to pre-existing actions with the same version`
+          `[/publish/] Failed to create job version for ${job.jobName} v${packageJson.version}`
         );
 
-        return c.json(
-          {
-            success: false,
-            message: "Cannot re-publish version",
-          },
-          400
-        );
+        return c.json({
+          success: false,
+          message: "Version already exists",
+        });
       }
 
-      const existingTriggers = await tx
-        .select()
-        .from(triggersTable)
-        .where(
-          and(
-            eq(triggersTable.jobId, job.id),
-            eq(triggersTable.version, packageJson.version)
-          )
-        );
-
-      if (existingTriggers.length > 0) {
+      if (version.created !== timestamp) {
         console.log(
-          `[${c.req.path}] Failed due to pre-existing triggers with the same version`
+          `[/publish/] Job version ${job.jobName} v${packageJson.version} already exists, skipping action creation`
         );
 
-        return c.json(
-          {
-            success: false,
-            message: "Cannot re-publish version",
-          },
-          400
-        );
+        return c.json({
+          success: true,
+          message: "Version already exists, skipping action creation",
+        });
       }
 
-      const actions = await tx
-        .insert(actionsTable)
-        .values({
-          jobId: job.id,
-          version: packageJson.version,
-          runnerImage: classification.image.name,
-          runnerAsynchronous: packageJson.action.runnerAsynchronous,
-          runnerMaxAge: packageJson.action.runnerMaxAge,
-          runnerMaxAgeHard: packageJson.action.runnerMaxAgeHard,
-          runnerMaxCount: packageJson.action.runnerMaxCount,
-          runnerMinCount: packageJson.action.runnerMinCount,
-          runnerMode: packageJson.action.runnerMode,
-          runnerTimeout: packageJson.action.runnerTimeout,
-        })
-        .returning();
+      const action = (
+        await tx
+          .insert(actionsTable)
+          .values({
+            jobId: job.id,
+            jobVersionId: version.id,
+            runnerImage: classification.image.name,
+            runnerAsynchronous: packageJson.action.runnerAsynchronous,
+            runnerMaxAge: packageJson.action.runnerMaxAge,
+            runnerMaxAgeHard: packageJson.action.runnerMaxAgeHard,
+            runnerMaxCount: packageJson.action.runnerMaxCount,
+            runnerMinCount: packageJson.action.runnerMinCount,
+            runnerMode: packageJson.action.runnerMode,
+            runnerTimeout: packageJson.action.runnerTimeout,
+          })
+          .returning()
+      ).at(0);
 
       await Promise.all(
         packageJson.triggers.map((trigger) => {
           if (trigger.type === "schedule") {
             return tx.insert(triggersTable).values({
               jobId: job.id,
-              version: packageJson.version,
+              jobVersionId: version.id,
               context: {
                 type: "schedule",
                 cron: trigger.cron,
@@ -214,7 +189,7 @@ export async function createRouteJobPublish() {
           if (trigger.type === "http") {
             return tx.insert(triggersTable).values({
               jobId: job.id,
-              version: packageJson.version,
+              jobVersionId: version.id,
               context: {
                 type: "http",
                 hostname: trigger.hostname,
@@ -227,7 +202,7 @@ export async function createRouteJobPublish() {
           if (trigger.type === "mqtt") {
             return tx.insert(triggersTable).values({
               jobId: job.id,
-              version: packageJson.version,
+              jobVersionId: version.id,
               context: {
                 type: "mqtt",
                 topics: trigger.topics,
@@ -241,9 +216,16 @@ export async function createRouteJobPublish() {
         })
       );
 
-      if (actions.length === 1) {
-        await cp(filename, getJobActionArchiveFile(actions[0]));
+      if (action) {
+        await cp(filename, getJobActionArchiveFile(version, action));
       }
+
+      await tx
+        .update(jobsTable)
+        .set({
+          jobVersionId: version.id,
+        })
+        .where(eq(jobsTable.id, job.id));
 
       console.log(`[/publish/] ${benchmark()}ms - Finished`);
 

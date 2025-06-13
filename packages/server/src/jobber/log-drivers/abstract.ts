@@ -1,6 +1,3 @@
-import assert from "assert";
-import { awaitTruthy, timeout } from "~/util.js";
-import { StatusLifecycle } from "../types.js";
 import { LoopBase } from "~/loop-base.js";
 
 export type LogDriverBaseItem = {

@@ -1,9 +1,10 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Context, Hono, Next } from "hono";
 import assert from "node:assert";
 import { z } from "zod";
 import { getConfigOption } from "~/config.js";
 import { getDrizzle } from "~/db/index.js";
+import { jobVersionsTable } from "~/db/schema/job-versions.js";
 import { jobsTable } from "~/db/schema/jobs.js";
 import { getUnixTimestamp } from "~/util.js";
 
@@ -130,13 +131,25 @@ export async function createRouteJobMetrics() {
 
       const job = (
         await getDrizzle()
-          .select()
+          .select({
+            id: jobsTable.id,
+            jobName: jobsTable.jobName,
+            jobVersionId: jobsTable.jobVersionId,
+            version: jobVersionsTable.version,
+          })
           .from(jobsTable)
+          .leftJoin(
+            jobVersionsTable,
+            and(
+              eq(jobsTable.id, jobVersionsTable.jobId),
+              eq(jobsTable.jobVersionId, jobVersionsTable.id)
+            )
+          )
           .where(eq(jobsTable.id, jobId))
           .limit(1)
       )?.at(0);
 
-      if (!job || job.version === null) {
+      if (!job) {
         return c.json(
           {
             success: false,
@@ -147,6 +160,16 @@ export async function createRouteJobMetrics() {
       }
 
       if (version === "latest") {
+        if (job.version === null) {
+          return c.json(
+            {
+              success: false,
+              message: "Job does not have a version",
+            },
+            400
+          );
+        }
+
         version = job.version;
       }
 

@@ -7,29 +7,30 @@ import { ZodError } from "zod";
 
 import { getPool, runDrizzleMigration } from "./db/index.js";
 import { getJobActionArchiveDirectory } from "./paths.js";
+import { getUnixTimestamp } from "./util.js";
 
+import { DecoupledStatus } from "./jobber/decoupled-status.js";
 import { LogDriverBase } from "./jobber/log-drivers/abstract.js";
 import { createLogDriver } from "./jobber/log-drivers/index.js";
 import { RunnerManager } from "./jobber/runners/manager.js";
 import { HandleRequestHttp } from "./jobber/runners/server.js";
+import { Store } from "./jobber/store.js";
+import { Telemetry } from "./jobber/telemetry.js";
 import { TriggerCron } from "./jobber/triggers/cron.js";
 import { TriggerHttp } from "./jobber/triggers/http.js";
 import { TriggerMqtt } from "./jobber/triggers/mqtt.js";
 
-import { Store } from "./jobber/store.js";
-import { Telemetry } from "./jobber/telemetry.js";
-import { getUnixTimestamp } from "./util.js";
-import { DecoupledStatus } from "./jobber/decoupled-status.js";
+import { createRouteConfig } from "./routes/config.js";
 import { createRouteJobActions } from "./routes/job/actions.js";
 import { createRouteJobEnvironment } from "./routes/job/environment.js";
 import { createRouteJob } from "./routes/job/job.js";
-import { createRouteJobMetrics } from "./routes/job/metrics.js";
-import { createRouteMetrics } from "./routes/metrics.js";
 import { createRouteJobLogs } from "./routes/job/logs.js";
+import { createRouteJobMetrics } from "./routes/job/metrics.js";
 import { createRouteJobPublish } from "./routes/job/publish.js";
 import { createRouteJobStore } from "./routes/job/store.js";
 import { createRouteJobTriggers } from "./routes/job/triggers.js";
-import { createRouteConfig } from "./routes/config.js";
+import { createRouteMetrics } from "./routes/metrics.js";
+import { createRouteVersions } from "./routes/job/versions.js";
 
 async function createInternalHono(instances: {
   runnerManager: RunnerManager;
@@ -90,6 +91,7 @@ async function createInternalHono(instances: {
   app.route("/api/", await createRouteJobStore(instances.store));
   app.route("/api/", await createRouteJobTriggers());
   app.route("/api/", await createRouteConfig());
+  app.route("/api/", await createRouteVersions());
 
   app.route("/api/", await createRouteMetrics());
 

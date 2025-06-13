@@ -15,6 +15,7 @@ export type JobberJob = {
   status: "enabled" | "disabled";
   description: string;
   version?: string;
+  jobVersionId?: string;
   links: Array<{ name: string; url: string }>;
 };
 
@@ -154,6 +155,14 @@ export type JobberConfig = {
   };
 };
 
+export type JobberVersion = {
+  id: string;
+  jobId: string;
+  version: string;
+  created: number;
+  modified: number;
+};
+
 export const getJobs = async (): Promise<
   JobberGenericResponse<JobberJob[]>
 > => {
@@ -172,7 +181,7 @@ export const getJob = async (
 
 export const putJob = async (
   jobId: string,
-  body: Partial<Pick<JobberJob, "status" | "description">>
+  body: Partial<Pick<JobberJob, "status" | "description" | "jobVersionId">>
 ): Promise<JobberGenericResponse<undefined>> => {
   const result = await fetch(`/api/job/${jobId}`, {
     method: "PUT",
@@ -191,6 +200,14 @@ export const deleteJob = async (
   const result = await fetch(`/api/job/${jobId}`, {
     method: "DELETE",
   });
+
+  return await result.json();
+};
+
+export const getJobVersions = async (
+  jobId: string
+): Promise<JobberGenericResponse<Array<JobberVersion>>> => {
+  const result = await fetch(`/api/job/${jobId}/versions`);
 
   return await result.json();
 };

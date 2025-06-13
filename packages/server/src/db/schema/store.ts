@@ -1,10 +1,10 @@
 import {
-  pgTable,
-  uuid,
-  text,
   integer,
-  varchar,
+  pgTable,
+  text,
   unique,
+  uuid,
+  varchar,
 } from "drizzle-orm/pg-core";
 import { jobsTable } from "./jobs.js";
 

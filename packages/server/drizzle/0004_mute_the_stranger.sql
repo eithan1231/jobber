@@ -1,1 +1,0 @@
-ALTER TABLE "store" ADD CONSTRAINT "store_jobId_storeKey_unique" UNIQUE("jobId","storeKey");

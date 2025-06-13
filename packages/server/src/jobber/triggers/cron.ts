@@ -3,18 +3,21 @@ import { CronTime } from "cron";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { getDrizzle } from "~/db/index.js";
 import { actionsTable, ActionsTableType } from "~/db/schema/actions.js";
+import {
+  jobVersionsTable,
+  JobVersionsTableType,
+} from "~/db/schema/job-versions.js";
 import { jobsTable, JobsTableType } from "~/db/schema/jobs.js";
 import { triggersTable, TriggersTableType } from "~/db/schema/triggers.js";
-import { awaitTruthy, timeout } from "~/util.js";
-import { RunnerManager } from "../runners/manager.js";
-import { StatusLifecycle } from "../types.js";
+import { LoopBase } from "~/loop-base.js";
 import { counterTriggerCron } from "~/metrics.js";
 import { DecoupledStatus } from "../decoupled-status.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
-import { LoopBase } from "~/loop-base.js";
+import { RunnerManager } from "../runners/manager.js";
 
 type TriggerCronItem = {
   trigger: TriggersTableType;
+  version: JobVersionsTableType;
   action: ActionsTableType;
   job: JobsTableType;
   cron: CronTime;
@@ -54,27 +57,35 @@ export class TriggerCron extends LoopBase {
     const triggers = await getDrizzle()
       .select({
         trigger: triggersTable,
+        version: jobVersionsTable,
         action: actionsTable,
         job: jobsTable,
       })
       .from(triggersTable)
       .innerJoin(
+        jobVersionsTable,
+        and(
+          eq(triggersTable.jobId, jobVersionsTable.jobId),
+          eq(triggersTable.jobVersionId, jobVersionsTable.id)
+        )
+      )
+      .innerJoin(
         jobsTable,
         and(
           eq(triggersTable.jobId, jobsTable.id),
-          eq(triggersTable.version, jobsTable.version)
+          eq(triggersTable.jobVersionId, jobsTable.jobVersionId)
         )
       )
       .innerJoin(
         actionsTable,
         and(
-          eq(actionsTable.jobId, triggersTable.jobId),
-          eq(actionsTable.version, triggersTable.version)
+          eq(triggersTable.jobId, actionsTable.jobId),
+          eq(triggersTable.jobVersionId, actionsTable.jobVersionId)
         )
       )
       .where(
         and(
-          isNotNull(jobsTable.version),
+          isNotNull(jobsTable.jobVersionId),
           sql`${triggersTable.context} ->> 'type' = 'schedule'`,
           eq(jobsTable.status, "enabled")
         )
@@ -90,6 +101,7 @@ export class TriggerCron extends LoopBase {
    */
   private async loopCheckNewTriggers(
     triggersSource: {
+      version: JobVersionsTableType;
       trigger: TriggersTableType;
       action: ActionsTableType;
       job: JobsTableType;
@@ -110,6 +122,7 @@ export class TriggerCron extends LoopBase {
       this.triggers[triggerSource.trigger.id] = {
         trigger: structuredClone(triggerSource.trigger),
         action: structuredClone(triggerSource.action),
+        version: structuredClone(triggerSource.version),
         job: structuredClone(triggerSource.job),
         cron: cron,
         scheduledAt: cron.sendAt().toMillis(),
@@ -147,6 +160,7 @@ export class TriggerCron extends LoopBase {
    */
   private async loopCheckTriggers(
     triggersSource: {
+      version: JobVersionsTableType;
       trigger: TriggersTableType;
       action: ActionsTableType;
       job: JobsTableType;
@@ -162,7 +176,7 @@ export class TriggerCron extends LoopBase {
       trigger.scheduledAt = trigger.cron.sendAt().toMillis();
 
       this.runnerManager
-        .sendHandleRequest(trigger.action, trigger.job, {
+        .sendHandleRequest(trigger.version, trigger.job, trigger.action, {
           type: "schedule",
         })
         .then((handleResponse) => {
@@ -170,7 +184,7 @@ export class TriggerCron extends LoopBase {
             .labels({
               job_id: trigger.job.id,
               job_name: trigger.job.jobName,
-              version: trigger.trigger.version,
+              version: trigger.version.version,
               success: handleResponse.success ? 1 : 0,
             })
             .inc();

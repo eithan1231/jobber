@@ -1,20 +1,16 @@
-import {
-  boolean,
-  integer,
-  pgTable,
-  text,
-  uuid,
-  varchar,
-} from "drizzle-orm/pg-core";
-import { jobsTable } from "./jobs.js";
+import { boolean, integer, pgTable, text, uuid } from "drizzle-orm/pg-core";
 import { getDefaultRuntimeImages } from "~/jobber/images.js";
+import { jobVersionsTable } from "./job-versions.js";
+import { jobsTable } from "./jobs.js";
 
 export const actionsTable = pgTable("actions", {
   id: uuid("id").primaryKey().defaultRandom().notNull(),
   jobId: uuid()
     .notNull()
     .references(() => jobsTable.id, { onDelete: "cascade" }),
-  version: varchar({ length: 16 }).notNull(),
+  jobVersionId: uuid()
+    .notNull()
+    .references(() => jobVersionsTable.id, { onDelete: "cascade" }),
   runnerImage: text().notNull().default(getDefaultRuntimeImages().node),
   runnerAsynchronous: boolean().default(true).notNull(),
   runnerMinCount: integer().default(1).notNull(),

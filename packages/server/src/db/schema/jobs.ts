@@ -1,10 +1,21 @@
-import { pgTable, varchar, uuid, text, jsonb } from "drizzle-orm/pg-core";
+import {
+  jsonb,
+  PgColumn,
+  pgTable,
+  text,
+  uuid,
+  varchar,
+} from "drizzle-orm/pg-core";
+import { jobVersionsTable } from "./job-versions.js";
 
 export const jobsTable = pgTable("jobs", {
   id: uuid("id").primaryKey().defaultRandom().notNull(),
   jobName: varchar({ length: 128 }).unique().notNull(),
   description: text(),
-  version: varchar({ length: 16 }),
+
+  jobVersionId: uuid().references((): PgColumn => jobVersionsTable.id, {
+    onDelete: "set null",
+  }),
 
   status: varchar({
     enum: ["enabled", "disabled"],

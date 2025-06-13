@@ -9,8 +9,21 @@ import {
   environmentsTable,
   EnvironmentsTableType,
 } from "~/db/schema/environments.js";
+import {
+  jobVersionsTable,
+  JobVersionsTableType,
+} from "~/db/schema/job-versions.js";
 import { jobsTable, JobsTableType } from "~/db/schema/jobs.js";
 import { getDockerContainers, stopDockerContainer } from "~/docker.js";
+import { LoopBase } from "~/loop-base.js";
+import {
+  counterRunnerRequests,
+  gaugeActiveRunners,
+  histogramJobManagerLoopDuration,
+  histogramRunnerRequestDuration,
+  histogramRunnerShutdownDuration,
+  histogramRunnerStartupDuration,
+} from "~/metrics.js";
 import {
   awaitTruthy,
   createBenchmark,
@@ -22,23 +35,14 @@ import {
 } from "~/util.js";
 import { getImage } from "../images.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
-import { StatusLifecycle } from "../types.js";
-import { HandleRequest, HandleResponse, RunnerServer } from "./server.js";
 import { Store } from "../store.js";
-import {
-  counterRunnerRequests,
-  gaugeActiveRunners,
-  histogramJobManagerLoopDuration,
-  histogramRunnerRequestDuration,
-  histogramRunnerShutdownDuration,
-  histogramRunnerStartupDuration,
-} from "~/metrics.js";
-import { LoopBase } from "~/loop-base.js";
+import { HandleRequest, HandleResponse, RunnerServer } from "./server.js";
 
 type RunnerManagerItem = {
   status: "starting" | "ready" | "closing" | "closed";
 
   id: string;
+  version: JobVersionsTableType;
   action: ActionsTableType;
   job: JobsTableType;
   environment: EnvironmentsTableType | null;
@@ -66,7 +70,7 @@ export class RunnerManager extends LoopBase {
 
   private runners: Record<string, RunnerManagerItem> = {};
 
-  private requestedActionIds = new Set<string>();
+  private requestedVersionIds = new Set<string>();
 
   private danglingLastRun = 0;
 
@@ -109,7 +113,7 @@ export class RunnerManager extends LoopBase {
         .labels({
           job_id: runner.job.id,
           job_name: runner.job.jobName,
-          version: runner.action.version,
+          version: runner.version.version,
         })
         .observe(runner.readyAt - runner.createdAt);
     });
@@ -141,7 +145,7 @@ export class RunnerManager extends LoopBase {
           .labels({
             job_id: runner.job.id,
             job_name: runner.job.jobName,
-            version: runner.action.version,
+            version: runner.version.version,
           })
           .observe(runner.closingAt - runner.closedAt);
       }
@@ -153,6 +157,7 @@ export class RunnerManager extends LoopBase {
   }
 
   protected async loopClosed() {
+    await this.loopClose();
     await this.server.stop();
   }
 
@@ -160,33 +165,41 @@ export class RunnerManager extends LoopBase {
     const benchmark = createBenchmark();
     const end = histogramJobManagerLoopDuration.startTimer();
 
-    const currentActions = await getDrizzle()
+    const currentVersions = await getDrizzle()
       .select({
-        action: actionsTable,
+        version: jobVersionsTable,
         job: jobsTable,
+        action: actionsTable,
         environment: environmentsTable,
       })
-      .from(actionsTable)
+      .from(jobsTable)
       .innerJoin(
-        jobsTable,
+        jobVersionsTable,
         and(
-          eq(actionsTable.jobId, jobsTable.id),
-          eq(actionsTable.version, jobsTable.version)
+          eq(jobsTable.id, jobVersionsTable.jobId),
+          eq(jobsTable.jobVersionId, jobVersionsTable.id)
+        )
+      )
+      .innerJoin(
+        actionsTable,
+        and(
+          eq(jobsTable.id, actionsTable.jobId),
+          eq(jobsTable.jobVersionId, actionsTable.jobVersionId)
         )
       )
       .leftJoin(environmentsTable, eq(environmentsTable.jobId, jobsTable.id))
       .where(
-        and(isNotNull(jobsTable.version), eq(jobsTable.status, "enabled"))
+        and(isNotNull(jobsTable.jobVersionId), eq(jobsTable.status, "enabled"))
       );
 
-    await this.loopRunnerSpawner(currentActions);
-    await this.loopCheckEnvironmentChanges(currentActions);
-    await this.loopCheckVersion(currentActions);
-    await this.loopCheckMaxAge(currentActions);
-    await this.loopCheckHardMaxAge(currentActions);
+    await this.loopRunnerSpawner(currentVersions);
+    await this.loopCheckEnvironmentChanges(currentVersions);
+    await this.loopCheckVersion(currentVersions);
+    await this.loopCheckMaxAge(currentVersions);
+    await this.loopCheckHardMaxAge(currentVersions);
 
     if (getUnixTimestamp() - this.danglingLastRun > 60) {
-      await this.loopCheckDanglingContainers(currentActions);
+      await this.loopCheckDanglingContainers(currentVersions);
 
       this.danglingLastRun = getUnixTimestamp();
     }
@@ -204,22 +217,25 @@ export class RunnerManager extends LoopBase {
   }
 
   public async sendHandleRequest(
-    action: ActionsTableType,
+    version: JobVersionsTableType,
     job: JobsTableType,
+    action: ActionsTableType,
     handleRequest: HandleRequest
   ): Promise<HandleResponse> {
-    const actionRunners = Object.values(this.runners).filter(
-      (index) => index.action.id === action.id
+    assert(action.jobVersionId === version.id);
+
+    const activeRunners = Object.values(this.runners).filter(
+      (index) => index.version.id === version.id
     );
 
     if (action.runnerMode === "run-once") {
       const canCreateRunner =
         action.runnerMaxCount === 0 ||
-        actionRunners.length < action.runnerMaxCount;
+        activeRunners.length < action.runnerMaxCount;
 
       if (!canCreateRunner) {
         console.warn(
-          `[RunnerManager/sendHandleRequest] Failed to start runner, allocation of runners exhausted. actionRunners.length ${actionRunners.length}`
+          `[RunnerManager/sendHandleRequest] Failed to start runner, allocation of runners exhausted. actionRunners.length ${activeRunners.length}`
         );
 
         return {
@@ -229,7 +245,7 @@ export class RunnerManager extends LoopBase {
         };
       }
 
-      const runnerId = await this.createRunner(action, job, {
+      const runnerId = await this.createRunner(version, action, job, {
         dockerNamePrefix: "unknown",
       });
 
@@ -281,7 +297,7 @@ export class RunnerManager extends LoopBase {
         .labels({
           job_name: runner.job.jobName,
           job_id: runner.job.id,
-          version: action.version,
+          version: version.version,
           trigger_type: handleRequest.type,
         })
         .observe(result.duration);
@@ -290,7 +306,7 @@ export class RunnerManager extends LoopBase {
         .labels({
           job_name: runner.job.jobName,
           job_id: runner.job.id,
-          version: action.version,
+          version: version.version,
           trigger_type: handleRequest.type,
           success: result.success ? 1 : 0,
         })
@@ -300,22 +316,23 @@ export class RunnerManager extends LoopBase {
     }
 
     if (action.runnerMode === "standard") {
-      const actionRunnersPool = actionRunners
+      const runnersPool = activeRunners
         .filter((index) => index.status === "ready")
         .sort((a, b) => a.requestsProcessing - b.requestsProcessing);
 
       // Start new runner
-      if (actionRunnersPool.length <= 0) {
-        this.requestedActionIds.add(action.id);
+      if (runnersPool.length <= 0) {
+        this.requestedVersionIds.add(version.id);
 
         await awaitTruthy(async () =>
           Object.values(this.runners).some(
-            (index) => index.action.id === action.id && index.status === "ready"
+            (index) =>
+              index.version.id === version.id && index.status === "ready"
           )
         );
 
         const runners = Object.values(this.runners).filter(
-          (index) => index.action.id === action.id && index.status === "ready"
+          (index) => index.version.id === version.id && index.status === "ready"
         );
 
         if (runners.length <= 0) {
@@ -330,10 +347,10 @@ export class RunnerManager extends LoopBase {
           };
         }
 
-        actionRunnersPool.push(...runners);
+        runnersPool.push(...runners);
       }
 
-      const runner = actionRunnersPool.at(0);
+      const runner = runnersPool.at(0);
 
       if (!runner || runner.status !== "ready") {
         console.warn(
@@ -361,7 +378,7 @@ export class RunnerManager extends LoopBase {
         .labels({
           job_name: runner.job.jobName,
           job_id: runner.job.id,
-          version: action.version,
+          version: version.version,
           trigger_type: handleRequest.type,
         })
         .observe(result.duration);
@@ -370,7 +387,7 @@ export class RunnerManager extends LoopBase {
         .labels({
           job_name: runner.job.jobName,
           job_id: runner.job.id,
-          version: action.version,
+          version: version.version,
           trigger_type: handleRequest.type,
           success: result.success ? 1 : 0,
         })
@@ -417,12 +434,15 @@ export class RunnerManager extends LoopBase {
   }
 
   private async createRunner(
+    version: JobVersionsTableType,
     action: ActionsTableType,
     job: JobsTableType,
     options?: {
       dockerNamePrefix?: string;
     }
   ) {
+    assert(action.jobVersionId === version.id);
+
     console.log(
       `[RunnerManager/createRunner] Creating runner from action  ${shortenString(
         action.id
@@ -438,7 +458,7 @@ export class RunnerManager extends LoopBase {
       prefix,
     });
 
-    this.server.registerConnection(id, action);
+    this.server.registerConnection(id, action, version);
 
     const image = await getImage(action.runnerImage);
 
@@ -479,10 +499,8 @@ export class RunnerManager extends LoopBase {
 
     args.push("run", "--rm", "--name", id);
 
-    // TODO: This will be problematic if multiple Jobbers are running on a single
-    // server. We should set this to a ID which is unique to this jobber
-    // installation
     args.push("--label", "jobber=true");
+    args.push("--label", `jobber-manager=${getConfigOption("JOBBER_NAME")}`);
 
     const dockerNetwork = getConfigOption("RUNNER_CONTAINER_DOCKER_NETWORK");
     if (dockerNetwork) {
@@ -504,7 +522,9 @@ export class RunnerManager extends LoopBase {
       "--job-controller-host",
       getConfigOption("MANAGER_HOST"),
       "--job-controller-port",
-      getConfigOption("MANAGER_PORT").toString()
+      getConfigOption("MANAGER_PORT").toString(),
+      "--job-debug",
+      getConfigOption("DEBUG_RUNNER") ? "true" : "false"
     );
 
     const process = spawn("docker", args, {
@@ -519,7 +539,7 @@ export class RunnerManager extends LoopBase {
         .labels({
           job_name: job.jobName,
           job_id: job.id,
-          version: action.version,
+          version: version.version,
         })
         .dec();
     });
@@ -554,6 +574,7 @@ export class RunnerManager extends LoopBase {
 
     this.runners[id] = {
       action,
+      version,
       job,
       createdAt: getUnixTimestamp(),
       environment,
@@ -567,7 +588,7 @@ export class RunnerManager extends LoopBase {
       .labels({
         job_name: job.jobName,
         job_id: job.id,
-        version: action.version,
+        version: version.version,
       })
       .inc();
 
@@ -605,7 +626,11 @@ export class RunnerManager extends LoopBase {
   }
 
   private async loopCheckDanglingContainers(
-    currentActions: { action: ActionsTableType; job: JobsTableType }[]
+    currentVersions: {
+      action: ActionsTableType;
+      version: JobVersionsTableType;
+      job: JobsTableType;
+    }[]
   ) {
     const containers = await getDockerContainers();
 
@@ -663,21 +688,26 @@ export class RunnerManager extends LoopBase {
   }
 
   private async loopRunnerSpawner(
-    currentActions: { action: ActionsTableType; job: JobsTableType }[]
+    currentVersions: {
+      action: ActionsTableType;
+      version: JobVersionsTableType;
+      job: JobsTableType;
+    }[]
   ) {
-    for (const currentAction of currentActions) {
-      const action = currentAction.action;
-      const job = currentAction.job;
+    for (const currentVersion of currentVersions) {
+      const action = currentVersion.action;
+      const job = currentVersion.job;
+      const version = currentVersion.version;
 
       const runnersCurrent = Object.values(this.runners).filter(
-        (runner) => runner.action.id === action.id
+        (runner) => runner.version.id === version.id
       );
 
       if (action.runnerMode !== "standard") {
         continue;
       }
 
-      const actionLoad = runnersCurrent.reduce(
+      const runnerLoad = runnersCurrent.reduce(
         (prev, runner) => (runner.requestsProcessing + prev) / 2,
         0
       );
@@ -685,15 +715,15 @@ export class RunnerManager extends LoopBase {
       const targetLoadPerRunner = action.runnerAsynchronous ? 10 : 1;
 
       let targetRunnerCount = Math.floor(
-        (actionLoad / targetLoadPerRunner) * 1.2
+        (runnerLoad / targetLoadPerRunner) * 1.2
       );
 
       if (Number.isNaN(targetRunnerCount)) {
         targetRunnerCount = 0;
       }
 
-      if (this.requestedActionIds.has(action.id)) {
-        this.requestedActionIds.delete(action.id);
+      if (this.requestedVersionIds.has(version.id)) {
+        this.requestedVersionIds.delete(version.id);
 
         if (targetRunnerCount <= 0) {
           targetRunnerCount++;
@@ -716,11 +746,13 @@ export class RunnerManager extends LoopBase {
             job.jobName
           }, jobId ${shortenString(job.id)}, actionId ${shortenString(
             action.id
+          )}, version ${version.version}, versionId ${shortenString(
+            version.id
           )}`
         );
 
         for (let i = 0; i < count; i++) {
-          const runnerId = await this.createRunner(action, job, {
+          const runnerId = await this.createRunner(version, action, job, {
             dockerNamePrefix: job.jobName,
           });
 
@@ -731,7 +763,8 @@ export class RunnerManager extends LoopBase {
   }
 
   private async loopCheckEnvironmentChanges(
-    currentActions: {
+    currentVersions: {
+      version: JobVersionsTableType;
       action: ActionsTableType;
       job: JobsTableType;
       environment: EnvironmentsTableType | null;
@@ -742,20 +775,20 @@ export class RunnerManager extends LoopBase {
         continue;
       }
 
-      const currentAction = currentActions.find(
-        (index) => index.action.id === runner.action.id
+      const currentVersion = currentVersions.find(
+        (index) => index.version.id === runner.version.id
       );
 
-      if (!currentAction) {
+      if (!currentVersion) {
         continue;
       }
 
-      if (!runner.environment && !currentAction.environment) {
+      if (!runner.environment && !currentVersion.environment) {
         continue;
       }
 
       // Runner started with no environment, and environment has since been configured.
-      if (!runner.environment && currentAction.environment) {
+      if (!runner.environment && currentVersion.environment) {
         console.log(
           `[RunnerManager/loopCheckEnvironmentChanges] Shutting down ${shortenString(
             runner.id
@@ -768,7 +801,7 @@ export class RunnerManager extends LoopBase {
       }
 
       // Runner started with an environment, and its since been deleted.
-      if (runner.environment && !currentAction.environment) {
+      if (runner.environment && !currentVersion.environment) {
         console.log(
           `[RunnerManager/loopCheckEnvironmentChanges] Shutting down ${shortenString(
             runner.id
@@ -782,7 +815,7 @@ export class RunnerManager extends LoopBase {
 
       // Runners environment updated while it was running
       if (
-        runner.environment?.modified !== currentAction.environment?.modified
+        runner.environment?.modified !== currentVersion.environment?.modified
       ) {
         console.log(
           `[RunnerManager/loopCheckEnvironmentChanges] Shutting down ${shortenString(
@@ -798,11 +831,15 @@ export class RunnerManager extends LoopBase {
   }
 
   private async loopCheckVersion(
-    currentActions: { action: ActionsTableType; job: JobsTableType }[]
+    currentVersions: {
+      action: ActionsTableType;
+      version: JobVersionsTableType;
+      job: JobsTableType;
+    }[]
   ) {
     for (const runner of Object.values(this.runners)) {
       if (
-        currentActions.some((index) => index.action.id === runner.action.id)
+        currentVersions.some((index) => index.version.id === runner.version.id)
       ) {
         continue;
       }
@@ -818,7 +855,11 @@ export class RunnerManager extends LoopBase {
   }
 
   private async loopCheckMaxAge(
-    currentActions: { action: ActionsTableType; job: JobsTableType }[]
+    currentVersions: {
+      action: ActionsTableType;
+      version: JobVersionsTableType;
+      job: JobsTableType;
+    }[]
   ) {
     for (const runner of Object.values(this.runners)) {
       if (!runner.readyAt) {
@@ -848,7 +889,11 @@ export class RunnerManager extends LoopBase {
   }
 
   private async loopCheckHardMaxAge(
-    currentActions: { action: ActionsTableType; job: JobsTableType }[]
+    currentVersions: {
+      action: ActionsTableType;
+      version: JobVersionsTableType;
+      job: JobsTableType;
+    }[]
   ) {
     for (const runner of Object.values(this.runners)) {
       if (!runner.readyAt) {

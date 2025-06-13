@@ -1,5 +1,6 @@
-import { pgTable, varchar, uuid, jsonb } from "drizzle-orm/pg-core";
+import { jsonb, pgTable, uuid } from "drizzle-orm/pg-core";
 import { z } from "zod";
+import { jobVersionsTable } from "./job-versions.js";
 import { jobsTable } from "./jobs.js";
 
 export const TriggersContextSchema = z.union([
@@ -46,7 +47,9 @@ export const triggersTable = pgTable("triggers", {
   jobId: uuid()
     .notNull()
     .references(() => jobsTable.id, { onDelete: "cascade" }),
-  version: varchar({ length: 16 }).notNull(),
+  jobVersionId: uuid()
+    .notNull()
+    .references(() => jobVersionsTable.id, { onDelete: "cascade" }),
   context: jsonb().$type<TriggersContextSchemaType>().notNull(),
 });
 

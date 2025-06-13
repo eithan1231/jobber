@@ -1,12 +1,12 @@
+import { desc, eq } from "drizzle-orm";
 import { getDrizzle } from "~/db/index.js";
+import { logsTable } from "~/db/schema/logs.js";
 import {
   LogDriverBase,
   LogDriverBaseItem,
   LogDriverBaseQuery,
   LogDriverBaseQueryItem,
 } from "./abstract.js";
-import { logsTable } from "~/db/schema/logs.js";
-import { desc, eq } from "drizzle-orm";
 
 export class LogDriverDatabase extends LogDriverBase {
   protected async flushChunk(logs: LogDriverBaseItem[]): Promise<void> {

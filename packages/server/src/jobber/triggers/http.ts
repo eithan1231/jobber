@@ -2,16 +2,19 @@ import assert from "assert";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { getDrizzle } from "~/db/index.js";
 import { actionsTable, ActionsTableType } from "~/db/schema/actions.js";
+import {
+  jobVersionsTable,
+  JobVersionsTableType,
+} from "~/db/schema/job-versions.js";
 import { jobsTable, JobsTableType } from "~/db/schema/jobs.js";
 import { triggersTable, TriggersTableType } from "~/db/schema/triggers.js";
-import { awaitTruthy, getUnixTimestamp, timeout } from "~/util.js";
-import { RunnerManager } from "../runners/manager.js";
-import { StatusLifecycle } from "../types.js";
-import { HandleRequestHttp } from "../runners/server.js";
+import { LoopBase } from "~/loop-base.js";
 import { counterTriggerHttp } from "~/metrics.js";
+import { getUnixTimestamp } from "~/util.js";
 import { DecoupledStatus } from "../decoupled-status.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
-import { LoopBase } from "~/loop-base.js";
+import { RunnerManager } from "../runners/manager.js";
+import { HandleRequestHttp } from "../runners/server.js";
 
 type TriggerHttpItem = {
   trigger: Omit<TriggersTableType, "context"> & {
@@ -20,6 +23,7 @@ type TriggerHttpItem = {
   triggerPathRegex?: RegExp;
   triggerPathString?: string;
   action: ActionsTableType;
+  version: JobVersionsTableType;
   job: JobsTableType;
 };
 
@@ -56,27 +60,35 @@ export class TriggerHttp extends LoopBase {
     const triggers = await getDrizzle()
       .select({
         trigger: triggersTable,
+        version: jobVersionsTable,
         action: actionsTable,
         job: jobsTable,
       })
       .from(triggersTable)
       .innerJoin(
+        jobVersionsTable,
+        and(
+          eq(triggersTable.jobId, jobVersionsTable.jobId),
+          eq(triggersTable.jobVersionId, jobVersionsTable.id)
+        )
+      )
+      .innerJoin(
         jobsTable,
         and(
           eq(triggersTable.jobId, jobsTable.id),
-          eq(triggersTable.version, jobsTable.version)
+          eq(triggersTable.jobVersionId, jobsTable.jobVersionId)
         )
       )
       .innerJoin(
         actionsTable,
         and(
-          eq(actionsTable.jobId, triggersTable.jobId),
-          eq(actionsTable.version, triggersTable.version)
+          eq(triggersTable.jobId, actionsTable.jobId),
+          eq(triggersTable.jobVersionId, actionsTable.jobVersionId)
         )
       )
       .where(
         and(
-          isNotNull(jobsTable.version),
+          isNotNull(jobsTable.jobVersionId),
           sql`${triggersTable.context} ->> 'type' = 'http'`,
           eq(jobsTable.status, "enabled")
         )
@@ -119,8 +131,9 @@ export class TriggerHttp extends LoopBase {
       }
 
       const result = await this.runnerManager.sendHandleRequest(
-        trigger.action,
+        trigger.version,
         trigger.job,
+        trigger.action,
         handleRequest
       );
 
@@ -136,7 +149,7 @@ export class TriggerHttp extends LoopBase {
 
             job_id: trigger.job.id,
             job_name: trigger.job.jobName,
-            version: trigger.trigger.version,
+            version: trigger.version.version,
 
             status_code: result.http.status,
           })
@@ -154,6 +167,7 @@ export class TriggerHttp extends LoopBase {
    */
   private async loopCheckNewTriggers(
     triggersSource: {
+      version: JobVersionsTableType;
       trigger: TriggersTableType;
       action: ActionsTableType;
       job: JobsTableType;
@@ -190,6 +204,7 @@ export class TriggerHttp extends LoopBase {
         triggerPathRegex,
         triggerPathString,
         action: structuredClone(triggerSource.action),
+        version: structuredClone(triggerSource.version),
         job: structuredClone(triggerSource.job),
       };
 
@@ -202,7 +217,7 @@ export class TriggerHttp extends LoopBase {
         jobId: triggerSource.job.id,
         jobName: triggerSource.job.jobName,
         actionId: triggerSource.action.id,
-        message: `[SYSTEM] HTTP trigger (version: ${triggerSource.trigger.version}) ${triggerSource.trigger.id} registered`,
+        message: `[SYSTEM] HTTP trigger (version: ${triggerSource.version.version}) ${triggerSource.trigger.id} registered`,
         created: getUnixTimestamp(),
       });
     }
@@ -213,6 +228,7 @@ export class TriggerHttp extends LoopBase {
    */
   private async loopCheckOldTriggers(
     triggersSource: {
+      version: JobVersionsTableType;
       trigger: TriggersTableType;
       action: ActionsTableType;
       job: JobsTableType;
@@ -232,7 +248,7 @@ export class TriggerHttp extends LoopBase {
         jobId: trigger.job.id,
         jobName: trigger.job.jobName,
         actionId: trigger.action.id,
-        message: `[SYSTEM] HTTP trigger (version: ${trigger.trigger.version}) ${triggerId} removed`,
+        message: `[SYSTEM] HTTP trigger (version: ${trigger.version.version}) ${triggerId} removed`,
         created: getUnixTimestamp(),
       });
     }

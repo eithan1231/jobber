@@ -1,6 +1,6 @@
-import { pgTable, uuid, jsonb, integer } from "drizzle-orm/pg-core";
-import { jobsTable } from "./jobs.js";
+import { integer, jsonb, pgTable, uuid } from "drizzle-orm/pg-core";
 import { z } from "zod";
+import { jobsTable } from "./jobs.js";
 
 export const EnvironmentsContextSchema = z.record(
   z.string(),
