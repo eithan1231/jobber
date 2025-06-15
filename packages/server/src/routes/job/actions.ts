@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { getDrizzle } from "~/db/index.js";
 import { actionsTable } from "~/db/schema/actions.js";
+import { jobVersionsTable } from "~/db/schema/job-versions.js";
 import { jobsTable } from "~/db/schema/jobs.js";
 import { RunnerManager } from "~/jobber/runners/manager.js";
 
@@ -15,7 +16,7 @@ export async function createRouteJobActions(runnerManager: RunnerManager) {
       .select({
         id: actionsTable.id,
         jobId: actionsTable.jobId,
-        version: actionsTable.version,
+        jobVersionId: actionsTable.jobVersionId,
         runnerAsynchronous: actionsTable.runnerAsynchronous,
         runnerMinCount: actionsTable.runnerMinCount,
         runnerMaxCount: actionsTable.runnerMaxCount,
@@ -23,13 +24,23 @@ export async function createRouteJobActions(runnerManager: RunnerManager) {
         runnerMaxAge: actionsTable.runnerMaxAge,
         runnerMaxAgeHard: actionsTable.runnerMaxAgeHard,
         runnerMode: actionsTable.runnerMode,
+
+        // DEPRECATED: Use jobVersionId instead
+        version: jobVersionsTable.version,
       })
       .from(actionsTable)
       .innerJoin(
         jobsTable,
         and(
           eq(jobsTable.id, actionsTable.jobId),
-          eq(jobsTable.version, actionsTable.version)
+          eq(jobsTable.jobVersionId, actionsTable.jobVersionId)
+        )
+      )
+      .innerJoin(
+        jobVersionsTable,
+        and(
+          eq(jobVersionsTable.jobId, actionsTable.jobId),
+          eq(jobVersionsTable.id, actionsTable.jobVersionId)
         )
       )
       .where(eq(actionsTable.jobId, jobId));
@@ -47,7 +58,7 @@ export async function createRouteJobActions(runnerManager: RunnerManager) {
       .select({
         id: actionsTable.id,
         jobId: actionsTable.jobId,
-        version: actionsTable.version,
+        jobVersionId: actionsTable.jobVersionId,
         runnerAsynchronous: actionsTable.runnerAsynchronous,
         runnerMinCount: actionsTable.runnerMinCount,
         runnerMaxCount: actionsTable.runnerMaxCount,
@@ -55,8 +66,18 @@ export async function createRouteJobActions(runnerManager: RunnerManager) {
         runnerMaxAge: actionsTable.runnerMaxAge,
         runnerMaxAgeHard: actionsTable.runnerMaxAgeHard,
         runnerMode: actionsTable.runnerMode,
+
+        // DEPRECATED: Use jobVersionId instead
+        version: jobVersionsTable.version,
       })
       .from(actionsTable)
+      .innerJoin(
+        jobVersionsTable,
+        and(
+          eq(jobVersionsTable.jobId, actionsTable.jobId),
+          eq(jobVersionsTable.id, actionsTable.jobVersionId)
+        )
+      )
       .where(eq(actionsTable.jobId, jobId));
 
     return c.json({

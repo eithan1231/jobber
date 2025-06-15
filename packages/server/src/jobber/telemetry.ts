@@ -3,7 +3,7 @@ import { getDrizzle } from "~/db/index.js";
 import { jobsTable } from "~/db/schema/jobs.js";
 import { storeTable } from "~/db/schema/store.js";
 import { LoopBase } from "~/loop-base.js";
-import { gaugeJobStoreCount, gaugeAppInfo, gaugeJobsInfo } from "~/metrics.js";
+import { gaugeAppInfo, gaugeJobsInfo, gaugeJobStoreCount } from "~/metrics.js";
 
 export class Telemetry extends LoopBase {
   protected loopDuration = 1000;

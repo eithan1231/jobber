@@ -1,5 +1,5 @@
-import { getUnixTimestamp } from "~/util.js";
 import { LoopBase } from "~/loop-base.js";
+import { getUnixTimestamp } from "~/util.js";
 
 type DecoupledStatusItem = {
   level: "info" | "warn" | "error";

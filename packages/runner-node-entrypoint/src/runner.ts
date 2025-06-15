@@ -26,6 +26,7 @@ export class Runner {
   private hostname: string;
   private port: number;
   private runnerId: string;
+  private debug: boolean;
 
   private isShuttingDown: boolean = false;
   private handleRequestsProcessing: number = 0;
@@ -37,10 +38,16 @@ export class Runner {
     (frame: FrameJson, data: Buffer) => void
   >();
 
-  constructor(hostname: string, port: number, runnerId: string) {
+  constructor(
+    hostname: string,
+    port: number,
+    runnerId: string,
+    debug: boolean
+  ) {
     this.hostname = hostname;
     this.port = port;
     this.runnerId = runnerId;
+    this.debug = debug;
 
     this.socket = new TcpFrameSocket();
 
@@ -49,7 +56,7 @@ export class Runner {
     });
 
     this.socket.on("close", () => {
-      console.log("[Runner] Received close events!");
+      this.debugLog("[Runner] Received close events!");
     });
   }
 
@@ -223,6 +230,7 @@ export class Runner {
         console.warn(
           `[Runner/onFrame] ${frame.name} event received while shutting down`
         );
+
         return;
       }
 
@@ -249,7 +257,7 @@ export class Runner {
 
     this.handleRequestsProcessing++;
 
-    console.log(
+    this.debugLog(
       `[Runner/onFrameHandle] Starting, traceId ${shortenString(frame.traceId)}`
     );
 
@@ -274,16 +282,16 @@ export class Runner {
 
       if (jobberRequest.type() === "http") {
         console.log(
-          `[Runner/onFrameHandle] HTTP ${jobberRequest.method()} ${jobberRequest.path()}`
+          `Request HTTP ${jobberRequest.method()} ${jobberRequest.path()}`
         );
       }
 
       if (jobberRequest.type() === "schedule") {
-        console.log(`[Runner/onFrameHandle] Schedule`);
+        console.log(`Request Schedule`);
       }
 
       if (jobberRequest.type() === "mqtt") {
-        console.log(`[Runner/onFrameHandle] MQTT ${jobberRequest.topic()}`);
+        console.log(`Request MQTT ${jobberRequest.topic()}`);
       }
 
       await clientModule.handler(jobberRequest, jobberResponse, jobberContext);
@@ -301,10 +309,18 @@ export class Runner {
           headers: jobberResponse._headers,
           body: Buffer.concat(jobberResponse._body).toString("base64"),
         };
+
+        console.log(
+          `Response HTTP ${jobberRequest.method()} ${jobberRequest.path()} - ${
+            jobberResponse._status
+          } - ${responseData.duration.toFixed(2)}ms`
+        );
       }
 
       if (jobberRequest.type() === "schedule") {
-        //
+        console.log(
+          `Response Schedule - ${responseData.duration.toFixed(2)}ms`
+        );
       }
 
       if (jobberRequest.type() === "mqtt") {
@@ -316,6 +332,12 @@ export class Runner {
             body: index.body.toString("base64"),
           })),
         };
+
+        console.log(
+          `Response MQTT ${jobberRequest.topic()} - ${responseData.duration.toFixed(
+            2
+          )}ms`
+        );
       }
 
       await this.writeFrame(
@@ -328,17 +350,17 @@ export class Runner {
         Buffer.from(JSON.stringify(responseData))
       );
 
-      console.log(
+      this.debugLog(
         "[Runner/onFrameHandle] Delivered response, traceId",
         shortenString(frame.traceId)
       );
     } catch (err) {
       if (!(err instanceof Error)) {
-        console.log(err);
+        console.error(err);
         return;
       }
 
-      console.log(
+      this.debugLog(
         "[Runner/onFrameHandle] Failed due to error, traceId",
         shortenString(frame.traceId)
       );
@@ -366,7 +388,7 @@ export class Runner {
   }
 
   async onFrameShutdown(traceId: string) {
-    console.log("[Runner/onFrameShutdown] Starting shutdown routine");
+    this.debugLog("[Runner/onFrameShutdown] Starting shutdown routine");
 
     this.isShuttingDown = true;
 
@@ -377,5 +399,11 @@ export class Runner {
     this.socket.end(() => {
       process.exit();
     });
+  }
+
+  private debugLog(...args: any[]) {
+    if (this.debug) {
+      console.log("[Runner]", ...args);
+    }
   }
 }

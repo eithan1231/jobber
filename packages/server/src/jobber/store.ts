@@ -1,10 +1,8 @@
-import assert from "assert";
 import { and, eq, lt } from "drizzle-orm";
 import { getDrizzle } from "~/db/index.js";
 import { storeTable } from "~/db/schema/store.js";
-import { awaitTruthy, getUnixTimestamp, timeout } from "~/util.js";
-import { StatusLifecycle } from "./types.js";
 import { LoopBase } from "~/loop-base.js";
+import { getUnixTimestamp } from "~/util.js";
 
 type StoreItem = {
   id: string;

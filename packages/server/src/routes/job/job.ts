@@ -1,9 +1,10 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { rm } from "node:fs/promises";
 import { z } from "zod";
 import { getDrizzle } from "~/db/index.js";
 import { actionsTable } from "~/db/schema/actions.js";
+import { jobVersionsTable } from "~/db/schema/job-versions.js";
 import { jobsTable } from "~/db/schema/jobs.js";
 import { RunnerManager } from "~/jobber/runners/manager.js";
 import { getJobActionArchiveFile } from "~/paths.js";
@@ -39,11 +40,21 @@ export async function createRouteJob(runnerManager: RunnerManager) {
           id: jobsTable.id,
           jobName: jobsTable.jobName,
           description: jobsTable.description,
-          version: jobsTable.version,
+          jobVersionId: jobsTable.jobVersionId,
           links: jobsTable.links,
           status: jobsTable.status,
+
+          // DEPRECATED: Use jobVersionId instead
+          version: jobVersionsTable.version,
         })
         .from(jobsTable)
+        .leftJoin(
+          jobVersionsTable,
+          and(
+            eq(jobVersionsTable.jobId, jobsTable.id),
+            eq(jobVersionsTable.id, jobsTable.jobVersionId)
+          )
+        )
         .where(eq(jobsTable.id, jobId))
     ).at(0);
 
@@ -62,12 +73,22 @@ export async function createRouteJob(runnerManager: RunnerManager) {
       .select({
         id: jobsTable.id,
         jobName: jobsTable.jobName,
+        jobVersionId: jobsTable.jobVersionId,
         description: jobsTable.description,
-        version: jobsTable.version,
         links: jobsTable.links,
         status: jobsTable.status,
+
+        // DEPRECATED: Use jobVersionId instead
+        version: jobVersionsTable.version,
       })
-      .from(jobsTable);
+      .from(jobsTable)
+      .leftJoin(
+        jobVersionsTable,
+        and(
+          eq(jobVersionsTable.jobId, jobsTable.id),
+          eq(jobVersionsTable.id, jobsTable.jobVersionId)
+        )
+      );
 
     return c.json({
       success: true,
@@ -81,6 +102,7 @@ export async function createRouteJob(runnerManager: RunnerManager) {
     const schema = z.object({
       status: z.enum(jobsTable.status.enumValues).optional(),
       description: z.string().optional(),
+      jobVersionId: z.string().uuid().optional(),
     });
 
     const body = await schema.parseAsync(await c.req.json(), {
@@ -107,7 +129,18 @@ export async function createRouteJob(runnerManager: RunnerManager) {
       .returning();
 
     for (const actionDeleted of actionsDeleted) {
-      const filename = getJobActionArchiveFile(actionDeleted);
+      const jobVersionDeleted = await getDrizzle()
+        .delete(jobVersionsTable)
+        .where(eq(jobVersionsTable.id, actionDeleted.jobVersionId))
+        .returning();
+
+      const deletedVersion = jobVersionDeleted.at(0);
+
+      if (!deletedVersion) {
+        continue;
+      }
+
+      const filename = getJobActionArchiveFile(deletedVersion, actionDeleted);
 
       await rm(filename);
     }
