@@ -166,6 +166,7 @@ export async function createRouteJobPublish() {
             runnerMaxAgeHard: packageJson.action.runnerMaxAgeHard,
             runnerMaxCount: packageJson.action.runnerMaxCount,
             runnerMinCount: packageJson.action.runnerMinCount,
+            runnerDockerArguments: packageJson.action.runnerDockerArguments,
             runnerMode: packageJson.action.runnerMode,
             runnerTimeout: packageJson.action.runnerTimeout,
           })

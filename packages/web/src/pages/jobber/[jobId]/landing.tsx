@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { Link, RouteObject, useParams } from "react-router-dom";
 import {
   JobberAction,
   JobberEnvironment,
@@ -5,14 +7,13 @@ import {
   JobberRunner,
   JobberTrigger,
 } from "../../../api/jobber.js";
-import { useEffect } from "react";
-import { Link, RouteObject, useParams } from "react-router-dom";
 import { JobHeaderComponent } from "../../../components/job-header.js";
-import { useDecoupledStatus } from "../../../hooks/decoupled-status.js";
-import { useJob } from "../../../hooks/job.js";
 import { useActionLatest } from "../../../hooks/action-latest.js";
-import { useRunners } from "../../../hooks/runners.js";
+import { useConfig } from "../../../hooks/config.js";
+import { useDecoupledStatus } from "../../../hooks/decoupled-status.js";
 import { useEnvironment } from "../../../hooks/environment.js";
+import { useJob } from "../../../hooks/job.js";
+import { useRunners } from "../../../hooks/runners.js";
 import { useTriggersLatest } from "../../../hooks/triggers-latest.js";
 import { formatRelativeTime } from "../../../util.js";
 
@@ -25,6 +26,107 @@ const ActionSectionComponent = ({
   action?: JobberAction;
   error?: string;
 }) => {
+  const [runnerDetails, setRunnerDetails] = useState<
+    { name: string; value: string }[]
+  >([]);
+
+  const { config } = useConfig();
+
+  useEffect(() => {
+    if (!action) {
+      setRunnerDetails([]);
+      return;
+    }
+
+    const details: { name: string; value: string }[] = [];
+
+    details.push({
+      name: "Asynchronous",
+      value: action.runnerAsynchronous ? "Yes" : "No",
+    });
+
+    details.push({
+      name: "Min Count",
+      value: action.runnerMinCount.toString(),
+    });
+
+    details.push({
+      name: "Max Count",
+      value: action.runnerMaxCount.toString(),
+    });
+
+    details.push({
+      name: "Max Age",
+      value: `${action.runnerMaxAge.toString()} seconds`,
+    });
+
+    details.push({
+      name: "Max Age (Hard)",
+      value: `${action.runnerMaxAgeHard.toString()} seconds`,
+    });
+
+    details.push({ name: "Mode", value: action.runnerMode });
+
+    if (config) {
+      if (
+        config.features.actionDockerArgumentNetworksEnabled &&
+        action.runnerDockerArguments.networks
+      ) {
+        details.push({
+          name: "Networks",
+          value: action.runnerDockerArguments.networks.join(", "),
+        });
+      }
+
+      if (
+        config.features.actionDockerArgumentVolumesEnabled &&
+        action.runnerDockerArguments.volumes
+      ) {
+        details.push({
+          name: "Volumes",
+          value: action.runnerDockerArguments.volumes
+            .map((v) => `${v.source}:${v.target} (${v.mode})`)
+            .join(", "),
+        });
+      }
+
+      if (
+        config.features.actionDockerArgumentLabelsEnabled &&
+        action.runnerDockerArguments.labels
+      ) {
+        details.push({
+          name: "Labels",
+          value: action.runnerDockerArguments.labels
+            .map((l) => `${l.key}=${l.value}`)
+            .join(", "),
+        });
+      }
+
+      if (
+        config.features.actionDockerArgumentMemoryLimitEnabled &&
+        action.runnerDockerArguments.memoryLimit
+      ) {
+        details.push({
+          name: "Memory Limit",
+          value: action.runnerDockerArguments.memoryLimit,
+        });
+      }
+
+      if (
+        config.features.actionDockerArgumentDirectPassthroughEnabled &&
+        action.runnerDockerArguments.directPassthroughArguments
+      ) {
+        details.push({
+          name: "Direct Passthrough Arguments",
+          value:
+            action.runnerDockerArguments.directPassthroughArguments.join(", "),
+        });
+      }
+    }
+
+    setRunnerDetails(details);
+  }, [action, config]);
+
   return (
     <div className="container mx-auto my-8 p-4">
       <div className="flex justify-between items-center mb-4">
@@ -52,36 +154,19 @@ const ActionSectionComponent = ({
             <div className="mt-4">
               <p className="text-lg font-semibold mb-2">Runner Details</p>
               <dl className="text-sm">
-                <div className="flex justify-between border-b py-2">
-                  <dt className="font-medium text-gray-700">Asynchronous:</dt>
-                  <dd className="text-gray-700">
-                    {action.runnerAsynchronous ? "Yes" : "No"}
-                  </dd>
-                </div>
-                <div className="flex justify-between border-b py-2">
-                  <dt className="font-medium text-gray-700">Min Count:</dt>
-                  <dd className="text-gray-700">{action.runnerMinCount}</dd>
-                </div>
-                <div className="flex justify-between border-b py-2">
-                  <dt className="font-medium text-gray-700">Max Count:</dt>
-                  <dd className="text-gray-700">{action.runnerMaxCount}</dd>
-                </div>
-                <div className="flex justify-between border-b py-2">
-                  <dt className="font-medium text-gray-700">Max Age:</dt>
-                  <dd className="text-gray-700">
-                    {action.runnerMaxAge} seconds
-                  </dd>
-                </div>
-                <div className="flex justify-between border-b py-2">
-                  <dt className="font-medium text-gray-700">Max Age (Hard):</dt>
-                  <dd className="text-gray-700">
-                    {action.runnerMaxAgeHard} seconds
-                  </dd>
-                </div>
-                <div className="flex justify-between py-2">
-                  <dt className="font-medium text-gray-700">Mode:</dt>
-                  <dd className="text-gray-700">{action.runnerMode}</dd>
-                </div>
+                {runnerDetails.map((detail, index) => (
+                  <div
+                    key={detail.name}
+                    className={`flex justify-between py-2 ${
+                      index === runnerDetails.length - 1 ? "" : "border-b"
+                    }`}
+                  >
+                    <dt className="font-medium text-gray-700">
+                      {detail.name}:
+                    </dt>
+                    <dd className="text-gray-700">{detail.value}</dd>
+                  </div>
+                ))}
               </dl>
             </div>
           </>

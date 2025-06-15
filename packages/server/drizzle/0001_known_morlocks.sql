@@ -1,0 +1,1 @@
+ALTER TABLE "actions" ADD COLUMN "runnerDockerArguments" jsonb DEFAULT '{}'::jsonb NOT NULL;

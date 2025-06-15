@@ -31,6 +31,29 @@ export const ConfigurationOptionsSchema = z.object({
 
   RUNNER_CONTAINER_DOCKER_NETWORK: z.string().optional(),
 
+  RUNNER_ALLOW_DOCKER_ARGUMENT_TYPES: z
+    .string()
+    .transform((val) => val.split(",").map((type) => type.trim().toLowerCase()))
+    .pipe(
+      z.array(
+        z.enum([
+          "",
+          "volumes",
+          "networks",
+          "labels",
+          "memoryLimit",
+          "directPassthroughArguments",
+        ])
+      )
+    )
+    .default(""),
+
+  RUNNER_ALLOW_ARGUMENT_DIRECT_PASSTHROUGH: z
+    .string()
+    .transform((val) => val.toLowerCase() === "true")
+    .pipe(z.boolean())
+    .default("false"),
+
   LOG_DRIVER: z.enum(["database", "loki"]).default("database"),
   LOG_DRIVER_LOKI_PUSH: z
     .string()

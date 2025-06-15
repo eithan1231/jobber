@@ -23,6 +23,7 @@ export async function createRouteJobActions(runnerManager: RunnerManager) {
         runnerTimeout: actionsTable.runnerTimeout,
         runnerMaxAge: actionsTable.runnerMaxAge,
         runnerMaxAgeHard: actionsTable.runnerMaxAgeHard,
+        runnerDockerArguments: actionsTable.runnerDockerArguments,
         runnerMode: actionsTable.runnerMode,
 
         // DEPRECATED: Use jobVersionId instead
@@ -65,6 +66,7 @@ export async function createRouteJobActions(runnerManager: RunnerManager) {
         runnerTimeout: actionsTable.runnerTimeout,
         runnerMaxAge: actionsTable.runnerMaxAge,
         runnerMaxAgeHard: actionsTable.runnerMaxAgeHard,
+        runnerDockerArguments: actionsTable.runnerDockerArguments,
         runnerMode: actionsTable.runnerMode,
 
         // DEPRECATED: Use jobVersionId instead

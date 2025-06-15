@@ -513,6 +513,104 @@ export class RunnerManager extends LoopBase {
       }
     }
 
+    const actionArgumentsEnabled = getConfigOption(
+      "RUNNER_ALLOW_DOCKER_ARGUMENT_TYPES"
+    );
+
+    if (
+      actionArgumentsEnabled.includes("networks") &&
+      action.runnerDockerArguments.networks
+    ) {
+      for (const network of action.runnerDockerArguments.networks) {
+        args.push("--network", network);
+      }
+    } else if (action.runnerDockerArguments.networks) {
+      this.logger.write({
+        actionId: action.id,
+        jobId: job.id,
+        jobName: job.jobName,
+        created: getUnixTimestamp(),
+        source: "system",
+        message: `[RunnerManager/createRunner] Action is using docker networks, but RUNNER_ALLOW_DOCKER_ARGUMENT_TYPES does not include "networks". Skipping networks.`,
+      });
+    }
+
+    if (
+      actionArgumentsEnabled.includes("volumes") &&
+      action.runnerDockerArguments.volumes
+    ) {
+      for (const volume of action.runnerDockerArguments.volumes) {
+        args.push(
+          "--volume",
+          `${volume.source}:${volume.target}:${volume.mode}`
+        );
+      }
+    } else if (action.runnerDockerArguments.volumes) {
+      this.logger.write({
+        actionId: action.id,
+        jobId: job.id,
+        jobName: job.jobName,
+        created: getUnixTimestamp(),
+        source: "system",
+        message: `[RunnerManager/createRunner] Action is using docker volumes, but RUNNER_ALLOW_DOCKER_ARGUMENT_TYPES does not include "volumes". Skipping volumes.`,
+      });
+    }
+
+    if (
+      actionArgumentsEnabled.includes("labels") &&
+      action.runnerDockerArguments.labels
+    ) {
+      for (const label of action.runnerDockerArguments.labels) {
+        if (["jobber-manager", "jobber"].includes(label.key.toLowerCase())) {
+          continue;
+        }
+
+        args.push("--label", `${label.key}=${label.value}`);
+      }
+    } else if (action.runnerDockerArguments.labels) {
+      this.logger.write({
+        actionId: action.id,
+        jobId: job.id,
+        jobName: job.jobName,
+        created: getUnixTimestamp(),
+        source: "system",
+        message: `[RunnerManager/createRunner] Action is using docker labels, but RUNNER_ALLOW_DOCKER_ARGUMENT_TYPES does not include "labels". Skipping labels.`,
+      });
+    }
+
+    if (
+      actionArgumentsEnabled.includes("memoryLimit") &&
+      action.runnerDockerArguments.memoryLimit
+    ) {
+      args.push("--memory", action.runnerDockerArguments.memoryLimit);
+    } else if (action.runnerDockerArguments.memoryLimit) {
+      this.logger.write({
+        actionId: action.id,
+        jobId: job.id,
+        jobName: job.jobName,
+        created: getUnixTimestamp(),
+        source: "system",
+        message: `[RunnerManager/createRunner] Action is using docker memory limit, but RUNNER_ALLOW_DOCKER_ARGUMENT_TYPES does not include "memoryLimit". Skipping memory limit.`,
+      });
+    }
+
+    if (
+      getConfigOption("RUNNER_ALLOW_ARGUMENT_DIRECT_PASSTHROUGH") &&
+      actionArgumentsEnabled.includes("directPassthroughArguments") &&
+      action.runnerDockerArguments.directPassthroughArguments
+    ) {
+      args.push(...action.runnerDockerArguments.directPassthroughArguments);
+    } else if (action.runnerDockerArguments.directPassthroughArguments) {
+      this.logger.write({
+        actionId: action.id,
+        jobId: job.id,
+        jobName: job.jobName,
+        created: getUnixTimestamp(),
+        source: "system",
+        message: `[RunnerManager/createRunner] Action is using docker direct passthrough arguments, but RUNNER_ALLOW_ARGUMENT_DIRECT_PASSTHROUGH is not enabled, or RUNNER_ALLOW_DOCKER_ARGUMENT_TYPES does not include "directPassthroughArguments". Skipping direct passthrough arguments.`,
+      });
+    }
+
     args.push(
       image.imageUrl,
       "node",
@@ -526,6 +624,41 @@ export class RunnerManager extends LoopBase {
       "--job-debug",
       getConfigOption("DEBUG_RUNNER") ? "true" : "false"
     );
+
+    if (getConfigOption("DEBUG_RUNNER")) {
+      const secureArgs: string[] = [];
+
+      const secureValues: string[] = [];
+
+      if (environment) {
+        for (const [name, value] of Object.entries(environment.context)) {
+          if (value.type === "secret") {
+            secureValues.push(value.value);
+          }
+        }
+      }
+
+      for (const argItem of args) {
+        let argItemClean = argItem;
+
+        for (const secretValue of secureValues) {
+          argItemClean = argItemClean.replace(secretValue, "<redacted>");
+        }
+
+        secureArgs.push(argItemClean);
+      }
+
+      this.logger.write({
+        actionId: action.id,
+        jobId: job.id,
+        jobName: job.jobName,
+        created: getUnixTimestamp(),
+        source: "system",
+        message: `[RunnerManager/createRunner] Starting runner with arguments: ${JSON.stringify(
+          secureArgs
+        )}`,
+      });
+    }
 
     const process = spawn("docker", args, {
       windowsHide: true,

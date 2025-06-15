@@ -45,6 +45,20 @@ export type JobberAction = {
   runnerTimeout: number;
   runnerMaxAge: number;
   runnerMaxAgeHard: number;
+  runnerDockerArguments: {
+    networks?: string[];
+    volumes?: Array<{
+      source: string;
+      target: string;
+      mode: "rw" | "ro";
+    }>;
+    labels?: Array<{
+      key: string;
+      value: string;
+    }>;
+    memoryLimit?: string; // e.g., "512m", "1g"
+    directPassthroughArguments?: string[];
+  };
   runnerMode: "standard" | "run-once";
 };
 
@@ -152,6 +166,11 @@ export type JobberConfig = {
   jobberName: string;
   features: {
     metricsEnabled: boolean;
+    actionDockerArgumentVolumesEnabled: boolean;
+    actionDockerArgumentNetworksEnabled: boolean;
+    actionDockerArgumentLabelsEnabled: boolean;
+    actionDockerArgumentMemoryLimitEnabled: boolean;
+    actionDockerArgumentDirectPassthroughEnabled: boolean;
   };
 };
 

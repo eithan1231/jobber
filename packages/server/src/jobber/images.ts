@@ -5,6 +5,7 @@ import path from "path";
 import * as semver from "semver";
 import { z } from "zod";
 import { getConfigOption } from "~/config.js";
+import { ActionsDockerArgumentsSchema } from "~/db/schema/actions.js";
 import { createToken, fileExists, unzip } from "~/util.js";
 
 export type ImagesEntry = {
@@ -97,6 +98,9 @@ const archivePackageJsonSchema = z.object({
     runnerTimeout: z.number().optional(),
     runnerMaxAge: z.number().optional(),
     runnerMaxAgeHard: z.number().optional(),
+    runnerDockerArguments: z
+      .lazy(() => ActionsDockerArgumentsSchema)
+      .optional(),
     runnerMode: z.enum(["standard", "run-once"]).optional(),
   }),
   triggers: z.array(

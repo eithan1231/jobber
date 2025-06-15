@@ -10,6 +10,14 @@
     "runnerMaxCount": 16,
     "runnerMaxAge": 30,
     "runnerMaxAgeHard": 60,
+    "runnerDockerArguments": {
+      "labels": [
+        {
+          "key": "testing-label",
+          "value": "I-Am_Eithan-Spaces-Are-Banned"
+        }
+      ]
+    },
     "runnerMode": "standard"
   },
   "triggers": [

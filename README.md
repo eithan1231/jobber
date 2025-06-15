@@ -42,12 +42,14 @@ Port 3001: HTTP Gateway (Router for HTTP triggers)
 
 ### Environment Variables
 
-- `DATABASE_URL` Postgres connection URL. Eg: `postgresql://user:pass@host/db`
+- `DATABASE_URL` Postgres connection URL. Example: `postgresql://user:pass@host/db`
 - `MANAGER_PORT` Port that runner-manager server operates on. Default: 5211
 - `MANAGER_HOST` Host that runner-manager server operates on. Default: hostname()
 - `RUNNER_IMAGE_NODE22_URL`: Runner docker image for Node22
 - `RUNNER_IMAGE_NODE20_URL`: Runner docker image for Node20
 - `RUNNER_CONTAINER_DOCKER_NETWORK`: Docker network that runners operate on. Needs access to MANAGER_HOST
+- `RUNNER_ALLOW_DOCKER_ARGUMENT_TYPES`: Permissible docker arguments specified for each project. Know the risks. Values "volumes", "networks", "labels", "memoryLimit", "directPassthroughArguments". Default is none. Example: `volumes, labels, memoryLimit`.
+- `RUNNER_ALLOW_ARGUMENT_DIRECT_PASSTHROUGH`: Additional flag to permit "directPassthroughArguments" argument type. This is insecure. Default `false`
 - `LOG_DRIVER`: Logging method for runners. Enum: database, loki. Default: database.
 - `LOG_DRIVER_LOKI_PUSH`: Loki log push url. Example: `http://localhost/loki/api/v1/push`
 - `LOG_DRIVER_LOKI_QUERY`: Loki log query url. Example: `http://localhost/loki/api/v1/query_range`
