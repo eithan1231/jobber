@@ -10,7 +10,9 @@ export const formatRelativeTime = (timestamp: number) => {
     return `${Math.floor(diff / 60)}m ago`;
   } else if (diff < 86400) {
     return `${Math.floor(diff / 3600)}h ago`;
+  } else if (Math.floor(diff / 86400) < 30) {
+    return `${Math.floor(diff / 86400)}d ago`;
   } else {
-    return new Date(timestamp).toLocaleDateString();
+    return new Date(timestamp * 1000).toLocaleDateString();
   }
 };
