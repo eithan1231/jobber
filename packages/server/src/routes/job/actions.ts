@@ -9,7 +9,7 @@ import { RunnerManager } from "~/jobber/runners/manager.js";
 export async function createRouteJobActions(runnerManager: RunnerManager) {
   const app = new Hono();
 
-  app.get("/job/:jobId/actions:latest", async (c, next) => {
+  app.get("/job/:jobId/actions:current", async (c, next) => {
     const jobId = c.req.param("jobId");
 
     const actions = await getDrizzle()

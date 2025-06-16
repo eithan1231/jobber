@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
-import { getJobActionLatest, JobberAction } from "../api/jobber";
+import { getJobActionCurrent, JobberAction } from "../api/jobber";
 
-export const useActionLatest = (jobId: string) => {
+export const useActionCurrent = (jobId: string) => {
   const [action, setAction] = useState<JobberAction | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reloadFlag, setReloadFlag] = useState(0);
 
   const handleUpdate = () => {
-    getJobActionLatest(jobId).then((res) => {
+    getJobActionCurrent(jobId).then((res) => {
       if (!res.success) {
         setError("Failed to fetch latest action");
 
@@ -32,5 +32,5 @@ export const useActionLatest = (jobId: string) => {
     handleUpdate();
   }, [jobId, reloadFlag]);
 
-  return { action, actionError: error, reloadActionLatest: reload };
+  return { action, actionError: error, reloadActionCurrent: reload };
 };

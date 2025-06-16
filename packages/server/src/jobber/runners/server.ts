@@ -9,6 +9,12 @@ import { getJobActionArchiveFile } from "~/paths.js";
 import { awaitTruthy, createToken, shortenString } from "~/util.js";
 import { Store } from "../store.js";
 
+export type HandleRequestSchedule = {
+  type: "schedule";
+  cron: string;
+  timezone?: string;
+};
+
 export type HandleRequestHttp = {
   type: "http";
   headers: Record<string, string>;
@@ -16,6 +22,7 @@ export type HandleRequestHttp = {
   queries: Record<string, string[]>;
   path: string;
   method: string;
+
   body: string;
   bodyLength: number;
 };
@@ -23,14 +30,16 @@ export type HandleRequestHttp = {
 export type HandleRequestMqtt = {
   type: "mqtt";
   topic: string;
+
   body: string;
   bodyLength: number;
 };
 
-export type HandleRequest =
-  | { type: "schedule" }
+export type HandleRequest = { name?: string } & (
+  | HandleRequestSchedule
   | HandleRequestHttp
-  | HandleRequestMqtt;
+  | HandleRequestMqtt
+);
 
 export type HandleResponse = (
   | {
@@ -181,6 +190,10 @@ export class RunnerServer extends EventEmitter<{
       }
 
       const timeoutInterval = setTimeout(() => {
+        if (connection.action.runnerTimeout === 0) {
+          return;
+        }
+
         this.traceResponses.delete(traceId);
 
         return resolve({

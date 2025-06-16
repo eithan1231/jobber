@@ -2,6 +2,7 @@ import assert from "assert";
 
 type JobberHandlerRequestData = {
   type: "http" | "schedule" | "mqtt";
+  name?: string;
   headers: Record<string, string>;
   query: Record<string, string>;
   queries: Record<string, string[]>;
@@ -14,6 +15,7 @@ type JobberHandlerRequestData = {
 
 export class JobberHandlerRequest {
   private _type: JobberHandlerRequestData["type"];
+  private _name: JobberHandlerRequestData["name"];
   private _headers: JobberHandlerRequestData["headers"] = {};
   private _query: JobberHandlerRequestData["query"] = {};
   private _queries: JobberHandlerRequestData["queries"] = {};
@@ -25,6 +27,7 @@ export class JobberHandlerRequest {
 
   constructor(data: JobberHandlerRequestData) {
     this._type = data.type;
+    this._name = data.name;
 
     if (this._type === "http") {
       this._headers = data.headers;
@@ -63,6 +66,10 @@ export class JobberHandlerRequest {
 
   type() {
     return this._type;
+  }
+
+  name() {
+    return this._name ?? null;
   }
 
   header(name: string) {

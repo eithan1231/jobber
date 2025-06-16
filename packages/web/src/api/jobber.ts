@@ -15,7 +15,7 @@ export type JobberJob = {
   status: "enabled" | "disabled";
   description: string;
   version?: string;
-  jobVersionId?: string;
+  jobVersionId: string | null;
   links: Array<{ name: string; url: string }>;
 };
 
@@ -38,7 +38,11 @@ export type JobberEnvironment = {
 export type JobberAction = {
   id: string;
   jobId: string;
+  /**
+   * @deprecated Use `jobVersionId` instead.
+   */
   version: string;
+  jobVersionId: string;
   runnerAsynchronous: boolean;
   runnerMinCount: number;
   runnerMaxCount: number;
@@ -84,21 +88,28 @@ export type JobberStoreItemNoValue = {
 export type JobberTrigger = {
   id: string;
   jobId: string;
+  /**
+   * @deprecated Use `jobVersionId` instead.
+   */
   version: string;
+  jobVersionId: string;
   context:
     | {
         type: "schedule";
+        name?: string;
         cron: string;
         timezone?: string;
       }
     | {
         type: "http";
+        name?: string;
         path: string | null;
         method: string | null;
         hostname: string | null;
       }
     | {
         type: "mqtt";
+        name?: string;
         topics: string[];
         connection: {
           protocol?: string;
@@ -277,10 +288,10 @@ export const getJobActions = async (
   return await result.json();
 };
 
-export const getJobActionLatest = async (
+export const getJobActionCurrent = async (
   jobId: string
 ): Promise<JobberGenericResponse<JobberAction[]>> => {
-  const result = await fetch(`/api/job/${jobId}/actions:latest`);
+  const result = await fetch(`/api/job/${jobId}/actions:current`);
 
   return await result.json();
 };
@@ -301,10 +312,10 @@ export const getJobTriggers = async (
   return await result.json();
 };
 
-export const getJobTriggersLatest = async (
+export const getJobTriggersCurrent = async (
   jobId: string
 ): Promise<JobberGenericResponse<JobberTrigger[]>> => {
-  const result = await fetch(`/api/job/${jobId}/triggers:latest`);
+  const result = await fetch(`/api/job/${jobId}/triggers:current`);
 
   return await result.json();
 };

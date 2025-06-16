@@ -4,6 +4,7 @@ import { createWriteStream } from "fs";
 import { cp } from "fs/promises";
 import { Hono } from "hono";
 import { ReadableStream } from "node:stream/web";
+import { z } from "zod";
 import { getDrizzle } from "~/db/index.js";
 import { actionsTable } from "~/db/schema/actions.js";
 import { jobVersionsTable } from "~/db/schema/job-versions.js";
@@ -21,10 +22,22 @@ import {
 export async function createRouteJobPublish() {
   const app = new Hono();
 
+  const querySchema = z.object({
+    allowAutomaticRollout: z
+      .string()
+      .transform((val) => val.toLowerCase() === "true")
+      .pipe(z.boolean())
+      .default("true"),
+  });
+
   app.post("/job/publish/", async (c, _next) => {
     const benchmark = createBenchmark();
 
     console.log(`[/publish/] ${benchmark()}ms - Starting job publish`);
+
+    const query = await querySchema.parseAsync(c.req.query());
+
+    console.log(`[/publish/] ${benchmark()}ms - Parsed query parameters`);
 
     const body = await c.req.parseBody();
 
@@ -181,6 +194,7 @@ export async function createRouteJobPublish() {
               jobVersionId: version.id,
               context: {
                 type: "schedule",
+                name: trigger.name,
                 cron: trigger.cron,
                 timezone: trigger.timezone,
               },
@@ -193,6 +207,7 @@ export async function createRouteJobPublish() {
               jobVersionId: version.id,
               context: {
                 type: "http",
+                name: trigger.name,
                 hostname: trigger.hostname,
                 method: trigger.method,
                 path: trigger.path,
@@ -206,6 +221,7 @@ export async function createRouteJobPublish() {
               jobVersionId: version.id,
               context: {
                 type: "mqtt",
+                name: trigger.name,
                 topics: trigger.topics,
                 connection: {
                   ...trigger.connection,
@@ -221,12 +237,22 @@ export async function createRouteJobPublish() {
         await cp(filename, getJobActionArchiveFile(version, action));
       }
 
-      await tx
-        .update(jobsTable)
-        .set({
-          jobVersionId: version.id,
-        })
-        .where(eq(jobsTable.id, job.id));
+      if (query.allowAutomaticRollout) {
+        console.log(
+          "[/publish/] Automatic rollout enabled, updating job version"
+        );
+
+        await tx
+          .update(jobsTable)
+          .set({
+            jobVersionId: version.id,
+          })
+          .where(eq(jobsTable.id, job.id));
+      } else {
+        console.log(
+          "[/publish/] Automatic rollout disabled, not updating job version"
+        );
+      }
 
       console.log(`[/publish/] ${benchmark()}ms - Finished`);
 

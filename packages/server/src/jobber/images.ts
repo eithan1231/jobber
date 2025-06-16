@@ -107,17 +107,20 @@ const archivePackageJsonSchema = z.object({
     z.union([
       z.object({
         type: z.literal("schedule"),
+        name: z.string().optional(),
         cron: z.string(),
         timezone: z.string().optional(),
       }),
       z.object({
         type: z.literal("http"),
+        name: z.string().optional(),
         hostname: z.string().nullable().default(null),
         method: z.string().nullable().default(null),
         path: z.string().nullable().default(null),
       }),
       z.object({
         type: z.literal("mqtt"),
+        name: z.string().optional(),
         topics: z.array(z.string()),
         connection: z.object({
           protocol: z.string().optional(),

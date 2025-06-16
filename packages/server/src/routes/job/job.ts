@@ -102,7 +102,7 @@ export async function createRouteJob(runnerManager: RunnerManager) {
     const schema = z.object({
       status: z.enum(jobsTable.status.enumValues).optional(),
       description: z.string().optional(),
-      jobVersionId: z.string().uuid().optional(),
+      jobVersionId: z.string().uuid().nullable().optional(),
     });
 
     const body = await schema.parseAsync(await c.req.json(), {

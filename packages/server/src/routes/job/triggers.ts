@@ -8,7 +8,7 @@ import { triggersTable } from "~/db/schema/triggers.js";
 export async function createRouteJobTriggers() {
   const app = new Hono();
 
-  app.get("/job/:jobId/triggers:latest", async (c, next) => {
+  app.get("/job/:jobId/triggers:current", async (c, next) => {
     const jobId = c.req.param("jobId");
 
     const triggers = await getDrizzle()

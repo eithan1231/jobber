@@ -14,7 +14,7 @@ import { getUnixTimestamp } from "~/util.js";
 import { DecoupledStatus } from "../decoupled-status.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
 import { RunnerManager } from "../runners/manager.js";
-import { HandleRequestHttp } from "../runners/server.js";
+import { HandleRequest, HandleRequestHttp } from "../runners/server.js";
 
 type TriggerHttpItem = {
   trigger: Omit<TriggersTableType, "context"> & {
@@ -98,9 +98,20 @@ export class TriggerHttp extends LoopBase {
     await this.loopCheckOldTriggers(triggers);
   }
 
-  public async sendHandleRequest(handleRequest: HandleRequestHttp) {
+  public async sendHandleRequest(
+    request: Pick<
+      HandleRequestHttp,
+      | "body"
+      | "bodyLength"
+      | "headers"
+      | "method"
+      | "path"
+      | "queries"
+      | "query"
+    >
+  ) {
     for (const [triggerId, trigger] of Object.entries(this.triggers)) {
-      const headerHost = handleRequest.headers["host"];
+      const headerHost = request.headers["host"];
 
       if (
         trigger.trigger.context.hostname &&
@@ -111,24 +122,30 @@ export class TriggerHttp extends LoopBase {
 
       if (
         trigger.trigger.context.method &&
-        trigger.trigger.context.method !== handleRequest.method
+        trigger.trigger.context.method !== request.method
       ) {
         continue;
       }
 
       if (
         trigger.triggerPathRegex &&
-        !trigger.triggerPathRegex.test(handleRequest.path)
+        !trigger.triggerPathRegex.test(request.path)
       ) {
         continue;
       }
 
       if (
         trigger.triggerPathString &&
-        trigger.triggerPathString !== handleRequest.path
+        trigger.triggerPathString !== request.path
       ) {
         continue;
       }
+
+      const handleRequest: HandleRequest = {
+        ...request,
+        type: "http",
+        name: trigger.trigger.context.name ?? "",
+      };
 
       const result = await this.runnerManager.sendHandleRequest(
         trigger.version,

@@ -129,8 +129,7 @@ async function createGatewayHono(triggerHttp: TriggerHttp) {
     const body = Buffer.from(bodyDirect);
     const bodyLength = body.length;
 
-    const payload: HandleRequestHttp = {
-      type: "http",
+    const response = await triggerHttp.sendHandleRequest({
       body: body.toString("base64"),
       bodyLength,
       method,
@@ -138,9 +137,7 @@ async function createGatewayHono(triggerHttp: TriggerHttp) {
       queries,
       query,
       headers,
-    };
-
-    const response = await triggerHttp.sendHandleRequest(payload);
+    });
 
     if (!response) {
       return await next();
@@ -150,7 +147,7 @@ async function createGatewayHono(triggerHttp: TriggerHttp) {
       return c.json(
         {
           success: false,
-          message: `Jobber: Gateway error, ${response.error}`,
+          message: `Jobber: Gateway error!`,
         },
         502
       );
@@ -160,7 +157,7 @@ async function createGatewayHono(triggerHttp: TriggerHttp) {
       return c.json(
         {
           success: false,
-          message: `Jobber: Job did not return a HTTP response`,
+          message: `Jobber: Gateway Error! No HTTP response received.`,
         },
         502
       );

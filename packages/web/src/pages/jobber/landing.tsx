@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, RouteObject, useLocation } from "react-router-dom";
 import { JobberJob, JobberRunner, JobberTrigger } from "../../api/jobber.js";
-import { useTriggersLatest } from "../../hooks/triggers-latest.js";
+import { useTriggersCurrent } from "../../hooks/triggers-current.js";
 import { useDecoupledStatus } from "../../hooks/decoupled-status.js";
 import { useRunners } from "../../hooks/runners.js";
 import { useJobs } from "../../hooks/jobs.js";
@@ -168,7 +168,7 @@ export const RunnerSummary = ({ runners }: { runners: JobberRunner[] }) => {
 
 const JobCard = ({ job }: { job: JobberJob }) => {
   const [expanded, setExpanded] = useState(false);
-  const { triggers, triggersError } = useTriggersLatest(job.id);
+  const { triggers, triggersError } = useTriggersCurrent(job.id);
   const { runners, runnersError } = useRunners(job.id);
 
   const [hasError, _setHasError] = useState(false);

@@ -6,24 +6,166 @@ import {
   JobberJob,
   JobberRunner,
   JobberTrigger,
+  JobberVersion,
+  putJob,
 } from "../../../api/jobber.js";
 import { JobHeaderComponent } from "../../../components/job-header.js";
-import { useActionLatest } from "../../../hooks/action-latest.js";
+import { useActionCurrent } from "../../../hooks/action-current.js";
 import { useConfig } from "../../../hooks/config.js";
 import { useDecoupledStatus } from "../../../hooks/decoupled-status.js";
 import { useEnvironment } from "../../../hooks/environment.js";
 import { useJob } from "../../../hooks/job.js";
 import { useRunners } from "../../../hooks/runners.js";
-import { useTriggersLatest } from "../../../hooks/triggers-latest.js";
+import { useTriggersCurrent } from "../../../hooks/triggers-current.js";
 import { formatRelativeTime } from "../../../util.js";
+import { useVersions } from "../../../hooks/versions.js";
+import { PopupWithConfirm } from "../../../components/button-with-confirm.js";
+
+// TODO: This file is a mess. Clean it up.
+
+const VersionSectionComponent = ({
+  job,
+  error,
+  versions,
+  latestVersion,
+  reload,
+}: {
+  job?: JobberJob;
+  error?: string;
+  versions: JobberVersion[];
+  latestVersion?: JobberVersion;
+  reload?: () => void;
+}) => {
+  const orderedVersions = versions.sort((a, b) => b.modified - a.modified);
+
+  const handleDeactivate = () => {
+    putJob(job!.id, {
+      jobVersionId: null,
+    }).then(() => {
+      if (reload) {
+        reload();
+      }
+    });
+  };
+
+  const handleActivate = (versionId: string) => {
+    putJob(job!.id, {
+      jobVersionId: versionId,
+    }).then(() => {
+      if (reload) {
+        reload();
+      }
+    });
+  };
+
+  if (!job || !latestVersion) {
+    return null;
+  }
+
+  return (
+    <div className="container mx-auto my-8 p-4">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Versions</h1>
+      </div>
+      <div className="flex justify-between items-center mb-4">
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <strong className="font-bold">Error:</strong>
+            <span className="block sm:inline"> {error}</span>
+          </div>
+        )}
+
+        <table className="table-auto border-collapse border border-gray-300 w-full">
+          <thead>
+            <tr className="bg-gray-200">
+              <th className="border border-gray-300 px-4 py-2 text-left">
+                Version
+              </th>
+              <th className="border border-gray-300 px-4 py-2 text-left">
+                Created
+              </th>
+              <th className="border border-gray-300 px-4 py-2 text-left">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {orderedVersions.map((item) => (
+              <tr key={item.id} className="odd:bg-white even:bg-gray-100">
+                <td className="border border-gray-300 px-4 py-2 text-gray-700">
+                  {item.version}
+
+                  {item.id === latestVersion.id && (
+                    <span className="mx-2 bg-blue-100 text-blue-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full">
+                      Latest
+                    </span>
+                  )}
+
+                  {item.id === job.jobVersionId && (
+                    <span className="mx-2 bg-green-100 text-green-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full">
+                      Active
+                    </span>
+                  )}
+                </td>
+
+                <td
+                  className="border border-gray-300 px-4 py-2 text-gray-700"
+                  title={`Created: ${new Date(
+                    item.created * 1000
+                  ).toLocaleString()}`}
+                >
+                  {formatRelativeTime(item.created)}
+                  {item.created !== item.modified && (
+                    <span
+                      className="text-sm text-gray-500 ml-2"
+                      title={`Modified: ${new Date(
+                        item.modified * 1000
+                      ).toLocaleString()}`}
+                    >
+                      (Modified: {formatRelativeTime(item.modified)})
+                    </span>
+                  )}
+                </td>
+
+                <th className="border border-gray-300 px-4 py-2 text-left">
+                  {item.id === job.jobVersionId ? (
+                    <PopupWithConfirm
+                      buttonText="Deactivate"
+                      buttonClassName="bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded-md text-xs shadow-sm"
+                      onConfirm={handleDeactivate}
+                      confirmDescription={`Are you sure you want to deactivate version ${item.version}? This job will have no active versions and thus not run.`}
+                      confirmTitle="Confirm Deactivation"
+                      confirmButtonText="Deactivate"
+                    />
+                  ) : (
+                    <PopupWithConfirm
+                      buttonText="Activate"
+                      buttonClassName="bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded-md text-xs shadow-sm"
+                      onConfirm={() => handleActivate(item.id)}
+                      confirmDescription={`Are you sure you want to activate version ${item.version}? This will make it the active version for the job.`}
+                      confirmTitle="Confirm"
+                      confirmButtonText="Activate"
+                    />
+                  )}
+                </th>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
 
 const ActionSectionComponent = ({
   job,
   action,
+  versionLatest,
   error,
 }: {
   job?: JobberJob;
   action?: JobberAction;
+  versionLatest?: JobberVersion;
   error?: string;
 }) => {
   const [runnerDetails, setRunnerDetails] = useState<
@@ -127,10 +269,14 @@ const ActionSectionComponent = ({
     setRunnerDetails(details);
   }, [action, config]);
 
+  if (!error && !action) {
+    return null;
+  }
+
   return (
     <div className="container mx-auto my-8 p-4">
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Jobber Action</h1>
+        <h1 className="text-2xl font-bold">Current Action</h1>
         <Link
           className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-1 px-3 rounded-md text-sm shadow-sm"
           to={"./actions"}
@@ -149,7 +295,14 @@ const ActionSectionComponent = ({
         {action && (
           <>
             <h2 className="text-xl font-semibold mb-2">{job?.jobName}</h2>
-            <p className="text-sm text-gray-600">Version: {action.version}</p>
+            <p className="text-sm text-gray-600">
+              Version: {action.version}
+              {versionLatest && action.jobVersionId !== versionLatest.id && (
+                <span className="mx-2 bg-yellow-100 text-yellow-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full">
+                  Not Latest
+                </span>
+              )}
+            </p>
             <p className="text-sm text-gray-600">ID: {action.id}</p>
             <div className="mt-4">
               <p className="text-lg font-semibold mb-2">Runner Details</p>
@@ -206,11 +359,13 @@ const TriggersSectionComponent = ({
   job,
   environment,
   triggers,
+  versionLatest,
   error,
 }: {
   job?: JobberJob;
   environment?: JobberEnvironment;
   triggers?: JobberTrigger[];
+  versionLatest?: JobberVersion;
   error?: string;
 }) => {
   const EnvironmentParameter = (params: {
@@ -256,10 +411,14 @@ const TriggersSectionComponent = ({
     }
   };
 
+  if (!error && triggers?.length === 0) {
+    return null;
+  }
+
   return (
     <div className="container mx-auto my-8 p-4">
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Jobber Triggers</h1>
+        <h1 className="text-2xl font-bold">Current Triggers</h1>
         <Link
           className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-1 px-3 rounded-md text-sm shadow-sm"
           to={"./triggers"}
@@ -287,6 +446,11 @@ const TriggersSectionComponent = ({
               </p>
               <p className="text-sm text-gray-600">
                 Version: {trigger.version}
+                {versionLatest && trigger.jobVersionId !== versionLatest.id && (
+                  <span className="mx-2 bg-yellow-100 text-yellow-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full">
+                    Not Latest
+                  </span>
+                )}
               </p>
               <p className="text-sm text-gray-600">ID: {trigger.id}</p>
               <div className="mt-2">
@@ -294,6 +458,10 @@ const TriggersSectionComponent = ({
                 {trigger.context.type === "schedule" && (
                   <div>
                     <p className="text-sm">Type: Schedule</p>
+                    {trigger.context.name && (
+                      <p className="text-sm">Name: {trigger.context.name}</p>
+                    )}
+
                     <p className="text-sm">Cron: {trigger.context.cron}</p>
                     {trigger.context.timezone && (
                       <p className="text-sm">
@@ -306,6 +474,10 @@ const TriggersSectionComponent = ({
                 {trigger.context.type === "http" && (
                   <div>
                     <p className="text-sm">Type: HTTP</p>
+                    {trigger.context.name && (
+                      <p className="text-sm">Name: {trigger.context.name}</p>
+                    )}
+
                     {trigger.context.path && (
                       <p className="text-sm">Path: {trigger.context.path}</p>
                     )}
@@ -325,6 +497,10 @@ const TriggersSectionComponent = ({
                 {trigger.context.type === "mqtt" && (
                   <div>
                     <p className="text-sm mb-2 ">Type: MQTT</p>
+                    {trigger.context.name && (
+                      <p className="text-sm">Name: {trigger.context.name}</p>
+                    )}
+
                     <p className="text-sm mb-2">
                       Topics: {trigger.context.topics.join(",")}
                     </p>
@@ -392,7 +568,12 @@ const RunnersSectionComponent = ({
   error?: string;
 }) => {
   if (!runners) {
-    return <></>;
+    return null;
+  }
+
+  if (job.status === "enabled" && !error && runners.length === 0) {
+    // Nothing to render. Job is enabled, but there was no errors and no runners.
+    return null;
   }
 
   return (
@@ -491,14 +672,20 @@ const Component = () => {
     return <div>Job ID is required</div>;
   }
 
+  const [latestVersion, setLatestVersion] = useState<JobberVersion | null>(
+    null
+  );
+
   const { job, jobError, reloadJob } = useJob(jobId);
 
-  const { action, actionError, reloadActionLatest } = useActionLatest(jobId);
+  const { action, actionError, reloadActionCurrent } = useActionCurrent(jobId);
 
-  const { triggers, triggersError, reloadTriggersLatest } =
-    useTriggersLatest(jobId);
+  const { triggers, triggersError, reloadTriggersCurrent } =
+    useTriggersCurrent(jobId);
 
   const { runners, runnersError, reloadRunners } = useRunners(jobId);
+
+  const { versions, versionsError, reloadVersions } = useVersions(jobId);
 
   const { environment, environmentError, reloadEnvironment } =
     useEnvironment(jobId);
@@ -506,10 +693,11 @@ const Component = () => {
   const updateJob = async () => {
     await Promise.all([
       reloadJob(),
-      reloadActionLatest(),
-      reloadTriggersLatest(),
+      reloadActionCurrent(),
+      reloadTriggersCurrent(),
       reloadRunners(),
       reloadEnvironment(),
+      reloadVersions(),
     ]);
   };
 
@@ -525,6 +713,16 @@ const Component = () => {
     };
   }, [params.jobId]);
 
+  useEffect(() => {
+    if (versions && versions.length > 0) {
+      const latest = versions.reduce((latest, current) => {
+        return current.created > latest.created ? current : latest;
+      }, versions[0]);
+
+      setLatestVersion(latest);
+    }
+  }, [versions]);
+
   return (
     <div>
       {jobError}
@@ -532,9 +730,17 @@ const Component = () => {
       {job && (
         <>
           <JobHeaderComponent job={job} jobUpdate={updateJob} />
+          <VersionSectionComponent
+            job={job}
+            error={versionsError ?? undefined}
+            versions={versions}
+            latestVersion={latestVersion ?? undefined}
+            reload={updateJob}
+          />
           <ActionSectionComponent
             job={job}
             action={action ?? undefined}
+            versionLatest={latestVersion ?? undefined}
             error={actionError ?? undefined}
           />
           <TriggersSectionComponent
@@ -542,6 +748,7 @@ const Component = () => {
             triggers={triggers}
             error={triggersError ?? environmentError ?? undefined}
             environment={environment ?? undefined}
+            versionLatest={latestVersion ?? undefined}
           />
           <RunnersSectionComponent
             job={job}

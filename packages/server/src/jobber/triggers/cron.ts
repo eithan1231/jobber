@@ -175,9 +175,14 @@ export class TriggerCron extends LoopBase {
 
       trigger.scheduledAt = trigger.cron.sendAt().toMillis();
 
+      assert(trigger.trigger.context.type === "schedule");
+
       this.runnerManager
         .sendHandleRequest(trigger.version, trigger.job, trigger.action, {
           type: "schedule",
+          name: trigger.trigger.context.name,
+          cron: trigger.trigger.context.cron,
+          timezone: trigger.trigger.context.timezone,
         })
         .then((handleResponse) => {
           counterTriggerCron

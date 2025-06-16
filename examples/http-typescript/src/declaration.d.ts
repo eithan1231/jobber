@@ -20,6 +20,7 @@ type StoreItem<ValueType = string> = {
 declare class JobberHandlerRequest {
   constructor(data: DataRequest);
   type(): DataRequest["type"];
+  name(): string | null;
   header(name: string): string | null;
   query(name: string): string | null;
   queries(name: string): string[] | null;

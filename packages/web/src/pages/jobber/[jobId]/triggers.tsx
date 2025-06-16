@@ -109,9 +109,17 @@ const Component = () => {
                       {trigger.context.type === "schedule" && (
                         <div>
                           <p className="text-sm">Type: Schedule</p>
+
+                          {trigger.context.name && (
+                            <p className="text-sm">
+                              Name: {trigger.context.name}
+                            </p>
+                          )}
+
                           <p className="text-sm">
                             Cron: {trigger.context.cron}
                           </p>
+
                           {trigger.context.timezone && (
                             <p className="text-sm">
                               Timezone: {trigger.context.timezone}
@@ -123,16 +131,25 @@ const Component = () => {
                       {trigger.context.type === "http" && (
                         <div>
                           <p className="text-sm">Type: HTTP</p>
+
+                          {trigger.context.name && (
+                            <p className="text-sm">
+                              Name: {trigger.context.name}
+                            </p>
+                          )}
+
                           {trigger.context.path && (
                             <p className="text-sm">
                               Path: {trigger.context.path}
                             </p>
                           )}
+
                           {trigger.context.method && (
                             <p className="text-sm">
                               Method: {trigger.context.method}
                             </p>
                           )}
+
                           {trigger.context.hostname && (
                             <p className="text-sm">
                               Hostname: {trigger.context.hostname}
@@ -144,6 +161,13 @@ const Component = () => {
                       {trigger.context.type === "mqtt" && (
                         <div>
                           <p className="text-sm mb-2 ">Type: MQTT</p>
+
+                          {trigger.context.name && (
+                            <p className="text-sm">
+                              Name: {trigger.context.name}
+                            </p>
+                          )}
+
                           <p className="text-sm mb-2">
                             Topics: {trigger.context.topics.join(",")}
                           </p>
