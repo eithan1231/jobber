@@ -140,7 +140,12 @@ const VersionSectionComponent = ({
                   ) : (
                     <PopupWithConfirm
                       buttonText="Activate"
-                      buttonClassName="bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded-md text-xs shadow-sm"
+                      buttonClassName={`${
+                        item.id !== job.jobVersionId &&
+                        item.id === latestVersion.id
+                          ? "bg-blue-500 hover:bg-blue-600"
+                          : "bg-red-500 hover:bg-red-600"
+                      } text-white font-medium py-1 px-3 rounded-md text-xs shadow-sm`}
                       onConfirm={() => handleActivate(item.id)}
                       confirmDescription={`Are you sure you want to activate version ${item.version}? This will make it the active version for the job.`}
                       confirmTitle="Confirm"
@@ -284,7 +289,7 @@ const ActionSectionComponent = ({
           View Previous Versions
         </Link>
       </div>
-      <div className="border rounded shadow-md p-4 bg-white flex flex-col">
+      <div className="border rounded shadow-md px-4 pt-4 pb-1 bg-white flex flex-col">
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
             <strong className="font-bold">Error:</strong>
@@ -294,18 +299,18 @@ const ActionSectionComponent = ({
 
         {action && (
           <>
-            <h2 className="text-xl font-semibold mb-2">{job?.jobName}</h2>
-            <p className="text-sm text-gray-600">
-              Version: {action.version}
-              {versionLatest && action.jobVersionId !== versionLatest.id && (
-                <span className="mx-2 bg-yellow-100 text-yellow-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full">
-                  Not Latest
-                </span>
-              )}
-            </p>
-            <p className="text-sm text-gray-600">ID: {action.id}</p>
+            <h2 className="text-xl font-semibold mb-2">Runner Details</h2>
+            {action.jobVersionId !== versionLatest?.id && (
+              <p className="text-sm text-gray-600">
+                Version: {action.version}
+                {versionLatest && action.jobVersionId !== versionLatest.id && (
+                  <span className="mx-2 bg-yellow-100 text-yellow-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full">
+                    Outdated Version
+                  </span>
+                )}
+              </p>
+            )}
             <div className="mt-4">
-              <p className="text-lg font-semibold mb-2">Runner Details</p>
               <dl className="text-sm">
                 {runnerDetails.map((detail, index) => (
                   <div
@@ -321,6 +326,7 @@ const ActionSectionComponent = ({
                   </div>
                 ))}
               </dl>
+              <p className="text-xs text-transparent">{action.id}</p>
             </div>
           </>
         )}
@@ -375,9 +381,10 @@ const TriggersSectionComponent = ({
   }) => {
     if (params.variableFallbackValue) {
       return (
-        <p className="text-sm text-gray-600">
-          {params.displayName}: {params.variableFallbackValue}
-        </p>
+        <div className="flex justify-between py-2 border-b">
+          <dt className="font-medium text-gray-700">{params.displayName}:</dt>
+          <dd className="text-gray-700">{params.variableFallbackValue}</dd>
+        </div>
       );
     }
 
@@ -387,10 +394,10 @@ const TriggersSectionComponent = ({
 
     if (!environment[params.variableName]) {
       return (
-        <p className="text-sm text-gray-600 ">
-          {params.displayName}:{" "}
-          <span className="text-red-700">Missing "{params.variableName}"</span>
-        </p>
+        <div className="flex justify-between py-2 border-b">
+          <dt className="font-medium text-gray-700">{params.displayName}:</dt>
+          <dd className="text-red-700">{params.variableFallbackValue}</dd>
+        </div>
       );
     }
 
@@ -398,15 +405,19 @@ const TriggersSectionComponent = ({
 
     if (variable.type === "secret") {
       return (
-        <p className="text-sm text-gray-600">{params.displayName}: *****</p>
+        <div className="flex justify-between py-2 border-b">
+          <dt className="font-medium text-gray-700">{params.displayName}:</dt>
+          <dd className="text-gray-700">******</dd>
+        </div>
       );
     }
 
     if (variable.type === "text") {
       return (
-        <p className="text-sm text-gray-600">
-          {params.displayName}: {variable.value}
-        </p>
+        <div className="flex justify-between py-2 border-b">
+          <dt className="font-medium text-gray-700">{params.displayName}:</dt>
+          <dd className="text-gray-700">{variable.value}</dd>
+        </div>
       );
     }
   };
@@ -437,73 +448,131 @@ const TriggersSectionComponent = ({
           triggers.map((trigger) => (
             <div
               key={trigger.id}
-              className="border rounded shadow-md p-4 bg-white flex flex-col"
+              className="border rounded shadow-md px-4 pt-4 pb-1 bg-white flex flex-col"
             >
-              <h2 className="text-xl font-semibold mb-2">{job?.jobName}</h2>
+              <h2 className="text-L font-semibold mb-2">
+                {trigger.context.type === "http" && "HTTP Trigger Context"}
+                {trigger.context.type === "mqtt" && "MQTT Trigger Context"}
+                {trigger.context.type === "schedule" &&
+                  "Schedule Trigger Context"}
+              </h2>
               <p className="text-sm text-gray-600">
                 Status:{" "}
                 <TriggersSectionStatusComponent triggerId={trigger.id} />
               </p>
-              <p className="text-sm text-gray-600">
-                Version: {trigger.version}
-                {versionLatest && trigger.jobVersionId !== versionLatest.id && (
-                  <span className="mx-2 bg-yellow-100 text-yellow-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full">
-                    Not Latest
-                  </span>
-                )}
-              </p>
-              <p className="text-sm text-gray-600">ID: {trigger.id}</p>
-              <div className="mt-2">
-                <p className="text-sm font-semibold">Trigger Context:</p>
+              {trigger.jobVersionId !== versionLatest?.id && (
+                <p className="text-sm text-gray-600">
+                  Version: {trigger.version}
+                  {versionLatest &&
+                    trigger.jobVersionId !== versionLatest.id && (
+                      <span className="mx-2 bg-yellow-100 text-yellow-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full">
+                        Outdated Version
+                      </span>
+                    )}
+                </p>
+              )}
+
+              <div className="mt-4">
                 {trigger.context.type === "schedule" && (
-                  <div>
-                    <p className="text-sm">Type: Schedule</p>
+                  <dl className="text-sm">
+                    <div className="flex justify-between py-2 border-b">
+                      <dt className="font-medium text-gray-700">Type:</dt>
+                      <dd className="text-gray-700">Schedule</dd>
+                    </div>
+
                     {trigger.context.name && (
-                      <p className="text-sm">Name: {trigger.context.name}</p>
+                      <div className="flex justify-between py-2 border-b">
+                        <dt className="font-medium text-gray-700">Name:</dt>
+                        <dd className="text-gray-700">
+                          {trigger.context.name}
+                        </dd>
+                      </div>
                     )}
 
-                    <p className="text-sm">Cron: {trigger.context.cron}</p>
+                    <div className="flex justify-between py-2 border-b">
+                      <dt className="font-medium text-gray-700">Cron:</dt>
+                      <dd className="text-gray-700">{trigger.context.cron}</dd>
+                    </div>
+
                     {trigger.context.timezone && (
-                      <p className="text-sm">
-                        Timezone: {trigger.context.timezone}
-                      </p>
+                      <div className="flex justify-between py-2 border-b">
+                        <dt className="font-medium text-gray-700">Timezone:</dt>
+                        <dd className="text-gray-700">
+                          {trigger.context.timezone}
+                        </dd>
+                      </div>
                     )}
-                  </div>
+                  </dl>
                 )}
 
                 {trigger.context.type === "http" && (
-                  <div>
-                    <p className="text-sm">Type: HTTP</p>
+                  <dl className="text-sm">
+                    <div className="flex justify-between py-2 border-b">
+                      <dt className="font-medium text-gray-700">Type:</dt>
+                      <dd className="text-gray-700">HTTP</dd>
+                    </div>
+
                     {trigger.context.name && (
-                      <p className="text-sm">Name: {trigger.context.name}</p>
+                      <div className="flex justify-between py-2 border-b">
+                        <dt className="font-medium text-gray-700">Name:</dt>
+                        <dd className="text-gray-700">
+                          {trigger.context.name}
+                        </dd>
+                      </div>
                     )}
 
                     {trigger.context.path && (
-                      <p className="text-sm">Path: {trigger.context.path}</p>
+                      <div className="flex justify-between py-2 border-b">
+                        <dt className="font-medium text-gray-700">Path:</dt>
+                        <dd className="text-gray-700">
+                          {trigger.context.path}
+                        </dd>
+                      </div>
                     )}
+
                     {trigger.context.method && (
-                      <p className="text-sm">
-                        Method: {trigger.context.method}
-                      </p>
+                      <div className="flex justify-between py-2 border-b">
+                        <dt className="font-medium text-gray-700">Method:</dt>
+                        <dd className="text-gray-700">
+                          {trigger.context.method.toUpperCase()}
+                        </dd>
+                      </div>
                     )}
+
                     {trigger.context.hostname && (
-                      <p className="text-sm">
-                        Hostname: {trigger.context.hostname}
-                      </p>
+                      <div className="flex justify-between py-2 border-b">
+                        <dt className="font-medium text-gray-700">Hostname:</dt>
+                        <dd className="text-gray-700">
+                          {trigger.context.hostname}
+                        </dd>
+                      </div>
                     )}
-                  </div>
+                  </dl>
                 )}
 
                 {trigger.context.type === "mqtt" && (
-                  <div>
-                    <p className="text-sm mb-2 ">Type: MQTT</p>
+                  <dl className="text-sm">
+                    <div className="flex justify-between py-2 border-b">
+                      <dt className="font-medium text-gray-700">Type:</dt>
+                      <dd className="text-gray-700">MQTT</dd>
+                    </div>
                     {trigger.context.name && (
-                      <p className="text-sm">Name: {trigger.context.name}</p>
+                      <div className="flex justify-between py-2 border-b">
+                        <dt className="font-medium text-gray-700">Name:</dt>
+                        <dd className="text-gray-700">
+                          {trigger.context.name}
+                        </dd>
+                      </div>
                     )}
-
-                    <p className="text-sm mb-2">
-                      Topics: {trigger.context.topics.join(",")}
-                    </p>
+                    {trigger.context.topics.map((topic) => (
+                      <div
+                        key={topic}
+                        className="flex justify-between py-2 border-b"
+                      >
+                        <dt className="font-medium text-gray-700">Topic:</dt>
+                        <dd className="text-gray-700">{topic}</dd>
+                      </div>
+                    ))}
 
                     <EnvironmentParameter
                       displayName="Protocol"
@@ -512,7 +581,6 @@ const TriggersSectionComponent = ({
                       }
                       variableName={trigger.context.connection.protocolVariable}
                     />
-
                     <EnvironmentParameter
                       displayName="Username"
                       variableFallbackValue={
@@ -520,7 +588,6 @@ const TriggersSectionComponent = ({
                       }
                       variableName={trigger.context.connection.usernameVariable}
                     />
-
                     <EnvironmentParameter
                       displayName="Password"
                       variableFallbackValue={
@@ -528,19 +595,16 @@ const TriggersSectionComponent = ({
                       }
                       variableName={trigger.context.connection.passwordVariable}
                     />
-
                     <EnvironmentParameter
                       displayName="Host"
                       variableFallbackValue={trigger.context.connection.host}
                       variableName={trigger.context.connection.hostVariable}
                     />
-
                     <EnvironmentParameter
                       displayName="Port"
                       variableFallbackValue={trigger.context.connection.port}
                       variableName={trigger.context.connection.portVariable}
                     />
-
                     <EnvironmentParameter
                       displayName="Client ID"
                       variableFallbackValue={
@@ -548,9 +612,10 @@ const TriggersSectionComponent = ({
                       }
                       variableName={trigger.context.connection.clientIdVariable}
                     />
-                  </div>
+                  </dl>
                 )}
               </div>
+              <p className="text-xs text-transparent mt-2">{trigger.id}</p>
             </div>
           ))}
       </div>

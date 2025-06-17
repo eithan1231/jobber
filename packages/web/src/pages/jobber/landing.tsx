@@ -1,12 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link, RouteObject, useLocation } from "react-router-dom";
-import { JobberJob, JobberRunner, JobberTrigger } from "../../api/jobber.js";
+import {
+  JobberJob,
+  JobberRunner,
+  JobberTrigger,
+  JobberVersion,
+} from "../../api/jobber.js";
 import { useTriggersCurrent } from "../../hooks/triggers-current.js";
 import { useDecoupledStatus } from "../../hooks/decoupled-status.js";
 import { useRunners } from "../../hooks/runners.js";
 import { useJobs } from "../../hooks/jobs.js";
+import { useVersions } from "../../hooks/versions.js";
 
-export const TriggerDetails = ({ trigger }: { trigger: JobberTrigger }) => {
+const TriggerDetails = ({ trigger }: { trigger: JobberTrigger }) => {
   const { context } = trigger;
   const { message: statusMessage, level: statusLevel } = useDecoupledStatus(
     `trigger-id-${trigger.id}`
@@ -123,7 +129,7 @@ export const TriggerDetails = ({ trigger }: { trigger: JobberTrigger }) => {
   );
 };
 
-export const RunnerSummary = ({ runners }: { runners: JobberRunner[] }) => {
+const RunnerSummary = ({ runners }: { runners: JobberRunner[] }) => {
   const total = runners.length;
   const active = runners.filter((runner) => runner.status !== "closed").length;
   const processing = runners.reduce(
@@ -168,45 +174,102 @@ export const RunnerSummary = ({ runners }: { runners: JobberRunner[] }) => {
 
 const JobCard = ({ job }: { job: JobberJob }) => {
   const [expanded, setExpanded] = useState(false);
+  const { versions } = useVersions(job.id);
+  const [latestVersion, setLatestVersion] = useState<JobberVersion | null>(
+    null
+  );
   const { triggers, triggersError } = useTriggersCurrent(job.id);
   const { runners, runnersError } = useRunners(job.id);
 
-  const [hasError, _setHasError] = useState(false);
+  const [badges, setBadges] = useState<
+    Array<{
+      name: string;
+      classNameExtras: string;
+    }>
+  >([]);
 
-  // TODO: Check trigger decoupled status.
+  // Custom badges for quick visual feedback
+  useEffect(() => {
+    const newBadges: Array<{
+      name: string;
+      classNameExtras: string;
+    }> = [];
+
+    if (job.status === "disabled") {
+      newBadges.push({
+        name: "Disabled",
+        classNameExtras: "bg-red-100 text-red-800",
+      });
+    }
+
+    if (!job.jobVersionId) {
+      newBadges.push({
+        name: "No active version",
+        classNameExtras: "bg-red-100 text-red-800",
+      });
+    }
+
+    if (job.jobVersionId && job.jobVersionId !== latestVersion?.id) {
+      newBadges.push({
+        name: "Outdated version",
+        classNameExtras: "bg-yellow-100 text-yellow-800",
+      });
+    }
+
+    setBadges(newBadges);
+  }, [job, versions]);
+
+  // Check for latest version
+  useEffect(() => {
+    setLatestVersion(
+      versions?.reduce<JobberVersion | null>((latest, version) => {
+        if (!latest || version.created > latest.created) {
+          return version;
+        }
+
+        return latest;
+      }, null) || null
+    );
+  }, [versions]);
 
   return (
     <div
       className={`
         border border-gray-300 rounded-2xl shadow pt-4 mb-4 bg-white transition-all
-        ${hasError ? "ring-2 ring-red-200" : ""}
       `}
     >
       <div className="pr-4 pl-6">
         <div className="flex justify-between items-center">
-          <div
+          <Link
             className="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
-            onClick={() => setExpanded(!expanded)}
+            to={`/jobber/${job.id}/`}
+            // onClick={() => setExpanded(!expanded)}
           >
             <div>
               <h2 className="text-xl font-semibold">{job.jobName}</h2>
               <p className="text-sm text-gray-600">{job.description}</p>
+              {badges.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {badges.map((badge, idx) => (
+                    <span
+                      key={idx}
+                      className={`text-xs font-medium px-2 py-1 rounded-full ${badge.classNameExtras}`}
+                    >
+                      {badge.name}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
-            {hasError && (
-              <span
-                className="ml-2 inline-block w-2 h-2 bg-red-500 rounded-full"
-                title="Some details failed to load"
-              />
-            )}
-          </div>
+          </Link>
           <div className="flex items-center gap-4">
-            <span
+            {/* <span
               className={`text-sm font-medium ${
                 job.status === "enabled" ? "text-green-600" : "text-red-600"
               }`}
             >
               {job.status}
-            </span>
+            </span> */}
             <Link
               to={`/jobber/${job.id}/`}
               className="text-blue-500 hover:underline"
