@@ -9,6 +9,7 @@ import {
   JobberVersion,
   putJob,
 } from "../../../api/jobber.js";
+import { PopupWithConfirm } from "../../../components/button-with-confirm.js";
 import { JobHeaderComponent } from "../../../components/job-header.js";
 import { useActionCurrent } from "../../../hooks/action-current.js";
 import { useConfig } from "../../../hooks/config.js";
@@ -17,9 +18,8 @@ import { useEnvironment } from "../../../hooks/environment.js";
 import { useJob } from "../../../hooks/job.js";
 import { useRunners } from "../../../hooks/runners.js";
 import { useTriggersCurrent } from "../../../hooks/triggers-current.js";
-import { formatRelativeTime } from "../../../util.js";
 import { useVersions } from "../../../hooks/versions.js";
-import { PopupWithConfirm } from "../../../components/button-with-confirm.js";
+import { formatRelativeTime } from "../../../util.js";
 
 // TODO: This file is a mess. Clean it up.
 
@@ -163,12 +163,10 @@ const VersionSectionComponent = ({
 };
 
 const ActionSectionComponent = ({
-  job,
   action,
   versionLatest,
   error,
 }: {
-  job?: JobberJob;
   action?: JobberAction;
   versionLatest?: JobberVersion;
   error?: string;
@@ -362,13 +360,11 @@ const TriggersSectionStatusComponent = ({
 };
 
 const TriggersSectionComponent = ({
-  job,
   environment,
   triggers,
   versionLatest,
   error,
 }: {
-  job?: JobberJob;
   environment?: JobberEnvironment;
   triggers?: JobberTrigger[];
   versionLatest?: JobberVersion;
@@ -803,13 +799,11 @@ const Component = () => {
             reload={updateJob}
           />
           <ActionSectionComponent
-            job={job}
             action={action ?? undefined}
             versionLatest={latestVersion ?? undefined}
             error={actionError ?? undefined}
           />
           <TriggersSectionComponent
-            job={job}
             triggers={triggers}
             error={triggersError ?? environmentError ?? undefined}
             environment={environment ?? undefined}
