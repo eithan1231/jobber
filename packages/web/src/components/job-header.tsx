@@ -1,7 +1,7 @@
-import { Link } from "react-router-dom";
-import { JobberJob, putJob } from "../api/jobber";
-import { JobDeleteConfirmButton } from "./job-delete-confirm";
+import { Link, useNavigate } from "react-router-dom";
+import { deleteJob, JobberJob, putJob } from "../api/jobber";
 import { useConfig } from "../hooks/config";
+import { PopupWithConfirm } from "./popup-with-confirm";
 
 export const JobHeaderComponent = ({
   job,
@@ -10,6 +10,8 @@ export const JobHeaderComponent = ({
   job: JobberJob;
   jobUpdate?: () => void;
 }) => {
+  const navigate = useNavigate();
+
   const { config } = useConfig();
 
   const onDisable = () => {
@@ -30,6 +32,18 @@ export const JobHeaderComponent = ({
         jobUpdate();
       }
     });
+  };
+
+  const onDelete = async () => {
+    const result = await deleteJob(job.id);
+
+    if (!result.success) {
+      throw new Error("Failed to delete job");
+    }
+
+    console.log(result.message);
+
+    navigate("/jobber/");
   };
 
   return (
@@ -146,15 +160,24 @@ export const JobHeaderComponent = ({
           )}
 
           {job.status === "enabled" && (
-            <button
-              onClick={onDisable}
-              className={"text-red-600 hover:text-red-800 text-sm ml-auto"}
-            >
-              Disable
-            </button>
+            <PopupWithConfirm
+              buttonText="Disable"
+              buttonClassName="text-red-600 hover:text-red-800 text-sm ml-auto"
+              onConfirm={onDisable}
+              confirmDescription={`Are you sure you want to disable job?`}
+              confirmTitle="Confirm Disable Job"
+              confirmButtonText="Disable Job"
+            />
           )}
 
-          <JobDeleteConfirmButton job={job} returnTo="/jobber/" />
+          <PopupWithConfirm
+            buttonText="Delete"
+            buttonClassName="text-red-600 hover:text-red-800 text-sm"
+            onConfirm={onDelete}
+            confirmDescription={`Are you sure you wish to delete "${job.jobName}"? This action is irreversible.`}
+            confirmTitle="Deletion Confirmation"
+            confirmButtonText="Delete"
+          />
         </div>
       </div>
     </div>

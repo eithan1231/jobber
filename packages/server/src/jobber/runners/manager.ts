@@ -87,6 +87,10 @@ export class RunnerManager extends LoopBase {
       const runner = this.runners[runnerId];
 
       if (!runner) {
+        console.warn(
+          `[RunnerManager/runner-starting] Runner not found for id ${runnerId}`
+        );
+
         return;
       }
 
@@ -97,6 +101,10 @@ export class RunnerManager extends LoopBase {
       const runner = this.runners[runnerId];
 
       if (!runner) {
+        console.warn(
+          `[RunnerManager/runner-ready] Runner not found for id ${runnerId}`
+        );
+
         return;
       }
 
@@ -122,6 +130,10 @@ export class RunnerManager extends LoopBase {
       const runner = this.runners[runnerId];
 
       if (!runner) {
+        console.warn(
+          `[RunnerManager/runner-closing] Runner not found for id ${runnerId}`
+        );
+
         return;
       }
 
@@ -133,6 +145,10 @@ export class RunnerManager extends LoopBase {
       const runner = this.runners[runnerId];
 
       if (!runner) {
+        console.warn(
+          `[RunnerManager/runner-close] Runner not found for id ${runnerId}. Was process forcefully killed?`
+        );
+
         return;
       }
 
@@ -286,6 +302,7 @@ export class RunnerManager extends LoopBase {
 
         result = await this.server.sendHandleRequest(runner.id, handleRequest);
 
+        // Timeout is only here for run-once mode
         await timeout(100);
       } finally {
         runner.requestsProcessing--;
@@ -399,6 +416,150 @@ export class RunnerManager extends LoopBase {
     throw new Error(
       `[RunnerManager/sendHandleRequest] Unexpected runner mode.`
     );
+  }
+
+  public async sendShutdownGraceful(jobId: string, runnerId: string) {
+    const runner = this.runners[runnerId];
+
+    console.log(
+      `[RunnerManager/sendShutdownGraceful] Shutting down runner ${shortenString(
+        runnerId
+      )} for job ${shortenString(jobId)}`
+    );
+
+    if (!runner || runner.job.id !== jobId) {
+      console.warn(
+        `[RunnerManager/sendShutdownGraceful] Runner not found for jobId ${shortenString(
+          jobId
+        )} and runnerId ${shortenString(runnerId)}`
+      );
+
+      return {
+        success: false,
+        message: "Runner not found",
+      } as const;
+    }
+
+    await awaitTruthy(
+      async () =>
+        runner.status === "ready" ||
+        runner.status === "closing" ||
+        runner.status === "closed",
+      10_000
+    );
+
+    if (runner.status === "starting") {
+      console.warn(
+        `[RunnerManager/sendShutdownGraceful] Runner is still starting, cannot shutdown gracefully. runnerId ${shortenString(
+          runnerId
+        )}, jobId ${shortenString(jobId)}`
+      );
+
+      return {
+        success: false,
+        message: "Runner is still starting, cannot shutdown gracefully",
+      } as const;
+    }
+
+    if (runner.status === "closed") {
+      console.warn(
+        `[RunnerManager/sendShutdownGraceful] Runner has already closed. runnerId ${shortenString(
+          runnerId
+        )}, jobId ${shortenString(jobId)}`
+      );
+
+      return {
+        success: false,
+        message: "Runner has already closed",
+      } as const;
+    }
+
+    if (runner.status === "closing") {
+      console.warn(
+        `[RunnerManager/sendShutdownGraceful] Runner is already closing. runnerId ${shortenString(
+          runnerId
+        )}, jobId ${shortenString(jobId)}`
+      );
+
+      return {
+        success: true,
+        message: "Runner is already closing",
+      } as const;
+    }
+
+    const response = await this.server.sendShutdownRequest(runner.id);
+
+    if (!response) {
+      console.warn(
+        `[RunnerManager/sendShutdownGraceful] Failed to send shutdown request to runner. runnerId ${shortenString(
+          runnerId
+        )}, jobId ${shortenString(jobId)}`
+      );
+
+      return {
+        success: false,
+        message: "Failed to send shutdown request to runner",
+      } as const;
+    }
+
+    console.log(
+      `[RunnerManager/sendShutdownGraceful] Runner shutdown request sent successfully. runnerId ${shortenString(
+        runnerId
+      )}, jobId ${shortenString(jobId)}`
+    );
+
+    return {
+      success: true,
+    } as const;
+  }
+
+  public async sendShutdownForceful(jobId: string, runnerId: string) {
+    const runner = this.runners[runnerId];
+
+    console.log(
+      `[RunnerManager/sendShutdownForceful] Forcefully shutting down runner ${shortenString(
+        runnerId
+      )} for job ${shortenString(jobId)}`
+    );
+
+    if (!runner || runner.job.id !== jobId) {
+      console.warn(
+        `[RunnerManager/sendShutdownForceful] Runner not found for jobId ${shortenString(
+          jobId
+        )} and runnerId ${shortenString(runnerId)}`
+      );
+
+      return {
+        success: false,
+        message: "Runner not found",
+      } as const;
+    }
+
+    if (runner.status === "closed") {
+      console.warn(
+        `[RunnerManager/sendShutdownForceful] Runner has already closed. runnerId ${shortenString(
+          runnerId
+        )}, jobId ${shortenString(jobId)}`
+      );
+
+      return {
+        success: false,
+        message: "Runner is already closed",
+      } as const;
+    }
+
+    runner.process.kill("SIGKILL");
+
+    console.log(
+      `[RunnerManager/sendShutdownForceful] Runner process killed. runnerId ${shortenString(
+        runnerId
+      )}, jobId ${shortenString(jobId)}`
+    );
+
+    return {
+      success: true,
+      message: "Runner process has been killed forcefully.",
+    } as const;
   }
 
   public async findRunnersByJobId(jobId: string) {

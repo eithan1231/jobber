@@ -209,7 +209,11 @@ const JobCard = ({ job }: { job: JobberJob }) => {
       });
     }
 
-    if (job.jobVersionId && job.jobVersionId !== latestVersion?.id) {
+    if (
+      job.jobVersionId &&
+      latestVersion &&
+      job.jobVersionId !== latestVersion?.id
+    ) {
       newBadges.push({
         name: "Outdated version",
         classNameExtras: "bg-yellow-100 text-yellow-800",
@@ -217,7 +221,7 @@ const JobCard = ({ job }: { job: JobberJob }) => {
     }
 
     setBadges(newBadges);
-  }, [job, versions]);
+  }, [job, versions, latestVersion]);
 
   // Check for latest version
   useEffect(() => {
@@ -263,13 +267,6 @@ const JobCard = ({ job }: { job: JobberJob }) => {
             </div>
           </Link>
           <div className="flex items-center gap-4">
-            {/* <span
-              className={`text-sm font-medium ${
-                job.status === "enabled" ? "text-green-600" : "text-red-600"
-              }`}
-            >
-              {job.status}
-            </span> */}
             <Link
               to={`/jobber/${job.id}/`}
               className="text-blue-500 hover:underline"

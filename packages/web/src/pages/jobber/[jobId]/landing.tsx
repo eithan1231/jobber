@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, RouteObject, useParams } from "react-router-dom";
 import {
+  deleteJobRunner,
   JobberAction,
   JobberEnvironment,
   JobberJob,
@@ -9,7 +10,7 @@ import {
   JobberVersion,
   putJob,
 } from "../../../api/jobber.js";
-import { PopupWithConfirm } from "../../../components/button-with-confirm.js";
+import { PopupWithConfirm } from "../../../components/popup-with-confirm.js";
 import { JobHeaderComponent } from "../../../components/job-header.js";
 import { useActionCurrent } from "../../../hooks/action-current.js";
 import { useConfig } from "../../../hooks/config.js";
@@ -713,7 +714,14 @@ const RunnersSectionComponent = ({
                 </td>
 
                 <td className="border border-gray-300 px-4 py-2 text-gray-700">
-                  coming soon...
+                  <PopupWithConfirm
+                    buttonText="Shutdown"
+                    buttonClassName="bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded-md text-xs shadow-sm"
+                    onConfirm={() => deleteJobRunner(job.id, item.id)}
+                    confirmDescription={`Are you sure you want to shutdown runner?`}
+                    confirmTitle="Confirm Shutdown"
+                    confirmButtonText="Shutdown"
+                  />
                 </td>
               </tr>
             ))}

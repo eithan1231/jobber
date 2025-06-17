@@ -411,3 +411,20 @@ export const getConfig = async (): Promise<
 export const postJobPublish = async () => {
   //
 };
+
+export const deleteJobRunner = async (
+  jobId: string,
+  runnerId: string,
+  graceful: boolean = true
+): Promise<JobberGenericResponse> => {
+  const result = await fetch(
+    `/api/job/${jobId}/runners/${runnerId}?forceful=${
+      graceful ? "false" : "true"
+    }`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  return await result.json();
+};
