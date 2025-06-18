@@ -133,6 +133,11 @@ export type JobberTrigger = {
       };
 };
 
+export type JobberTriggerStatus = {
+  status: "unknown" | "unhealthy" | "healthy";
+  message: string;
+};
+
 export type JobberRunner = {
   id: string;
   status: "starting" | "ready" | "closing" | "closed";
@@ -146,7 +151,7 @@ export type JobberRunner = {
 };
 
 export type JobberDecoupledStatus = {
-  level: "info" | "warn" | "error";
+  status: "healthy" | "unhealthy" | "unknown";
   message: string;
   created: number;
   updated: number;
@@ -316,6 +321,15 @@ export const getJobTriggersCurrent = async (
   jobId: string
 ): Promise<JobberGenericResponse<JobberTrigger[]>> => {
   const result = await fetch(`/api/job/${jobId}/triggers:current`);
+
+  return await result.json();
+};
+
+export const getJobTriggerStatus = async (
+  jobId: string,
+  triggerId: string
+): Promise<JobberGenericResponse<JobberTriggerStatus>> => {
+  const result = await fetch(`/api/job/${jobId}/triggers/${triggerId}/status`);
 
   return await result.json();
 };

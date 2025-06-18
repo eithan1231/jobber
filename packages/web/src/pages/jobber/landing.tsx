@@ -7,16 +7,14 @@ import {
   JobberVersion,
 } from "../../api/jobber.js";
 import { useTriggersCurrent } from "../../hooks/triggers-current.js";
-import { useDecoupledStatus } from "../../hooks/decoupled-status.js";
 import { useRunners } from "../../hooks/runners.js";
 import { useJobs } from "../../hooks/jobs.js";
 import { useVersions } from "../../hooks/versions.js";
+import { useTriggerStatus } from "../../hooks/trigger-status.js";
 
 const TriggerDetails = ({ trigger }: { trigger: JobberTrigger }) => {
   const { context } = trigger;
-  const { message: statusMessage, level: statusLevel } = useDecoupledStatus(
-    `trigger-id-${trigger.id}`
-  );
+  const { triggerStatus } = useTriggerStatus(trigger.jobId, trigger.id);
 
   const badgeClasses = {
     schedule: "bg-blue-100 text-blue-800",
@@ -39,10 +37,12 @@ const TriggerDetails = ({ trigger }: { trigger: JobberTrigger }) => {
       </div>
 
       {/* Status Line */}
-      {(statusLevel === "error" || statusLevel === "warn") && (
+      {triggerStatus && triggerStatus.status === "unhealthy" && (
         <div className="ml-4">
           <strong>Status:</strong>{" "}
-          <span className="text-red-600 font-medium">{statusMessage}</span>
+          <span className="text-red-600 font-medium">
+            {triggerStatus.message}
+          </span>
         </div>
       )}
 

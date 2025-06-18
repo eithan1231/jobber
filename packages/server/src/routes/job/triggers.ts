@@ -4,8 +4,15 @@ import { getDrizzle } from "~/db/index.js";
 import { jobVersionsTable } from "~/db/schema/job-versions.js";
 import { jobsTable } from "~/db/schema/jobs.js";
 import { triggersTable } from "~/db/schema/triggers.js";
+import { TriggerCron } from "~/jobber/triggers/cron.js";
+import { TriggerHttp } from "~/jobber/triggers/http.js";
+import { TriggerMqtt } from "~/jobber/triggers/mqtt.js";
 
-export async function createRouteJobTriggers() {
+export async function createRouteJobTriggers(
+  triggerCron: TriggerCron,
+  triggerHttp: TriggerHttp,
+  triggerMqtt: TriggerMqtt
+) {
   const app = new Hono();
 
   app.get("/job/:jobId/triggers:current", async (c, next) => {
@@ -71,6 +78,55 @@ export async function createRouteJobTriggers() {
       success: true,
       data: triggers,
     });
+  });
+
+  app.get("/job/:jobId/triggers/:triggerId/status", async (c, next) => {
+    const jobId = c.req.param("jobId");
+    const triggerId = c.req.param("triggerId");
+
+    const triggers = await getDrizzle()
+      .select({
+        id: triggersTable.id,
+        jobId: triggersTable.jobId,
+        jobVersionId: triggersTable.jobVersionId,
+        context: triggersTable.context,
+      })
+      .from(triggersTable)
+      .where(
+        and(eq(triggersTable.id, triggerId), eq(triggersTable.jobId, jobId))
+      )
+      .limit(1);
+
+    const trigger = triggers.at(0);
+
+    if (!trigger) {
+      return next();
+    }
+
+    if (trigger.context.type === "schedule") {
+      const status = await triggerCron.getTriggerStatus(jobId, triggerId);
+
+      return c.json({
+        success: true,
+        data: status,
+      });
+    } else if (trigger.context.type === "http") {
+      const status = await triggerHttp.getTriggerStatus(jobId, triggerId);
+
+      return c.json({
+        success: true,
+        data: status,
+      });
+    } else if (trigger.context.type === "mqtt") {
+      const status = await triggerMqtt.getTriggerStatus(jobId, triggerId);
+
+      return c.json({
+        success: true,
+        data: status,
+      });
+    }
+
+    throw new Error("Unsupported trigger type: " + trigger.context["type"]);
   });
 
   return app;

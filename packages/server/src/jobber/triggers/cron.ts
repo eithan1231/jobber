@@ -11,7 +11,6 @@ import { jobsTable, JobsTableType } from "~/db/schema/jobs.js";
 import { triggersTable, TriggersTableType } from "~/db/schema/triggers.js";
 import { LoopBase } from "~/loop-base.js";
 import { counterTriggerCron } from "~/metrics.js";
-import { DecoupledStatus } from "../decoupled-status.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
 import { RunnerManager } from "../runners/manager.js";
 
@@ -35,22 +34,37 @@ export class TriggerCron extends LoopBase {
 
   private logger: LogDriverBase;
 
-  private decoupledStatus: DecoupledStatus;
-
   private triggers: Record<string, TriggerCronItem> = {};
 
-  constructor(
-    runnerManager: RunnerManager,
-    logger: LogDriverBase,
-    decoupledStatus: DecoupledStatus
-  ) {
+  constructor(runnerManager: RunnerManager, logger: LogDriverBase) {
     super();
 
     this.runnerManager = runnerManager;
 
     this.logger = logger;
+  }
 
-    this.decoupledStatus = decoupledStatus;
+  public async getTriggerStatus(jobId: string, triggerId: string) {
+    const trigger = this.triggers[triggerId];
+
+    if (!trigger || trigger.job.id !== jobId) {
+      return {
+        status: "unknown",
+        message: "unknown",
+      };
+    }
+
+    if (this.status !== "started") {
+      return {
+        status: "unhealthy",
+        message: "Cron not running",
+      };
+    }
+
+    return {
+      status: "healthy",
+      message: `Next run at ${new Date(trigger.scheduledAt).toISOString()}`,
+    };
   }
 
   protected async loopIteration() {
@@ -127,10 +141,6 @@ export class TriggerCron extends LoopBase {
         cron: cron,
         scheduledAt: cron.sendAt().toMillis(),
       };
-
-      this.decoupledStatus.setItem(`trigger-id-${triggerSource.trigger.id}`, {
-        message: "Cron trigger registered",
-      });
     }
   }
 
@@ -150,8 +160,6 @@ export class TriggerCron extends LoopBase {
       }
 
       delete this.triggers[triggerId];
-
-      this.decoupledStatus.deleteItem(`trigger-id-${triggerId}`);
     }
   }
 

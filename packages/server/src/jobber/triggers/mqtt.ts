@@ -16,7 +16,6 @@ import { triggersTable, TriggersTableType } from "~/db/schema/triggers.js";
 import { LoopBase } from "~/loop-base.js";
 import { counterTriggerMqtt, counterTriggerMqttPublish } from "~/metrics.js";
 import { createSha1Hash, getUnixTimestamp } from "~/util.js";
-import { DecoupledStatus } from "../decoupled-status.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
 import { RunnerManager } from "../runners/manager.js";
 
@@ -46,22 +45,65 @@ export class TriggerMqtt extends LoopBase {
 
   private logger: LogDriverBase;
 
-  private decoupledStatus: DecoupledStatus;
-
   private triggers: Record<string, TriggerMqttItem> = {};
 
-  constructor(
-    runnerManager: RunnerManager,
-    logger: LogDriverBase,
-    decoupledStatus: DecoupledStatus
-  ) {
+  constructor(runnerManager: RunnerManager, logger: LogDriverBase) {
     super();
 
     this.runnerManager = runnerManager;
 
     this.logger = logger;
+  }
 
-    this.decoupledStatus = decoupledStatus;
+  public async getTriggerStatus(jobId: string, triggerId: string) {
+    const trigger = this.triggers[triggerId];
+
+    if (!trigger || trigger.job.id !== jobId) {
+      return {
+        status: "unknown",
+        message: "unknown",
+      };
+    }
+
+    if (this.status !== "started") {
+      return {
+        status: "unhealthy",
+        message: "Cron not running",
+      };
+    }
+
+    if (trigger.client.disconnecting) {
+      return {
+        status: "unhealthy",
+        message: "Disconnecting...",
+      };
+    }
+
+    if (trigger.client.disconnected) {
+      return {
+        status: "unhealthy",
+        message: "Disconnected",
+      };
+    }
+
+    if (trigger.client.reconnecting) {
+      return {
+        status: "unhealthy",
+        message: "Reconnecting...",
+      };
+    }
+
+    if (trigger.client.connected) {
+      return {
+        status: "healthy",
+        message: `Connected`,
+      };
+    }
+
+    return {
+      status: "unhealthy",
+      message: "Unknown connection status",
+    };
   }
 
   protected async loopIteration() {
@@ -195,10 +237,6 @@ export class TriggerMqtt extends LoopBase {
           config.configHash === trigger.clientConfigHash &&
           trigger.client.connected
         ) {
-          this.decoupledStatus.setItem(`trigger-id-${trigger.trigger.id}`, {
-            message: `Connected`,
-          });
-
           continue;
         }
 
@@ -211,15 +249,9 @@ export class TriggerMqtt extends LoopBase {
           created: getUnixTimestamp(),
         });
 
-        this.decoupledStatus.setItem(`trigger-id-${trigger.trigger.id}`, {
-          message: `Disconnecting...`,
-        });
-
         await trigger.client.endAsync();
 
         delete this.triggers[trigger.trigger.id];
-
-        this.decoupledStatus.deleteItem(`trigger-id-${trigger.trigger.id}`);
       } catch (err) {
         console.error(err);
 
@@ -257,10 +289,6 @@ export class TriggerMqtt extends LoopBase {
 
         assert(triggerSource.trigger.context.type === "mqtt");
 
-        this.decoupledStatus.setItem(`trigger-id-${triggerSource.trigger.id}`, {
-          message: `Connecting...`,
-        });
-
         const config = this.buildMqttConfig(
           triggerSource.trigger,
           triggerSource.environment
@@ -272,13 +300,16 @@ export class TriggerMqtt extends LoopBase {
             config.errors
           );
 
-          this.decoupledStatus.setItem(
-            `trigger-id-${triggerSource.trigger.id}`,
-            {
-              message: `Configuration error: ${config.errorsSimple.join(", ")}`,
-              level: "error",
-            }
-          );
+          this.logger.write({
+            source: "system",
+            actionId: triggerSource.action.id,
+            jobId: triggerSource.job.id,
+            jobName: triggerSource.job.jobName,
+            message: `[SYSTEM] MQTT Initialisation error! Configuration error: ${config.errorsSimple.join(
+              ", "
+            )}`,
+            created: getUnixTimestamp(),
+          });
 
           continue;
         }
@@ -300,10 +331,6 @@ export class TriggerMqtt extends LoopBase {
           client: client,
           clientConfigHash: config.configHash,
         };
-
-        this.decoupledStatus.setItem(`trigger-id-${triggerSource.trigger.id}`, {
-          message: `Connected`,
-        });
       } catch (err) {
         console.error(err);
 
@@ -328,14 +355,6 @@ export class TriggerMqtt extends LoopBase {
             message: `[SYSTEM] MQTT Initialisation error! ${message}`,
             created: getUnixTimestamp(),
           });
-
-          this.decoupledStatus.setItem(
-            `trigger-id-${triggerSource.trigger.id}`,
-            {
-              message,
-              level: "error",
-            }
-          );
         }
       }
     }

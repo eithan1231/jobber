@@ -14,13 +14,13 @@ import { PopupWithConfirm } from "../../../components/popup-with-confirm.js";
 import { JobHeaderComponent } from "../../../components/job-header.js";
 import { useActionCurrent } from "../../../hooks/action-current.js";
 import { useConfig } from "../../../hooks/config.js";
-import { useDecoupledStatus } from "../../../hooks/decoupled-status.js";
 import { useEnvironment } from "../../../hooks/environment.js";
 import { useJob } from "../../../hooks/job.js";
 import { useRunners } from "../../../hooks/runners.js";
 import { useTriggersCurrent } from "../../../hooks/triggers-current.js";
 import { useVersions } from "../../../hooks/versions.js";
 import { formatRelativeTime } from "../../../util.js";
+import { useTriggerStatus } from "../../../hooks/trigger-status.js";
 
 // TODO: This file is a mess. Clean it up.
 
@@ -335,29 +335,31 @@ const ActionSectionComponent = ({
 };
 
 const TriggersSectionStatusComponent = ({
-  triggerId,
+  trigger,
 }: {
-  triggerId: string;
+  trigger: JobberTrigger;
 }) => {
-  const { level, message } = useDecoupledStatus(`trigger-id-${triggerId}`);
+  const { triggerStatus } = useTriggerStatus(trigger.jobId, trigger.id);
 
-  if (level === null || message === null) {
-    return <span>Unknown</span>;
+  if (triggerStatus === null) {
+    return null;
   }
 
-  if (level === "error") {
-    return <span className="text-red-500">{message}</span>;
+  if (triggerStatus.status === "healthy") {
+    return null;
   }
 
-  if (level === "warn") {
-    return <span className="text-yellow-500">{message}</span>;
-  }
-
-  if (level === "info") {
-    return <span>{message}</span>;
-  }
-
-  return null;
+  return (
+    <p className="text-sm text-gray-600">
+      Status:{" "}
+      {triggerStatus.status === "unhealthy" && (
+        <span className="text-red-500">{triggerStatus.message}</span>
+      )}
+      {triggerStatus.status === "unknown" && (
+        <span className="text-gray-500">{triggerStatus.message}</span>
+      )}
+    </p>
+  );
 };
 
 const TriggersSectionComponent = ({
@@ -453,10 +455,9 @@ const TriggersSectionComponent = ({
                 {trigger.context.type === "schedule" &&
                   "Schedule Trigger Context"}
               </h2>
-              <p className="text-sm text-gray-600">
-                Status:{" "}
-                <TriggersSectionStatusComponent triggerId={trigger.id} />
-              </p>
+
+              <TriggersSectionStatusComponent trigger={trigger} />
+
               {trigger.jobVersionId !== versionLatest?.id && (
                 <p className="text-sm text-gray-600">
                   Version: {trigger.version}

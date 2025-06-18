@@ -11,7 +11,6 @@ import { triggersTable, TriggersTableType } from "~/db/schema/triggers.js";
 import { LoopBase } from "~/loop-base.js";
 import { counterTriggerHttp } from "~/metrics.js";
 import { getUnixTimestamp } from "~/util.js";
-import { DecoupledStatus } from "../decoupled-status.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
 import { RunnerManager } from "../runners/manager.js";
 import { HandleRequest, HandleRequestHttp } from "../runners/server.js";
@@ -38,22 +37,37 @@ export class TriggerHttp extends LoopBase {
 
   private logger: LogDriverBase;
 
-  private decoupledStatus: DecoupledStatus;
-
   private triggers: Record<string, TriggerHttpItem> = {};
 
-  constructor(
-    runnerManager: RunnerManager,
-    logger: LogDriverBase,
-    decoupledStatus: DecoupledStatus
-  ) {
+  constructor(runnerManager: RunnerManager, logger: LogDriverBase) {
     super();
 
     this.runnerManager = runnerManager;
 
     this.logger = logger;
+  }
 
-    this.decoupledStatus = decoupledStatus;
+  public async getTriggerStatus(jobId: string, triggerId: string) {
+    const trigger = this.triggers[triggerId];
+
+    if (!trigger || trigger.job.id !== jobId) {
+      return {
+        status: "unknown",
+        message: "unknown",
+      };
+    }
+
+    if (this.status !== "started") {
+      return {
+        status: "unhealthy",
+        message: "Cron not running",
+      };
+    }
+
+    return {
+      status: "healthy",
+      message: `HTTP Trigger registered for version ${trigger.version.version}`,
+    };
   }
 
   protected async loopIteration() {
@@ -192,10 +206,6 @@ export class TriggerHttp extends LoopBase {
   ) {
     for (const triggerSource of triggersSource) {
       if (this.triggers[triggerSource.trigger.id]) {
-        this.decoupledStatus.setItem(`trigger-id-${triggerSource.trigger.id}`, {
-          message: "HTTP trigger registered",
-        });
-
         continue;
       }
 
@@ -225,10 +235,6 @@ export class TriggerHttp extends LoopBase {
         job: structuredClone(triggerSource.job),
       };
 
-      this.decoupledStatus.setItem(`trigger-id-${triggerSource.trigger.id}`, {
-        message: "HTTP trigger registered",
-      });
-
       this.logger.write({
         source: "system",
         jobId: triggerSource.job.id,
@@ -257,8 +263,6 @@ export class TriggerHttp extends LoopBase {
       }
 
       delete this.triggers[triggerId];
-
-      this.decoupledStatus.deleteItem(`trigger-id-${triggerId}`);
 
       this.logger.write({
         source: "system",
