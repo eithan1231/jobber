@@ -177,11 +177,15 @@ export class JobberHandlerRequest {
     const urlHost = this.header("host") ?? "localhost";
     const urlPath = this._path;
     const urlQuery = new URLSearchParams(this._query);
+    const body =
+      this._method === "GET" || this._method === "HEAD"
+        ? undefined
+        : this._body;
 
     return new Request(`${urlScheme}://${urlHost}${urlPath}?${urlQuery}`, {
       headers: this._headers,
       method: this._method,
-      body: this._body,
+      body: body,
       redirect: "manual",
     });
   }

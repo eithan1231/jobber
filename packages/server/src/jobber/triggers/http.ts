@@ -241,7 +241,7 @@ export class TriggerHttp extends LoopBase {
         jobName: triggerSource.job.jobName,
         actionId: triggerSource.action.id,
         message: `[SYSTEM] HTTP trigger (version: ${triggerSource.version.version}) ${triggerSource.trigger.id} registered`,
-        created: getUnixTimestamp(),
+        created: new Date(),
       });
     }
   }
@@ -270,7 +270,7 @@ export class TriggerHttp extends LoopBase {
         jobName: trigger.job.jobName,
         actionId: trigger.action.id,
         message: `[SYSTEM] HTTP trigger (version: ${trigger.version.version}) ${triggerId} removed`,
-        created: getUnixTimestamp(),
+        created: new Date(),
       });
     }
   }

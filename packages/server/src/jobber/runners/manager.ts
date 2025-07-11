@@ -690,7 +690,7 @@ export class RunnerManager extends LoopBase {
         actionId: action.id,
         jobId: job.id,
         jobName: job.jobName,
-        created: getUnixTimestamp(),
+        created: new Date(),
         source: "system",
         message: `[RunnerManager/createRunner] Action is using docker networks, but RUNNER_ALLOW_DOCKER_ARGUMENT_TYPES does not include "networks". Skipping networks.`,
       });
@@ -711,7 +711,7 @@ export class RunnerManager extends LoopBase {
         actionId: action.id,
         jobId: job.id,
         jobName: job.jobName,
-        created: getUnixTimestamp(),
+        created: new Date(),
         source: "system",
         message: `[RunnerManager/createRunner] Action is using docker volumes, but RUNNER_ALLOW_DOCKER_ARGUMENT_TYPES does not include "volumes". Skipping volumes.`,
       });
@@ -733,7 +733,7 @@ export class RunnerManager extends LoopBase {
         actionId: action.id,
         jobId: job.id,
         jobName: job.jobName,
-        created: getUnixTimestamp(),
+        created: new Date(),
         source: "system",
         message: `[RunnerManager/createRunner] Action is using docker labels, but RUNNER_ALLOW_DOCKER_ARGUMENT_TYPES does not include "labels". Skipping labels.`,
       });
@@ -749,7 +749,7 @@ export class RunnerManager extends LoopBase {
         actionId: action.id,
         jobId: job.id,
         jobName: job.jobName,
-        created: getUnixTimestamp(),
+        created: new Date(),
         source: "system",
         message: `[RunnerManager/createRunner] Action is using docker memory limit, but RUNNER_ALLOW_DOCKER_ARGUMENT_TYPES does not include "memoryLimit". Skipping memory limit.`,
       });
@@ -766,7 +766,7 @@ export class RunnerManager extends LoopBase {
         actionId: action.id,
         jobId: job.id,
         jobName: job.jobName,
-        created: getUnixTimestamp(),
+        created: new Date(),
         source: "system",
         message: `[RunnerManager/createRunner] Action is using docker direct passthrough arguments, but RUNNER_ALLOW_ARGUMENT_DIRECT_PASSTHROUGH is not enabled, or RUNNER_ALLOW_DOCKER_ARGUMENT_TYPES does not include "directPassthroughArguments". Skipping direct passthrough arguments.`,
       });
@@ -813,7 +813,7 @@ export class RunnerManager extends LoopBase {
         actionId: action.id,
         jobId: job.id,
         jobName: job.jobName,
-        created: getUnixTimestamp(),
+        created: new Date(),
         source: "system",
         message: `[RunnerManager/createRunner] Starting runner with arguments: ${JSON.stringify(
           secureArgs
@@ -845,7 +845,7 @@ export class RunnerManager extends LoopBase {
           actionId: action.id,
           jobId: job.id,
           jobName: job.jobName,
-          created: getUnixTimestamp(),
+          created: new Date(),
           source: "runner",
           message: chunk.toString(),
         });
@@ -859,7 +859,7 @@ export class RunnerManager extends LoopBase {
           actionId: action.id,
           jobId: job.id,
           jobName: job.jobName,
-          created: getUnixTimestamp(),
+          created: new Date(),
           source: "runner",
           message: chunk.toString(),
         });

@@ -2,7 +2,7 @@ import { LoopBase } from "~/loop-base.js";
 
 export type LogDriverBaseItem = {
   actionId: string;
-  created: number;
+  created: Date;
   jobId: string;
   jobName: string;
   message: string;
@@ -15,7 +15,7 @@ export type LogDriverBaseQuery = {
 };
 
 export type LogDriverBaseQueryItem = {
-  created: number;
+  created: Date;
   message: string;
 };
 

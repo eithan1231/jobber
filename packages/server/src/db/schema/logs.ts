@@ -1,8 +1,8 @@
 import {
   index,
-  integer,
   pgTable,
   text,
+  timestamp,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -20,7 +20,7 @@ export const logsTable = pgTable(
       enum: ["system", "runner"],
     }).notNull(),
 
-    created: integer().notNull(),
+    created: timestamp().defaultNow().notNull(),
     message: text().notNull(),
   },
   (table) => [index("jobId_created_idx").on(table.jobId, table.created)]

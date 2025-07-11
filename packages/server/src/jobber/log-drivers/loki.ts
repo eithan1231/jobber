@@ -74,7 +74,10 @@ export class LogDriverLoki extends LogDriverBase {
           jobberSource: source,
         },
         values: stream.map((line) => {
-          return [(line.created * 1000 * 1000 * 1000).toString(), line.message];
+          return [
+            (line.created.getTime() * 1000 * 1000).toString(),
+            line.message,
+          ];
         }),
       });
     }
@@ -146,7 +149,7 @@ export class LogDriverLoki extends LogDriverBase {
     for (const stream of responseJson.data.result) {
       for (const [itemTime, itemMessage] of stream.values) {
         result.push({
-          created: Math.round(Number(itemTime) / 1000 / 1000 / 1000),
+          created: new Date(Math.round(Number(itemTime) / 1000 / 1000)),
           message: itemMessage,
         });
       }

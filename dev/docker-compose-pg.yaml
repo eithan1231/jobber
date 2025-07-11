@@ -7,4 +7,4 @@ services:
       - POSTGRES_PASSWORD=jobber-password
       - POSTGRES_DB=jobber-database
     ports:
-      - 5432:5432
+      - 54325:5432

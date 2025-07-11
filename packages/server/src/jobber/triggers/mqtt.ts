@@ -192,7 +192,7 @@ export class TriggerMqtt extends LoopBase {
           jobId: trigger.job.id,
           jobName: trigger.job.jobName,
           message: `[SYSTEM] MQTT disconnection process started for trigger (version: ${trigger.version.version}) "${triggerId}"`,
-          created: getUnixTimestamp(),
+          created: new Date(),
         });
 
         await trigger.client.endAsync();
@@ -246,7 +246,7 @@ export class TriggerMqtt extends LoopBase {
           jobId: triggerSource.job.id,
           jobName: triggerSource.job.jobName,
           message: `[SYSTEM] MQTT disconnection process started, connection dropped or config changed`,
-          created: getUnixTimestamp(),
+          created: new Date(),
         });
 
         await trigger.client.endAsync();
@@ -263,7 +263,7 @@ export class TriggerMqtt extends LoopBase {
           message: `[SYSTEM] MQTT connection check error! ${
             err instanceof Error ? err.message : String(err)
           }`,
-          created: getUnixTimestamp(),
+          created: new Date(),
         });
       }
     }
@@ -308,7 +308,7 @@ export class TriggerMqtt extends LoopBase {
             message: `[SYSTEM] MQTT Initialisation error! Configuration error: ${config.errorsSimple.join(
               ", "
             )}`,
-            created: getUnixTimestamp(),
+            created: new Date(),
           });
 
           continue;
@@ -353,7 +353,7 @@ export class TriggerMqtt extends LoopBase {
             jobId: triggerSource.job.id,
             jobName: triggerSource.job.jobName,
             message: `[SYSTEM] MQTT Initialisation error! ${message}`,
-            created: getUnixTimestamp(),
+            created: new Date(),
           });
         }
       }
@@ -378,7 +378,7 @@ export class TriggerMqtt extends LoopBase {
         jobId: triggerItem.job.id,
         jobName: triggerItem.job.jobName,
         message: `[SYSTEM] MQTT message received on topic "${topic}"`,
-        created: getUnixTimestamp(),
+        created: new Date(),
       });
 
       const handleResponse = await this.runnerManager.sendHandleRequest(
@@ -426,7 +426,7 @@ export class TriggerMqtt extends LoopBase {
             jobId: triggerItem.job.id,
             jobName: triggerItem.job.jobName,
             message: `[SYSTEM] MQTT message published to topic "${publishItem.topic}"`,
-            created: getUnixTimestamp(),
+            created: new Date(),
           });
 
           counterTriggerMqttPublish
@@ -453,7 +453,7 @@ export class TriggerMqtt extends LoopBase {
             message: `[SYSTEM] MQTT publish error! topic: ${
               publishItem.topic
             }, ${err instanceof Error ? err.message : String(err)}`,
-            created: getUnixTimestamp(),
+            created: new Date(),
           });
         }
       }
@@ -468,7 +468,7 @@ export class TriggerMqtt extends LoopBase {
         message: `[SYSTEM] MQTT message handling error! ${
           err instanceof Error ? err.message : String(err)
         }`,
-        created: getUnixTimestamp(),
+        created: new Date(),
       });
     }
   }

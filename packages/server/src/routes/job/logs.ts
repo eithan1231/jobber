@@ -13,7 +13,12 @@ export async function createRouteJobLogs(logger: LogDriverBase) {
 
     return c.json({
       success: true,
-      data: logs.reverse(),
+      data: logs.reverse().map((log) => ({
+        ...log,
+
+        // Frontend still uses unix timestamp, so lets convert it.
+        created: Math.floor(log.created.getTime() / 1000),
+      })),
     });
   });
 

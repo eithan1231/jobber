@@ -15,6 +15,13 @@
       "when": 1749981500809,
       "tag": "0001_known_morlocks",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1752157983518,
+      "tag": "0002_wealthy_adam_warlock",
+      "breakpoints": true
     }
   ]
 }
