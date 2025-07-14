@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, RouteObject, useParams } from "react-router-dom";
 import {
   deleteJobRunner,
@@ -37,7 +37,20 @@ const VersionSectionComponent = ({
   latestVersion?: JobberVersion;
   reload?: () => void;
 }) => {
-  const orderedVersions = versions.sort((a, b) => b.modified - a.modified);
+  const [showAll, setShowAll] = useState(false);
+
+  const foldVersionsSize = 5;
+  const foldVersions = versions.length > foldVersionsSize;
+
+  const versionsDisplayable = useMemo(() => {
+    const versionSorted = versions.sort((a, b) => b.modified - a.modified);
+
+    if (showAll) {
+      return versionSorted;
+    }
+
+    return versionSorted.slice(0, foldVersionsSize);
+  }, [showAll, versions]);
 
   const handleDeactivate = () => {
     putJob(job!.id, {
@@ -91,7 +104,7 @@ const VersionSectionComponent = ({
             </tr>
           </thead>
           <tbody>
-            {orderedVersions.map((item) => (
+            {versionsDisplayable.map((item) => (
               <tr key={item.id} className="odd:bg-white even:bg-gray-100">
                 <td className="border border-gray-300 px-4 py-2 text-gray-700">
                   {item.version}
@@ -157,6 +170,32 @@ const VersionSectionComponent = ({
               </tr>
             ))}
           </tbody>
+          {foldVersions && (
+            <tfoot>
+              <tr className="bg-gray-50">
+                <td
+                  colSpan={3}
+                  className="border border-gray-300 px-4 py-2 justify-center text-center"
+                >
+                  {!showAll ? (
+                    <button
+                      className="text-blue-500 hover:underline"
+                      onClick={() => setShowAll(true)}
+                    >
+                      Show All Versions
+                    </button>
+                  ) : (
+                    <button
+                      className="text-blue-500 hover:underline"
+                      onClick={() => setShowAll(false)}
+                    >
+                      Show less
+                    </button>
+                  )}
+                </td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
     </div>
