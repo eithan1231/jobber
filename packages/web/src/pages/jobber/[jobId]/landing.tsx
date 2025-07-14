@@ -202,6 +202,11 @@ const ActionSectionComponent = ({
     });
 
     details.push({
+      name: "Timeout",
+      value: `${action.runnerTimeout.toString()} seconds`,
+    });
+
+    details.push({
       name: "Max Age",
       value: `${action.runnerMaxAge.toString()} seconds`,
     });
