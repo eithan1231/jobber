@@ -246,6 +246,11 @@ const ActionSectionComponent = ({
     });
 
     details.push({
+      name: "Max Idle Age",
+      value: `${action.runnerMaxIdleAge.toString()} seconds`,
+    });
+
+    details.push({
       name: "Max Age",
       value: `${action.runnerMaxAge.toString()} seconds`,
     });

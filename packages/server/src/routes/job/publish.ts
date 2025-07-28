@@ -182,6 +182,7 @@ export async function createRouteJobPublish() {
             runnerDockerArguments: packageJson.action.runnerDockerArguments,
             runnerMode: packageJson.action.runnerMode,
             runnerTimeout: packageJson.action.runnerTimeout,
+            runnerMaxIdleAge: packageJson.action.runnerMaxIdleAge,
           })
           .returning()
       ).at(0);

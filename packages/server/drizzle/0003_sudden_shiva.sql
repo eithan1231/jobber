@@ -1,0 +1,1 @@
+ALTER TABLE "actions" ADD COLUMN "runnerMaxIdleAge" integer DEFAULT 0 NOT NULL;

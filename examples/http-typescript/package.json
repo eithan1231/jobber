@@ -9,6 +9,7 @@
     "runnerMinCount": 1,
     "runnerMaxCount": 16,
     "runnerMaxAge": 30,
+    "runnerMaxIdleAge": 5,
     "runnerMaxAgeHard": 60,
     "runnerDockerArguments": {
       "labels": [

@@ -96,6 +96,7 @@ const archivePackageJsonSchema = z.object({
     runnerMinCount: z.number().optional(),
     runnerMaxCount: z.number().optional(),
     runnerTimeout: z.number().optional(),
+    runnerMaxIdleAge: z.number().optional(),
     runnerMaxAge: z.number().optional(),
     runnerMaxAgeHard: z.number().optional(),
     runnerDockerArguments: z

@@ -56,6 +56,7 @@ export const actionsTable = pgTable("actions", {
   runnerMinCount: integer().default(1).notNull(),
   runnerMaxCount: integer().default(16).notNull(),
   runnerTimeout: integer().default(60).notNull(),
+  runnerMaxIdleAge: integer().default(0).notNull(),
   runnerMaxAge: integer().default(900).notNull(),
   runnerMaxAgeHard: integer().default(960).notNull(),
   runnerDockerArguments: jsonb()

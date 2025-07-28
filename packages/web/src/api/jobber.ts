@@ -47,6 +47,7 @@ export type JobberAction = {
   runnerMinCount: number;
   runnerMaxCount: number;
   runnerTimeout: number;
+  runnerMaxIdleAge: number;
   runnerMaxAge: number;
   runnerMaxAgeHard: number;
   runnerDockerArguments: {

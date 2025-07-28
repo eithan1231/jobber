@@ -51,6 +51,7 @@ type RunnerManagerItem = {
 
   requestsProcessing: number;
 
+  lastRequestAt?: number;
   createdAt: number;
   readyAt?: number;
   closingAt?: number;
@@ -213,6 +214,7 @@ export class RunnerManager extends LoopBase {
     await this.loopCheckVersion(currentVersions);
     await this.loopCheckMaxAge(currentVersions);
     await this.loopCheckHardMaxAge(currentVersions);
+    await this.loopCheckMaxIdleAge(currentVersions);
 
     if (getUnixTimestamp() - this.danglingLastRun > 60) {
       await this.loopCheckDanglingContainers(currentVersions);
@@ -298,6 +300,7 @@ export class RunnerManager extends LoopBase {
       let result: HandleResponse;
 
       try {
+        runner.lastRequestAt = getUnixTimestamp();
         runner.requestsProcessing++;
 
         result = await this.server.sendHandleRequest(runner.id, handleRequest);
@@ -384,6 +387,7 @@ export class RunnerManager extends LoopBase {
       let result: HandleResponse;
 
       try {
+        runner.lastRequestAt = getUnixTimestamp();
         runner.requestsProcessing++;
 
         result = await this.server.sendHandleRequest(runner.id, handleRequest);
@@ -1213,6 +1217,45 @@ export class RunnerManager extends LoopBase {
       );
 
       runner.process.kill("SIGTERM");
+    }
+  }
+
+  private async loopCheckMaxIdleAge(
+    currentVersions: {
+      action: ActionsTableType;
+      version: JobVersionsTableType;
+      job: JobsTableType;
+    }[]
+  ) {
+    for (const runner of Object.values(this.runners)) {
+      const lastRequestAtEffective =
+        typeof runner.lastRequestAt === "number"
+          ? runner.lastRequestAt
+          : runner.readyAt;
+
+      if (!runner.readyAt || !lastRequestAtEffective) {
+        continue;
+      }
+
+      if (runner.action.runnerMaxIdleAge === 0) {
+        continue;
+      }
+
+      const duration = getUnixTimestamp() - lastRequestAtEffective;
+
+      if (duration < runner.action.runnerMaxIdleAge) {
+        continue;
+      }
+
+      console.log(
+        `[RunnerManager/loopCheckMaxIdleAge] Shutting down ${shortenString(
+          runner.id
+        )} due to max idle age exceeded. duration ${duration}s, maxIdleAge ${
+          runner.action.runnerMaxIdleAge
+        }s`
+      );
+
+      await this.server.sendShutdownRequest(runner.id);
     }
   }
 }
