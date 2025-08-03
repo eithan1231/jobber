@@ -6,7 +6,11 @@ import { mkdir } from "node:fs/promises";
 import { ZodError } from "zod";
 
 import { getPool, runDrizzleMigration } from "./db/index.js";
+import { ApiTokensTableType } from "./db/schema/api-tokens.js";
+import { SessionsTableType } from "./db/schema/sessions.js";
+import { UsersTableType } from "./db/schema/users.js";
 import { getJobActionArchiveDirectory } from "./paths.js";
+import { JobberPermissions } from "./permissions.js";
 import { getUnixTimestamp } from "./util.js";
 
 import { LogDriverBase } from "./jobber/log-drivers/abstract.js";
@@ -18,6 +22,7 @@ import { TriggerCron } from "./jobber/triggers/cron.js";
 import { TriggerHttp } from "./jobber/triggers/http.js";
 import { TriggerMqtt } from "./jobber/triggers/mqtt.js";
 
+import { createRouteAuth } from "./routes/auth.js";
 import { createRouteConfig } from "./routes/config.js";
 import { createRouteJobActions } from "./routes/job/actions.js";
 import { createRouteJobEnvironment } from "./routes/job/environment.js";
@@ -25,15 +30,11 @@ import { createRouteJob } from "./routes/job/job.js";
 import { createRouteJobLogs } from "./routes/job/logs.js";
 import { createRouteJobMetrics } from "./routes/job/metrics.js";
 import { createRouteJobPublish } from "./routes/job/publish.js";
+import { createRouteJobRunners } from "./routes/job/runners.js";
 import { createRouteJobStore } from "./routes/job/store.js";
 import { createRouteJobTriggers } from "./routes/job/triggers.js";
-import { createRouteMetrics } from "./routes/metrics.js";
 import { createRouteVersions } from "./routes/job/versions.js";
-import { createRouteJobRunners } from "./routes/job/runners.js";
-import { UsersTableType } from "./db/schema/users.js";
-import { SessionsTableType } from "./db/schema/sessions.js";
-import { ApiTokensTableType } from "./db/schema/api-tokens.js";
-import { JobberPermissions } from "./permissions.js";
+import { createRouteMetrics } from "./routes/metrics.js";
 
 export type InternalHonoApp = {
   Variables: {
@@ -104,6 +105,7 @@ async function createInternalHono(instances: {
     );
   });
 
+  app.route("/api/", await createRouteAuth());
   app.route("/api/", await createRouteJobActions(instances.runnerManager));
   app.route("/api/", await createRouteJobEnvironment());
   app.route("/api/", await createRouteJob());

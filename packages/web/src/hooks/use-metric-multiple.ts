@@ -3,7 +3,7 @@ import {
   getJobMetric,
   JobberMetricItem,
   JobberMetricType,
-} from "../api/jobber";
+} from "../api/metric";
 
 export const useMetricMultiple = (
   jobId: string,
@@ -40,7 +40,7 @@ export const useMetricMultiple = (
 
   useEffect(() => {
     handleUpdate();
-  }, [reloadFlag]);
+  }, [reloadFlag, jobId, metricType, version, duration]);
 
   return {
     dataMetric: data,

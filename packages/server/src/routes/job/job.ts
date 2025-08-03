@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { rm } from "node:fs/promises";
 import { z } from "zod";
@@ -78,7 +78,8 @@ export async function createRouteJob() {
           eq(jobVersionsTable.jobId, jobsTable.id),
           eq(jobVersionsTable.id, jobsTable.jobVersionId)
         )
-      );
+      )
+      .orderBy(desc(jobVersionsTable.created));
 
     const jobsFiltered = jobs.filter((job) => {
       return canPerformAction(auth.permissions, `job/${job.id}`, "read");

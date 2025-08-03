@@ -13,7 +13,7 @@ export const sessionsTable = pgTable("sessions", {
   token: varchar({ length: 50 })
     .notNull()
     .unique()
-    .$defaultFn(() => createToken({ length: 50 })),
+    .$defaultFn(() => createToken({ length: 50 }).substring(0, 50)),
 
   userId: uuid()
     .notNull()

@@ -24,11 +24,13 @@ export async function createRouteAuth() {
       const schema = z
         .object({
           username: z.string().min(1),
-          password: z.string().min(1),
+          password: z.string().min(7),
         })
         .strict();
 
-      const { username, password } = schema.parse(await c.req.json());
+      const { username, password } = schema.parse(await c.req.json(), {
+        path: ["request", "body"],
+      });
 
       const user = (
         await getDrizzle()
@@ -39,13 +41,19 @@ export async function createRouteAuth() {
       ).at(0);
 
       if (!user) {
-        return c.json({ error: "Invalid username or password" }, 401);
+        return c.json(
+          { success: false, message: "Invalid username or password" },
+          401
+        );
       }
 
       const isValidPassword = await bcryptCompare(password, user.password);
 
       if (!isValidPassword) {
-        return c.json({ error: "Invalid username or password" }, 401);
+        return c.json(
+          { success: false, message: "Invalid username or password" },
+          401
+        );
       }
 
       const session = await getDrizzle()
@@ -67,6 +75,7 @@ export async function createRouteAuth() {
       });
 
       return c.json({
+        success: true,
         message: "Login successful",
         data: {
           session: {},
@@ -82,11 +91,13 @@ export async function createRouteAuth() {
       const schema = z
         .object({
           username: z.string().min(1),
-          password: z.string().min(1),
+          password: z.string().min(7),
         })
         .strict();
 
-      const { username, password } = schema.parse(await c.req.json());
+      const { username, password } = schema.parse(await c.req.json(), {
+        path: ["request", "body"],
+      });
 
       const existingUser = (
         await getDrizzle()
@@ -97,7 +108,10 @@ export async function createRouteAuth() {
       ).at(0);
 
       if (existingUser) {
-        return c.json({ error: "Username already exists" }, 409);
+        return c.json(
+          { success: false, message: "Username already exists" },
+          409
+        );
       }
 
       const salt = await bcryptGenSalt(10);
@@ -110,7 +124,7 @@ export async function createRouteAuth() {
           password: hashedPassword,
           permissions: [
             {
-              effect: "allow",
+              effect: "deny",
               resource: "*",
               actions: ["read", "write", "delete", "execute"],
             },
@@ -120,7 +134,10 @@ export async function createRouteAuth() {
         .then((res) => res.at(0));
 
       if (!user) {
-        return c.json({ error: "Failed to create user" }, 500);
+        return c.json(
+          { success: false, message: "Failed to create user" },
+          500
+        );
       }
 
       const session = await getDrizzle()
@@ -142,6 +159,7 @@ export async function createRouteAuth() {
       });
 
       return c.json({
+        success: true,
         message: "Registration successful",
         data: {
           user: {},
