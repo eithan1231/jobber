@@ -30,6 +30,27 @@ import { createRouteJobTriggers } from "./routes/job/triggers.js";
 import { createRouteMetrics } from "./routes/metrics.js";
 import { createRouteVersions } from "./routes/job/versions.js";
 import { createRouteJobRunners } from "./routes/job/runners.js";
+import { UsersTableType } from "./db/schema/users.js";
+import { SessionsTableType } from "./db/schema/sessions.js";
+import { ApiTokensTableType } from "./db/schema/api-tokens.js";
+import { JobberPermissions } from "./permissions.js";
+
+export type InternalHonoApp = {
+  Variables: {
+    auth?:
+      | {
+          type: "session";
+          user: UsersTableType;
+          session: SessionsTableType;
+          permissions: JobberPermissions;
+        }
+      | {
+          type: "token";
+          token: ApiTokensTableType;
+          permissions: JobberPermissions;
+        };
+  };
+};
 
 async function createInternalHono(instances: {
   runnerManager: RunnerManager;
@@ -39,7 +60,7 @@ async function createInternalHono(instances: {
   triggerHttp: TriggerHttp;
   triggerMqtt: TriggerMqtt;
 }) {
-  const app = new Hono();
+  const app = new Hono<InternalHonoApp>();
 
   app.onError(async (err, c) => {
     if (err instanceof ZodError) {

@@ -6,13 +6,17 @@ import { getDrizzle } from "~/db/index.js";
 import { actionsTable } from "~/db/schema/actions.js";
 import { jobVersionsTable } from "~/db/schema/job-versions.js";
 import { jobsTable } from "~/db/schema/jobs.js";
+import { InternalHonoApp } from "~/index.js";
+import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { getJobActionArchiveFile } from "~/paths.js";
+import { canPerformAction } from "~/permissions.js";
 
 export async function createRouteJob() {
-  const app = new Hono();
+  const app = new Hono<InternalHonoApp>();
 
-  app.get("/job/:jobId", async (c, next) => {
+  app.get("/job/:jobId", createMiddlewareAuth(), async (c, next) => {
     const jobId = c.req.param("jobId");
+    const auth = c.get("auth")!;
 
     const job = (
       await getDrizzle()
@@ -42,13 +46,19 @@ export async function createRouteJob() {
       return next();
     }
 
+    if (!canPerformAction(auth.permissions, `job/${job.id}`, "read")) {
+      return c.text("Insufficient Permissions", 403);
+    }
+
     return c.json({
       success: true,
       data: job,
     });
   });
 
-  app.get("/job/", async (c, _next) => {
+  app.get("/job/", createMiddlewareAuth(), async (c, _next) => {
+    const auth = c.get("auth")!;
+
     const jobs = await getDrizzle()
       .select({
         id: jobsTable.id,
@@ -70,14 +80,26 @@ export async function createRouteJob() {
         )
       );
 
+    const jobsFiltered = jobs.filter((job) => {
+      return canPerformAction(auth.permissions, `job/${job.id}`, "read");
+    });
+
     return c.json({
       success: true,
-      data: jobs,
+      data: jobsFiltered,
     });
   });
 
-  app.put("/job/:jobId", async (c, _next) => {
+  app.put("/job/:jobId", createMiddlewareAuth(), async (c, _next) => {
     const jobId = c.req.param("jobId");
+    const auth = c.get("auth")!;
+
+    // TODO: Update to fetch from database, to compare jobId against the database record, not user input.
+    if (
+      !canPerformAction(auth.permissions, `job/${jobId.toLowerCase()}`, "write")
+    ) {
+      return c.text("Insufficient Permissions", 403);
+    }
 
     const schema = z.object({
       status: z.enum(jobsTable.status.enumValues).optional(),
@@ -100,8 +122,20 @@ export async function createRouteJob() {
     });
   });
 
-  app.delete("/job/:jobId", async (c, _next) => {
+  app.delete("/job/:jobId", createMiddlewareAuth(), async (c, _next) => {
     const jobId = c.req.param("jobId");
+    const auth = c.get("auth")!;
+
+    // TODO: Update to fetch from database, to compare jobId against the database record, not user input.
+    if (
+      !canPerformAction(
+        auth.permissions,
+        `job/${jobId.toLowerCase()}`,
+        "delete"
+      )
+    ) {
+      return c.text("Insufficient Permissions", 403);
+    }
 
     const actionsDeleted = await getDrizzle()
       .delete(actionsTable)

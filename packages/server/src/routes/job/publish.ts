@@ -10,8 +10,11 @@ import { actionsTable } from "~/db/schema/actions.js";
 import { jobVersionsTable } from "~/db/schema/job-versions.js";
 import { jobsTable } from "~/db/schema/jobs.js";
 import { triggersTable } from "~/db/schema/triggers.js";
+import { InternalHonoApp } from "~/index.js";
 import { classifyArchiveFile } from "~/jobber/images.js";
+import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { getJobActionArchiveFile } from "~/paths.js";
+import { canPerformAction } from "~/permissions.js";
 import {
   createBenchmark,
   getTmpFile,
@@ -20,7 +23,7 @@ import {
 } from "~/util.js";
 
 export async function createRouteJobPublish() {
-  const app = new Hono();
+  const app = new Hono<InternalHonoApp>();
 
   const querySchema = z.object({
     allowAutomaticRollout: z
@@ -30,10 +33,19 @@ export async function createRouteJobPublish() {
       .default("true"),
   });
 
-  app.post("/job/publish/", async (c, _next) => {
+  app.post("/job/publish/", createMiddlewareAuth(), async (c, _next) => {
+    const auth = c.get("auth")!;
     const benchmark = createBenchmark();
 
     console.log(`[/publish/] ${benchmark()}ms - Starting job publish`);
+
+    if (!canPerformAction(auth.permissions, "job/-/publish", "write")) {
+      console.log("[/publish/] User does not have permission to publish jobs");
+      return c.json(
+        { success: false, message: "Insufficient Permissions" },
+        403
+      );
+    }
 
     const query = await querySchema.parseAsync(c.req.query());
 
