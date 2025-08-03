@@ -11,6 +11,8 @@ import { updateJob } from "../../../api/jobs";
 import { JobberEnvironment } from "../../../api/environment";
 import { useEnvironment } from "../../../hooks/use-environment";
 import { JobberVersion } from "../../../api/versions";
+import { useRunners } from "../../../hooks/use-runners";
+import { deleteJobRunner } from "../../../api/runners";
 
 export const Component = () => {
   const { jobId } = useParams();
@@ -26,6 +28,7 @@ export const Component = () => {
   const { versions, versionsError, reloadVersions } = useVersions(jobId);
   const { environment, environmentError, reloadEnvironment } =
     useEnvironment(jobId);
+  const { runners, runnersError, reloadRunners } = useRunners(jobId);
 
   useEffect(() => {
     const reloader = () => {
@@ -34,6 +37,7 @@ export const Component = () => {
       reloadTriggersCurrent();
       reloadVersions();
       reloadEnvironment();
+      reloadRunners();
     };
 
     reloader();
@@ -154,6 +158,11 @@ export const Component = () => {
     ]);
   };
 
+  const handleKillRunner = async (runnerId: string) => {
+    await deleteJobRunner(jobId, runnerId, true);
+    reloadRunners();
+  };
+
   return (
     <JobPageComponent
       jobId={jobId}
@@ -197,7 +206,7 @@ export const Component = () => {
                 {latestVersions.map((version, index) => (
                   <tr
                     key={`${version.jobId}-${version.id}`}
-                    className="border-b"
+                    className="border-t"
                   >
                     <td className="px-4 py-2 text-gray-700">
                       {version.version}
@@ -450,6 +459,102 @@ export const Component = () => {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {(runners.length >= 0 || runnersError) && (
+          <div className="max-w-full border rounded shadow-md p-4 pb-5 m-2 bg-white">
+            <h2 className="text-xl font-semibold mb-6">Runners</h2>
+
+            {runnersError && (
+              <p className="text-red-500">
+                Failed to load runners: {runnersError}
+              </p>
+            )}
+
+            <table className="w-full bg-white">
+              <thead>
+                <tr>
+                  <th className="px-4 py-2 text-left">Status</th>
+                  <th className="px-4 py-2 text-left">Created</th>
+                  <th className="px-4 py-2 text-left">Requests</th>
+                  <th className="px-4 py-2 text-left">Id</th>
+                  <th className="px-4 py-2 text-left">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {runners.map((runner) => {
+                  let createdSubText: React.ReactElement | null = null;
+
+                  if (runner.closedAt) {
+                    createdSubText = (
+                      <>
+                        Closed:{" "}
+                        <TimeSinceComponent timestamp={runner.closedAt} />
+                      </>
+                    );
+                  } else if (runner.closingAt) {
+                    createdSubText = (
+                      <>
+                        Closing:{" "}
+                        <TimeSinceComponent timestamp={runner.closingAt} />
+                      </>
+                    );
+                  } else if (runner.readyAt) {
+                    createdSubText = (
+                      <>
+                        Ready: <TimeSinceComponent timestamp={runner.readyAt} />
+                      </>
+                    );
+                  }
+
+                  return (
+                    <tr key={runner.id} className="border-t text-sm">
+                      <td
+                        className={`px-4 py-2 text-gray-700
+                          ${runner.status === "starting" ? "text-blue-600" : ""}
+                          ${runner.status === "ready" ? "text-green-600" : ""}
+                          ${runner.status === "closing" ? "text-red-600" : ""}
+                          ${runner.status === "closed" ? "text-red-600" : ""}
+                        `}
+                      >
+                        {runner.status}
+                      </td>
+                      <td className="px-4 py-2 text-gray-700">
+                        <TimeSinceComponent timestamp={runner.createdAt} />
+
+                        {createdSubText && (
+                          <span className="text-xs text-gray-500">
+                            {" "}
+                            ({createdSubText})
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="px-4 py-2 text-gray-700">
+                        {runner.requestsProcessing}
+                      </td>
+
+                      <td className="px-4 py-2 text-gray-700 overflow-hidden text-ellipsis whitespace-nowrap max-w-[200px]">
+                        {runner.id}
+                      </td>
+
+                      <td className="px-4 py-2 text-gray-700">
+                        <ConfirmButtonComponent
+                          buttonClassName="bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded-md text-xs shadow-sm"
+                          confirmTitle="Confirm runner shutdown"
+                          confirmDescription="Are you sure you want to shutdown this runner? Its execution will stop."
+                          buttonText="Kill"
+                          onConfirm={() => {
+                            handleKillRunner(runner.id);
+                          }}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
