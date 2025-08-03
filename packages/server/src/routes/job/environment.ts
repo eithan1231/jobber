@@ -159,71 +159,75 @@ export async function createRouteJobEnvironment() {
     }
   );
 
-  app.delete("/job/:jobId/environment/:name", async (c, _next) => {
-    // TODO: This is vulnerable to race conditions, but but sadly drizzle doesnt
-    // support a safe way way to delete an jsonb property... to my knowledge.
-    // You will need to write a raw SQL query, which is not on my bucket-list.
-    const auth = c.get("auth")!;
+  app.delete(
+    "/job/:jobId/environment/:name",
+    createMiddlewareAuth(),
+    async (c, _next) => {
+      // TODO: This is vulnerable to race conditions, but but sadly drizzle doesnt
+      // support a safe way way to delete an jsonb property... to my knowledge.
+      // You will need to write a raw SQL query, which is not on my bucket-list.
+      const auth = c.get("auth")!;
 
-    const nameSchema = z.string().min(1).max(128);
+      const nameSchema = z.string().min(1).max(128);
 
-    const jobId = c.req.param("jobId");
+      const jobId = c.req.param("jobId");
 
-    const name = await nameSchema.parseAsync(c.req.param("name"), {
-      path: ["request", "param"],
-    });
-
-    // TODO: Update to fetch from database, to compare jobId against the database record, not user input.
-    if (
-      !canPerformAction(
-        auth.permissions,
-        `job/${jobId.toLowerCase()}/environment/${name}`,
-        "delete"
-      )
-    ) {
-      return c.json(
-        { success: false, message: "Insufficient Permissions" },
-        403
-      );
-    }
-
-    const environment = await getDrizzle()
-      .select({
-        context: environmentsTable.context,
-      })
-      .from(environmentsTable)
-      .where(eq(environmentsTable.jobId, jobId))
-      .limit(1)
-      .then((res) => res.at(0));
-
-    const modified = getUnixTimestamp();
-
-    const context: EnvironmentsContextSchemaType = {
-      ...environment?.context,
-    };
-
-    delete context[name];
-
-    await getDrizzle()
-      .insert(environmentsTable)
-      .values({
-        modified: modified,
-        jobId: jobId,
-        context: context,
-      })
-      .onConflictDoUpdate({
-        target: environmentsTable.jobId,
-        set: {
-          context: context,
-          modified: modified,
-        },
+      const name = await nameSchema.parseAsync(c.req.param("name"), {
+        path: ["request", "param"],
       });
 
-    return c.json({
-      success: true,
-      message: "ok",
-    });
-  });
+      // TODO: Update to fetch from database, to compare jobId against the database record, not user input.
+      if (
+        !canPerformAction(
+          auth.permissions,
+          `job/${jobId.toLowerCase()}/environment/${name}`,
+          "delete"
+        )
+      ) {
+        return c.json(
+          { success: false, message: "Insufficient Permissions" },
+          403
+        );
+      }
+
+      const environment = await getDrizzle()
+        .select({
+          context: environmentsTable.context,
+        })
+        .from(environmentsTable)
+        .where(eq(environmentsTable.jobId, jobId))
+        .limit(1)
+        .then((res) => res.at(0));
+
+      const modified = getUnixTimestamp();
+
+      const context: EnvironmentsContextSchemaType = {
+        ...environment?.context,
+      };
+
+      delete context[name];
+
+      await getDrizzle()
+        .insert(environmentsTable)
+        .values({
+          modified: modified,
+          jobId: jobId,
+          context: context,
+        })
+        .onConflictDoUpdate({
+          target: environmentsTable.jobId,
+          set: {
+            context: context,
+            modified: modified,
+          },
+        });
+
+      return c.json({
+        success: true,
+        message: "ok",
+      });
+    }
+  );
 
   return app;
 }
