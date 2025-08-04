@@ -143,7 +143,10 @@ const Component = () => {
               <label className="block mb-2 text-sm font-medium text-gray-700">
                 Permissions{" "}
                 <span
-                  hidden={!modifiedPassword}
+                  hidden={
+                    modifiedPermissions ===
+                    JSON.stringify(user.permissions, null, 2)
+                  }
                   className="text-xs font-small text-red-400"
                 >
                   (updated)

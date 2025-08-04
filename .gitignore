@@ -2,6 +2,7 @@
 /packages/*/node_modules
 /packages/*/dist
 /packages/*/config
+/packages/*/*.tsbuildinfo
 
 
 /examples/*/node_modules

@@ -20,6 +20,30 @@ export type JobberPermissionAction = z.infer<
 export type JobberPermission = z.infer<typeof JobberPermissionSchema>;
 export type JobberPermissions = z.infer<typeof JobberPermissionsSchema>;
 
+export const PERMISSION_SUPER: JobberPermissions = [
+  {
+    effect: "allow",
+    resource: "*",
+    actions: ["read", "write", "delete"],
+  },
+] as const;
+
+export const PERMISSION_NONE: JobberPermissions = [
+  {
+    effect: "deny",
+    resource: "*",
+    actions: ["read", "write", "delete"],
+  },
+] as const;
+
+export const PERMISSION_READ_ONLY: JobberPermissions = [
+  {
+    effect: "allow",
+    resource: "*",
+    actions: ["read"],
+  },
+] as const;
+
 export const canPerformAction = (
   permissions: JobberPermissions,
   resource: string,

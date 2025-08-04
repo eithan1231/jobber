@@ -26,7 +26,6 @@ export const getJobMetric = async (
   version: string,
   duration?: number
 ): Promise<JobberGenericResponse<Array<JobberMetricItem>>> => {
-  console.log("asasas");
   const result = await fetch(
     `/api/job/${jobId}/metrics/${metric}/${version}?duration=${duration ?? 900}`
   );

@@ -119,7 +119,7 @@ export const Component = () => {
       });
 
       items.push({
-        name: "Max age (Hard",
+        name: "Max age (Hard)",
         value: `${action.runnerMaxAgeHard} seconds`,
       });
 

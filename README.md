@@ -45,6 +45,10 @@ Port 3001: HTTP Gateway (Router for HTTP triggers)
 - `DATABASE_URL` Postgres connection URL. Example: `postgresql://user:pass@host/db`
 - `MANAGER_PORT` Port that runner-manager server operates on. Default: 5211
 - `MANAGER_HOST` Host that runner-manager server operates on. Default: hostname()
+- `AUTH_PUBLIC_REGISTRATION_ENABLED` Determines if public registration is enabled.
+- `AUTH_PUBLIC_LOGIN_ENABLED` Determines if public login is enabled.
+- `STARTUP_USERNAME` The administrator account username. Created at every startup. Has full permissions. If you change this after a previous start, it will create a NEW account, not update the previous account.
+- `STARTUP_PASSWORD` The administrator account password.
 - `RUNNER_IMAGE_NODE22_URL`: Runner docker image for Node22
 - `RUNNER_IMAGE_NODE20_URL`: Runner docker image for Node20
 - `RUNNER_CONTAINER_DOCKER_NETWORK`: Docker network that runners operate on. Needs access to MANAGER_HOST

@@ -18,6 +18,7 @@ import {
 import { InternalHonoApp } from "~/index.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { createMiddlewareResponseTime } from "~/middleware/response-time.js";
+import { PERMISSION_NONE } from "~/permissions.js";
 
 export async function createRouteAuth() {
   const app = new Hono<InternalHonoApp>();
@@ -141,13 +142,7 @@ export async function createRouteAuth() {
         .values({
           username: username,
           password: hashedPassword,
-          permissions: [
-            {
-              effect: "deny",
-              resource: "*",
-              actions: ["read", "write", "delete"],
-            },
-          ],
+          permissions: PERMISSION_NONE,
         })
         .returning()
         .then((res) => res.at(0));
