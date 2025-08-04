@@ -67,6 +67,15 @@ const Component = () => {
             )}
           </tbody>
         </table>
+
+        <div className="mt-4">
+          <Link
+            to="/home/api-tokens/new"
+            className="inline-block bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          >
+            Create New API Token
+          </Link>
+        </div>
       </div>
     </HomePageComponent>
   );
