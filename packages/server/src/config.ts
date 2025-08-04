@@ -6,6 +6,17 @@ export const ConfigurationOptionsSchema = z.object({
 
   JOBBER_NAME: z.string().default("Jobber"),
 
+  AUTH_PUBLIC_REGISTRATION_ENABLED: z
+    .string()
+    .transform((val) => val.toLowerCase() === "true")
+    .pipe(z.boolean())
+    .default("false"),
+  AUTH_PUBLIC_LOGIN_ENABLED: z
+    .string()
+    .transform((val) => val.toLowerCase() === "true")
+    .pipe(z.boolean())
+    .default("false"),
+
   DEBUG_HTTP: z
     .string()
     .transform((val) => val.toLowerCase() === "true")

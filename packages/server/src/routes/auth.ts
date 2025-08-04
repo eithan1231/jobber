@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { setCookie } from "hono/cookie";
 import { z } from "zod";
+import { getConfigOption } from "~/config.js";
 import { getDrizzle } from "~/db/index.js";
 import { sessionsTable } from "~/db/schema/sessions.js";
 import {
@@ -25,6 +26,13 @@ export async function createRouteAuth() {
     "/auth/login",
     createMiddlewareResponseTime(1292),
     async (c, next) => {
+      if (!getConfigOption("AUTH_PUBLIC_LOGIN_ENABLED")) {
+        return c.json(
+          { success: false, message: "Public login is disabled" },
+          403
+        );
+      }
+
       const schema = z
         .object({
           username: z.lazy(() => UserUsernameSchema),
@@ -92,6 +100,13 @@ export async function createRouteAuth() {
     "/auth/register",
     createMiddlewareResponseTime(1292),
     async (c, next) => {
+      if (!getConfigOption("AUTH_PUBLIC_REGISTRATION_ENABLED")) {
+        return c.json(
+          { success: false, message: "Public registration is disabled" },
+          403
+        );
+      }
+
       const schema = z
         .object({
           username: z.lazy(() => UserUsernameSchema),
