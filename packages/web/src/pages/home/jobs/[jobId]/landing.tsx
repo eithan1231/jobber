@@ -1,4 +1,4 @@
-import { Link, useLocation, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useJob } from "../../../../hooks/use-job";
 import { useActionCurrent } from "../../../../hooks/use-action-current";
 import { useTriggersCurrent } from "../../../../hooks/use-triggers-current";
@@ -13,6 +13,7 @@ import { useEnvironment } from "../../../../hooks/use-environment";
 import { JobberVersion } from "../../../../api/versions";
 import { useRunners } from "../../../../hooks/use-runners";
 import { deleteJobRunner } from "../../../../api/runners";
+import { useConfig } from "../../../../hooks/use-config";
 
 export const Component = () => {
   const { jobId } = useParams();
@@ -21,13 +22,14 @@ export const Component = () => {
     return "Job ID is required";
   }
 
+  const { config } = useConfig();
+
   const { job, jobError, reloadJob } = useJob(jobId);
-  const { action, actionError, reloadActionCurrent } = useActionCurrent(jobId);
+  const { action, reloadActionCurrent } = useActionCurrent(jobId);
   const { triggers, triggersError, reloadTriggersCurrent } =
     useTriggersCurrent(jobId);
   const { versions, versionsError, reloadVersions } = useVersions(jobId);
-  const { environment, environmentError, reloadEnvironment } =
-    useEnvironment(jobId);
+  const { environment, reloadEnvironment } = useEnvironment(jobId);
   const { runners, runnersError, reloadRunners } = useRunners(jobId);
 
   useEffect(() => {
@@ -125,6 +127,74 @@ export const Component = () => {
         name: "Max retries",
         value: action.runnerMode === "run-once" ? "Run once" : "Standard",
       });
+
+      if (
+        config &&
+        config.features.actionDockerArgumentDirectPassthroughEnabled &&
+        action.runnerDockerArguments.directPassthroughArguments
+      ) {
+        for (const argument of action.runnerDockerArguments
+          .directPassthroughArguments) {
+          items.push({
+            name: "Direct Argument",
+            value: argument,
+          });
+        }
+      }
+
+      if (
+        config &&
+        config.features.actionDockerArgumentLabelsEnabled &&
+        action.runnerDockerArguments.labels
+      ) {
+        for (const value of Object.values(
+          action.runnerDockerArguments.labels
+        )) {
+          items.push({
+            name: `Docker Label`,
+            value: `${value.key} = "${value.value}"`,
+          });
+        }
+      }
+
+      if (
+        config &&
+        config.features.actionDockerArgumentMemoryLimitEnabled &&
+        action.runnerDockerArguments.memoryLimit
+      ) {
+        items.push({
+          name: "Memory Limit",
+          value: action.runnerDockerArguments.memoryLimit,
+        });
+      }
+
+      if (
+        config &&
+        config.features.actionDockerArgumentNetworksEnabled &&
+        action.runnerDockerArguments.networks
+      ) {
+        for (const network of action.runnerDockerArguments.networks) {
+          items.push({
+            name: "Network",
+            value: network,
+          });
+        }
+      }
+
+      if (
+        config &&
+        config.features.actionDockerArgumentVolumesEnabled &&
+        action.runnerDockerArguments.volumes
+      ) {
+        for (const volume of action.runnerDockerArguments.volumes) {
+          items.push({
+            name: "Volume",
+            value: `${volume.source}:${volume.target}${
+              volume.mode === "ro" ? ":ro" : ""
+            }`,
+          });
+        }
+      }
     }
 
     return items;

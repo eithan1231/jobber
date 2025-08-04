@@ -37,6 +37,7 @@ import { createRouteVersions } from "./routes/job/versions.js";
 import { createRouteMetrics } from "./routes/metrics.js";
 import { createRouteUser } from "./routes/user.js";
 import { cleanupLocks } from "./lock.js";
+import { createRouteApiTokens } from "./routes/api-tokens.js";
 
 export type InternalHonoApp = {
   Variables: {
@@ -107,6 +108,7 @@ async function createInternalHono(instances: {
     );
   });
 
+  app.route("/api/", await createRouteApiTokens());
   app.route("/api/", await createRouteAuth());
   app.route("/api/", await createRouteUser());
   app.route("/api/", await createRouteJobActions(instances.runnerManager));

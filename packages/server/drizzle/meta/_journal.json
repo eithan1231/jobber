@@ -43,6 +43,13 @@
       "when": 1754274005894,
       "tag": "0005_known_butterfly",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1754294994099,
+      "tag": "0006_complete_the_stranger",
+      "breakpoints": true
     }
   ]
 }

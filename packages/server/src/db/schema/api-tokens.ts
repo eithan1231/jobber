@@ -15,6 +15,13 @@ export const apiTokensTable = pgTable("apiTokens", {
 
   permissions: jsonb().notNull().$type<JobberPermissions>(),
 
+  status: varchar({
+    enum: ["enabled", "disabled"],
+    length: 16,
+  })
+    .notNull()
+    .default("enabled"),
+
   expires: timestamp().notNull(),
   created: timestamp().defaultNow().notNull(),
 });

@@ -46,3 +46,87 @@ Example resource pattern: `job/*/actions`
 - `user/:userId/username` WRITE - Determines if username can be updated
 - `user/:userId/password` WRITE - Determines if password can be updated
 - `user/:userId/permissions` WRITE - Determines if permissions can be updated
+
+#### API Tokens
+
+- `api-tokens` READ/WRITE
+- `api-tokens/:tokenId` READ/WRITE
+
+
+### Example Permissions:
+
+
+#### API Publisher
+
+```JSON
+[
+  {
+    "effect": "allow",
+    "resource": "job/-/publish",
+    "actions": ["write"]
+  }
+]
+```
+
+#### Administrator Account
+
+```JSON
+[
+  {
+    "effect": "allow",
+    "resource": "*",
+    "actions": ["read", "write", "delete"]
+  }
+]
+```
+
+#### Readonly Account
+
+```JSON
+[
+  {
+    "effect": "allow",
+    "resource": "*",
+    "actions": ["read"]
+  }
+]
+```
+
+#### Readonly with runner management
+
+```JSON
+[
+  {
+    "effect": "allow",
+    "resource": "*",
+    "actions": ["read"]
+  },
+  {
+    "effect": "allow",
+    "resource": "job/*/runners",
+    "actions": ["write", "delete"]
+  }
+]
+```
+
+#### Full Permissions without API Tokens and User Management
+
+```JSON
+[
+  {
+    "effect": "allow",
+    "resource": "*",
+    "actions": ["read", "write", "delete"]
+  },
+  {
+    "effect": "deny",
+    "resource": "api-tokens",
+    "actions": ["read", "write", "delete"]
+  },
+  {
+    "effect": "deny",
+    "resource": "user",
+    "actions": ["read", "write", "delete"]
+  }
+]
+```

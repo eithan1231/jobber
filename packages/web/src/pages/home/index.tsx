@@ -11,11 +11,17 @@ import LandingComponent from "./landing";
 import UsersComponent from "./users/landing";
 import UsersUserIdLandingComponent from "./users/[userId]/landing";
 import UsersUserIdEditComponent from "./users/[userId]/edit";
+import TokensComponent from "./api-tokens/landing";
+import TokensTokenIdLandingComponent from "./api-tokens/[tokenId]/landing";
+import TokensNewComponent from "./api-tokens/new";
+import TokensTokenIdEditComponent from "./api-tokens/[tokenId]/edit";
+import { useConfig } from "../../hooks/use-config";
 
 const Component = () => {
   const location = useLocation().pathname;
 
   const { jobs, jobsError, reloadJobs } = useJobs();
+  const { config } = useConfig();
 
   return (
     <>
@@ -25,7 +31,9 @@ const Component = () => {
 
           {/*  */}
           <div className="p-4">
-            <h2 className="text-lg font-bold mb-2">Jobber</h2>
+            <h2 className="text-lg font-bold mb-2">
+              {config?.jobberName ?? "Jobber"}
+            </h2>
             <ul className="space-y-1">
               <li>
                 <Link
@@ -46,6 +54,17 @@ const Component = () => {
                   }`}
                 >
                   User Management
+                </Link>
+              </li>
+
+              <li>
+                <Link
+                  to="/home/api-tokens/"
+                  className={`block px-4 py-2 rounded hover:bg-gray-700 ${
+                    location === "/home/api-tokens/" ? "bg-gray-700" : ""
+                  }`}
+                >
+                  API Tokens Management
                 </Link>
               </li>
             </ul>
@@ -92,6 +111,8 @@ export default {
       index: true,
       Component: LandingComponent,
     },
+
+    // USERS
     {
       path: "users/",
       Component: UsersComponent,
@@ -104,6 +125,26 @@ export default {
       path: "users/:userId/",
       Component: UsersUserIdLandingComponent,
     },
+
+    // API TOKENS
+    {
+      path: "api-tokens/",
+      Component: TokensComponent,
+    },
+    {
+      path: "api-tokens/new",
+      Component: TokensNewComponent,
+    },
+    {
+      path: "api-tokens/:tokenId/edit",
+      Component: TokensTokenIdEditComponent,
+    },
+    {
+      path: "api-tokens/:tokenId/",
+      Component: TokensTokenIdLandingComponent,
+    },
+
+    // JOBS
     {
       path: "job/:jobId/",
       Component: JobIdLandingComponent,

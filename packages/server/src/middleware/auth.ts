@@ -101,6 +101,13 @@ export const createMiddlewareAuth = () => {
         );
       }
 
+      if (apiToken.status !== "enabled") {
+        return c.json(
+          { success: false, message: "Insufficient Permissions" },
+          403
+        );
+      }
+
       c.set("auth", {
         type: "token",
         token: apiToken,

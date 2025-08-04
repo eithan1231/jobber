@@ -15,7 +15,7 @@ export const ConfigurationOptionsSchema = z.object({
     .string()
     .transform((val) => val.toLowerCase() === "true")
     .pipe(z.boolean())
-    .default("false"),
+    .default("true"),
 
   DEBUG_HTTP: z
     .string()
