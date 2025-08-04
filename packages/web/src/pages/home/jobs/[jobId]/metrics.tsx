@@ -1,8 +1,8 @@
 import { useParams } from "react-router-dom";
-import { useJob } from "../../../hooks/use-job";
-import { JobPageComponent } from "../../../components/job-page-component";
+import { useJob } from "../../../../hooks/use-job";
+import { JobPageComponent } from "../../../../components/job-page-component";
 import { useEffect, useState } from "react";
-import { MetricMultipleComponent } from "../../../components/metric-multiple-component";
+import { MetricMultipleComponent } from "../../../../components/metric-multiple-component";
 
 const METRICS_PERIODS = [
   { value: "60", label: "1 minute" },
@@ -51,11 +51,7 @@ export const Component = () => {
   }
 
   return (
-    <JobPageComponent
-      jobId={jobId}
-      title={job.jobName}
-      description={job.description}
-    >
+    <JobPageComponent job={job}>
       <div className="container mx-auto my-8 p-4">
         <select
           onChange={(e) => {

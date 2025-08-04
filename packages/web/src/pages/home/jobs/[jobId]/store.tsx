@@ -1,15 +1,15 @@
 import { useParams } from "react-router-dom";
-import { useJob } from "../../../hooks/use-job";
-import { JobPageComponent } from "../../../components/job-page-component";
+import { useJob } from "../../../../hooks/use-job";
+import { JobPageComponent } from "../../../../components/job-page-component";
 import { useEffect, useState } from "react";
-import { useStore } from "../../../hooks/use-store";
+import { useStore } from "../../../../hooks/use-store";
 import {
   deleteJobStoreItem,
   getJobStoreItem,
   JobberStoreItem,
   JobberStoreItemPartial,
-} from "../../../api/store";
-import { TimeSinceComponent } from "../../../components/time-since-component";
+} from "../../../../api/store";
+import { TimeSinceComponent } from "../../../../components/time-since-component";
 
 export const Component = () => {
   const { jobId } = useParams();
@@ -58,11 +58,7 @@ export const Component = () => {
   }
 
   return (
-    <JobPageComponent
-      jobId={jobId}
-      title={job.jobName}
-      description={job.description}
-    >
+    <JobPageComponent job={job}>
       <>
         {displayStoreId && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">

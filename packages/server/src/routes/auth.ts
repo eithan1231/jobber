@@ -9,7 +9,11 @@ import { setCookie } from "hono/cookie";
 import { z } from "zod";
 import { getDrizzle } from "~/db/index.js";
 import { sessionsTable } from "~/db/schema/sessions.js";
-import { usersTable } from "~/db/schema/users.js";
+import {
+  UserPasswordSchema,
+  usersTable,
+  UserUsernameSchema,
+} from "~/db/schema/users.js";
 import { InternalHonoApp } from "~/index.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { createMiddlewareResponseTime } from "~/middleware/response-time.js";
@@ -23,8 +27,8 @@ export async function createRouteAuth() {
     async (c, next) => {
       const schema = z
         .object({
-          username: z.string().min(1),
-          password: z.string().min(7),
+          username: z.lazy(() => UserUsernameSchema),
+          password: z.lazy(() => UserPasswordSchema),
         })
         .strict();
 
@@ -90,8 +94,8 @@ export async function createRouteAuth() {
     async (c, next) => {
       const schema = z
         .object({
-          username: z.string().min(1),
-          password: z.string().min(7),
+          username: z.lazy(() => UserUsernameSchema),
+          password: z.lazy(() => UserPasswordSchema),
         })
         .strict();
 
@@ -120,13 +124,13 @@ export async function createRouteAuth() {
       const user = await getDrizzle()
         .insert(usersTable)
         .values({
-          username,
+          username: username,
           password: hashedPassword,
           permissions: [
             {
               effect: "deny",
               resource: "*",
-              actions: ["read", "write", "delete", "execute"],
+              actions: ["read", "write", "delete"],
             },
           ],
         })

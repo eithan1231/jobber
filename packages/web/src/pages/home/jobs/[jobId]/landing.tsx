@@ -1,18 +1,18 @@
 import { Link, useLocation, useParams } from "react-router-dom";
-import { useJob } from "../../../hooks/use-job";
-import { useActionCurrent } from "../../../hooks/use-action-current";
-import { useTriggersCurrent } from "../../../hooks/use-triggers-current";
-import { JobPageComponent } from "../../../components/job-page-component";
+import { useJob } from "../../../../hooks/use-job";
+import { useActionCurrent } from "../../../../hooks/use-action-current";
+import { useTriggersCurrent } from "../../../../hooks/use-triggers-current";
+import { JobPageComponent } from "../../../../components/job-page-component";
 import { useEffect, useMemo } from "react";
-import { useVersions } from "../../../hooks/use-versions";
-import { TimeSinceComponent } from "../../../components/time-since-component";
-import { ConfirmButtonComponent } from "../../../components/confirm-button-component";
-import { updateJob } from "../../../api/jobs";
-import { JobberEnvironment } from "../../../api/environment";
-import { useEnvironment } from "../../../hooks/use-environment";
-import { JobberVersion } from "../../../api/versions";
-import { useRunners } from "../../../hooks/use-runners";
-import { deleteJobRunner } from "../../../api/runners";
+import { useVersions } from "../../../../hooks/use-versions";
+import { TimeSinceComponent } from "../../../../components/time-since-component";
+import { ConfirmButtonComponent } from "../../../../components/confirm-button-component";
+import { updateJob } from "../../../../api/jobs";
+import { JobberEnvironment } from "../../../../api/environment";
+import { useEnvironment } from "../../../../hooks/use-environment";
+import { JobberVersion } from "../../../../api/versions";
+import { useRunners } from "../../../../hooks/use-runners";
+import { deleteJobRunner } from "../../../../api/runners";
 
 export const Component = () => {
   const { jobId } = useParams();
@@ -164,11 +164,7 @@ export const Component = () => {
   };
 
   return (
-    <JobPageComponent
-      jobId={jobId}
-      title={job.jobName}
-      description={job.description}
-    >
+    <JobPageComponent job={job}>
       <div className="max-w-[800px]">
         {overviewItems.length > 0 && (
           <div className="border rounded shadow-md p-4 pb-5 m-2 bg-white">

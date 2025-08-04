@@ -1,35 +1,56 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { deleteJob, JobberJob, updateJob } from "../api/jobs";
+import { ConfirmButtonComponent } from "./confirm-button-component";
 
 export const JobPageComponent = (props: {
   children: React.ReactElement | React.ReactElement[];
-  title: string;
-  description?: string;
-  jobId?: string;
+  job: JobberJob;
 }) => {
+  const navigate = useNavigate();
   const location = useLocation().pathname;
+
+  const handleDisableJob = () => {
+    updateJob(props.job.id, {
+      status: "disabled",
+    });
+  };
+
+  const handleEnableJob = () => {
+    updateJob(props.job.id, {
+      status: "enabled",
+    });
+  };
+
+  const handleDeleteJob = async () => {
+    await deleteJob(props.job.id);
+    await navigate("/home/");
+  };
+
   return (
     <div className="flex flex-col h-screen">
       <div className="bg-gray-800 text-white p-4 pb-2">
-        <h1 className="text-2xl font-bold text-gray-200">{props.title}</h1>
+        <h1 className="text-2xl font-bold text-gray-200">
+          {props.job.jobName}
+        </h1>
 
-        {props.description && (
-          <p className="text-gray-400 mt-1 text-sm">{props.description}</p>
+        {props.job.description && (
+          <p className="text-gray-400 mt-1 text-sm">{props.job.description}</p>
         )}
 
-        {props.jobId && (
-          <div className="mt-4 flex space-x-4 text-sm rounded-lg">
+        {props.job.id && (
+          <div className="mt-auto flex gap-4 pt-4 text-sm rounded-lg">
             <Link
-              to={`/home/job/${props.jobId}/`}
+              to={`/home/job/${props.job.id}/`}
               className={`text-blue-300 hover:underline ${
-                location === `/home/job/${props.jobId}/` ? "font-bold" : ""
+                location === `/home/job/${props.job.id}/` ? "font-bold" : ""
               }`}
             >
               Overview
             </Link>
             <Link
-              to={`/home/job/${props.jobId}/versions`}
+              to={`/home/job/${props.job.id}/versions`}
               className={`text-blue-300 hover:underline ${
-                location.startsWith(`/home/job/${props.jobId}/versions`)
+                location.startsWith(`/home/job/${props.job.id}/versions`)
                   ? "font-bold"
                   : ""
               }`}
@@ -37,9 +58,9 @@ export const JobPageComponent = (props: {
               View Versions
             </Link>
             <Link
-              to={`/home/job/${props.jobId}/metrics`}
+              to={`/home/job/${props.job.id}/metrics`}
               className={`text-blue-300 hover:underline ${
-                location.startsWith(`/home/job/${props.jobId}/metrics`)
+                location.startsWith(`/home/job/${props.job.id}/metrics`)
                   ? "font-bold"
                   : ""
               }`}
@@ -47,9 +68,9 @@ export const JobPageComponent = (props: {
               View Metrics
             </Link>
             <Link
-              to={`/home/job/${props.jobId}/logs`}
+              to={`/home/job/${props.job.id}/logs`}
               className={`text-blue-300 hover:underline ${
-                location.startsWith(`/home/job/${props.jobId}/logs`)
+                location.startsWith(`/home/job/${props.job.id}/logs`)
                   ? "font-bold"
                   : ""
               }`}
@@ -57,9 +78,9 @@ export const JobPageComponent = (props: {
               View Logs
             </Link>
             <Link
-              to={`/home/job/${props.jobId}/environment`}
+              to={`/home/job/${props.job.id}/environment`}
               className={`text-blue-300 hover:underline ${
-                location.startsWith(`/home/job/${props.jobId}/environment`)
+                location.startsWith(`/home/job/${props.job.id}/environment`)
                   ? "font-bold"
                   : ""
               }`}
@@ -67,15 +88,39 @@ export const JobPageComponent = (props: {
               View Environment
             </Link>
             <Link
-              to={`/home/job/${props.jobId}/store`}
+              to={`/home/job/${props.job.id}/store`}
               className={`text-blue-300 hover:underline ${
-                location.startsWith(`/home/job/${props.jobId}/store`)
+                location.startsWith(`/home/job/${props.job.id}/store`)
                   ? "font-bold"
                   : ""
               }`}
             >
               View Store
             </Link>
+
+            {props.job.status === "enabled" && (
+              <ConfirmButtonComponent
+                buttonClassName="text-red-500 hover:underline ml-auto"
+                buttonText="Disable"
+                confirmTitle="Confirm disabling job"
+                onConfirm={() => handleDisableJob()}
+              />
+            )}
+            {props.job.status === "disabled" && (
+              <ConfirmButtonComponent
+                buttonClassName="text-green-500 hover:underline ml-auto"
+                buttonText="Enable"
+                confirmTitle="Confirm enabling job"
+                onConfirm={() => handleEnableJob()}
+              />
+            )}
+
+            <ConfirmButtonComponent
+              buttonClassName="text-red-500 hover:underline"
+              buttonText="Delete"
+              confirmTitle="Confirm Deletion"
+              onConfirm={() => handleDeleteJob()}
+            />
           </div>
         )}
       </div>

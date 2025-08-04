@@ -1,19 +1,16 @@
-import {
-  Link,
-  Outlet,
-  RouteObject,
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
+import { Link, Outlet, RouteObject, useLocation } from "react-router-dom";
 import { useJobs } from "../../hooks/use-jobs";
 
-import JobIdEnvironmentComponent from "./[jobId]/environment";
-import JobIdLandingComponent from "./[jobId]/landing";
-import JobIdLogsComponent from "./[jobId]/logs";
-import JobIdMetricsComponent from "./[jobId]/metrics";
-import JobIdStoreComponent from "./[jobId]/store";
-import JobIdVersionsComponent from "./[jobId]/versions";
+import JobIdEnvironmentComponent from "./jobs/[jobId]/environment";
+import JobIdLandingComponent from "./jobs/[jobId]/landing";
+import JobIdLogsComponent from "./jobs/[jobId]/logs";
+import JobIdMetricsComponent from "./jobs/[jobId]/metrics";
+import JobIdStoreComponent from "./jobs/[jobId]/store";
+import JobIdVersionsComponent from "./jobs/[jobId]/versions";
 import LandingComponent from "./landing";
+import UsersComponent from "./users/landing";
+import UsersUserIdLandingComponent from "./users/[userId]/landing";
+import UsersUserIdEditComponent from "./users/[userId]/edit";
 
 const Component = () => {
   const location = useLocation().pathname;
@@ -94,6 +91,18 @@ export default {
     {
       index: true,
       Component: LandingComponent,
+    },
+    {
+      path: "users/",
+      Component: UsersComponent,
+    },
+    {
+      path: "users/:userId/edit",
+      Component: UsersUserIdEditComponent,
+    },
+    {
+      path: "users/:userId/",
+      Component: UsersUserIdLandingComponent,
     },
     {
       path: "job/:jobId/",

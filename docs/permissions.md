@@ -38,3 +38,11 @@ Example resource pattern: `job/*/actions`
 #### Job -> Versions
 
 - `job/:jobId/versions/:versionId` READ
+
+#### User
+
+- `user` READ - Used for listing users
+- `user/:userId` READ/WRITE - Used for listing users, reading specific users, and updating users
+- `user/:userId/username` WRITE - Determines if username can be updated
+- `user/:userId/password` WRITE - Determines if password can be updated
+- `user/:userId/permissions` WRITE - Determines if permissions can be updated

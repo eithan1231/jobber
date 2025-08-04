@@ -11,6 +11,7 @@ import { jobEnvironmentNameSchema, jobNameSchema } from "./schemas-common.js";
 import { InternalHonoApp } from "~/index.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { canPerformAction } from "~/permissions.js";
+import { withLock } from "~/lock.js";
 
 export async function createRouteJobEnvironment() {
   const app = new Hono<InternalHonoApp>();
@@ -118,43 +119,45 @@ export async function createRouteJobEnvironment() {
         );
       }
 
-      const environment = await getDrizzle()
-        .select({
-          context: environmentsTable.context,
-        })
-        .from(environmentsTable)
-        .where(eq(environmentsTable.jobId, jobId))
-        .limit(1)
-        .then((res) => res.at(0));
+      return await withLock("environment", jobId, async () => {
+        const environment = await getDrizzle()
+          .select({
+            context: environmentsTable.context,
+          })
+          .from(environmentsTable)
+          .where(eq(environmentsTable.jobId, jobId))
+          .limit(1)
+          .then((res) => res.at(0));
 
-      const modified = getUnixTimestamp();
+        const modified = getUnixTimestamp();
 
-      const context: EnvironmentsContextSchemaType = {
-        ...environment?.context,
-        [name]: {
-          type: body.type,
-          value: body.value,
-        },
-      };
-
-      await getDrizzle()
-        .insert(environmentsTable)
-        .values({
-          modified: modified,
-          jobId: jobId,
-          context: context,
-        })
-        .onConflictDoUpdate({
-          target: environmentsTable.jobId,
-          set: {
-            context: context,
-            modified: modified,
+        const context: EnvironmentsContextSchemaType = {
+          ...environment?.context,
+          [name]: {
+            type: body.type,
+            value: body.value,
           },
-        });
+        };
 
-      return c.json({
-        success: true,
-        message: "ok",
+        await getDrizzle()
+          .insert(environmentsTable)
+          .values({
+            modified: modified,
+            jobId: jobId,
+            context: context,
+          })
+          .onConflictDoUpdate({
+            target: environmentsTable.jobId,
+            set: {
+              context: context,
+              modified: modified,
+            },
+          });
+
+        return c.json({
+          success: true,
+          message: "ok",
+        });
       });
     }
   );
@@ -190,41 +193,43 @@ export async function createRouteJobEnvironment() {
         );
       }
 
-      const environment = await getDrizzle()
-        .select({
-          context: environmentsTable.context,
-        })
-        .from(environmentsTable)
-        .where(eq(environmentsTable.jobId, jobId))
-        .limit(1)
-        .then((res) => res.at(0));
+      return await withLock("environment", jobId, async () => {
+        const environment = await getDrizzle()
+          .select({
+            context: environmentsTable.context,
+          })
+          .from(environmentsTable)
+          .where(eq(environmentsTable.jobId, jobId))
+          .limit(1)
+          .then((res) => res.at(0));
 
-      const modified = getUnixTimestamp();
+        const modified = getUnixTimestamp();
 
-      const context: EnvironmentsContextSchemaType = {
-        ...environment?.context,
-      };
+        const context: EnvironmentsContextSchemaType = {
+          ...environment?.context,
+        };
 
-      delete context[name];
+        delete context[name];
 
-      await getDrizzle()
-        .insert(environmentsTable)
-        .values({
-          modified: modified,
-          jobId: jobId,
-          context: context,
-        })
-        .onConflictDoUpdate({
-          target: environmentsTable.jobId,
-          set: {
-            context: context,
+        await getDrizzle()
+          .insert(environmentsTable)
+          .values({
             modified: modified,
-          },
-        });
+            jobId: jobId,
+            context: context,
+          })
+          .onConflictDoUpdate({
+            target: environmentsTable.jobId,
+            set: {
+              context: context,
+              modified: modified,
+            },
+          });
 
-      return c.json({
-        success: true,
-        message: "ok",
+        return c.json({
+          success: true,
+          message: "ok",
+        });
       });
     }
   );

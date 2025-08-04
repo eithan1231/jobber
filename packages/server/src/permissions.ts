@@ -1,11 +1,24 @@
-export type JobberPermissionEffect = "allow" | "deny";
-export type JobberPermissionAction = "read" | "write" | "delete" | "execute";
+import { z } from "zod";
+export const JobberPermissionEffectSchema = z.enum(["allow", "deny"]);
+export const JobberPermissionActionSchema = z.enum(["read", "write", "delete"]);
 
-export type JobberPermissions = Array<{
-  effect: JobberPermissionEffect;
-  resource: string;
-  actions: JobberPermissionAction[];
-}>;
+export const JobberPermissionSchema = z.object({
+  effect: JobberPermissionEffectSchema,
+  resource: z.string(),
+  actions: z.array(JobberPermissionActionSchema),
+});
+
+export const JobberPermissionsSchema = z.array(JobberPermissionSchema);
+
+export type JobberPermissionEffect = z.infer<
+  typeof JobberPermissionEffectSchema
+>;
+export type JobberPermissionAction = z.infer<
+  typeof JobberPermissionActionSchema
+>;
+
+export type JobberPermission = z.infer<typeof JobberPermissionSchema>;
+export type JobberPermissions = z.infer<typeof JobberPermissionsSchema>;
 
 export const canPerformAction = (
   permissions: JobberPermissions,

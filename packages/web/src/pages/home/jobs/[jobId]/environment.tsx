@@ -1,13 +1,13 @@
 import { useParams } from "react-router-dom";
-import { useJob } from "../../../hooks/use-job";
-import { JobPageComponent } from "../../../components/job-page-component";
+import { useJob } from "../../../../hooks/use-job";
+import { JobPageComponent } from "../../../../components/job-page-component";
 import { useEffect, useState } from "react";
-import { useEnvironment } from "../../../hooks/use-environment";
-import { ConfirmButtonComponent } from "../../../components/confirm-button-component";
+import { useEnvironment } from "../../../../hooks/use-environment";
+import { ConfirmButtonComponent } from "../../../../components/confirm-button-component";
 import {
   deleteJobEnvironmentVariable,
   upsertJobEnvironmentVariable,
-} from "../../../api/environment";
+} from "../../../../api/environment";
 
 export const Component = () => {
   const { jobId } = useParams();
@@ -59,11 +59,7 @@ export const Component = () => {
   };
 
   return (
-    <JobPageComponent
-      jobId={jobId}
-      title={job.jobName}
-      description={job.description}
-    >
+    <JobPageComponent job={job}>
       <div>
         <div className="w-full bg-white border rounded shadow p-6 mb-6">
           <form onSubmit={handleUpsert}>

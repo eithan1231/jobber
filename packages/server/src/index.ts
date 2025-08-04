@@ -35,6 +35,8 @@ import { createRouteJobStore } from "./routes/job/store.js";
 import { createRouteJobTriggers } from "./routes/job/triggers.js";
 import { createRouteVersions } from "./routes/job/versions.js";
 import { createRouteMetrics } from "./routes/metrics.js";
+import { createRouteUser } from "./routes/user.js";
+import { cleanupLocks } from "./lock.js";
 
 export type InternalHonoApp = {
   Variables: {
@@ -106,6 +108,7 @@ async function createInternalHono(instances: {
   });
 
   app.route("/api/", await createRouteAuth());
+  app.route("/api/", await createRouteUser());
   app.route("/api/", await createRouteJobActions(instances.runnerManager));
   app.route("/api/", await createRouteJobEnvironment());
   app.route("/api/", await createRouteJob());
@@ -231,6 +234,16 @@ async function main() {
   });
   console.log(`[main] done.`);
 
+  console.log(`[main] Starting db lock cleanup...`);
+  const lockCleanupInterval = setInterval(async () => {
+    try {
+      await cleanupLocks();
+    } catch (err) {
+      console.error("[main] Error during lock cleanup:", err);
+    }
+  }, 1000 * 60 * 5); // Every 5 minutes
+  console.log(`[main] done.`);
+
   console.log(`[main] Initialising logger...`);
   const logger = await createLogDriver();
   await logger.start();
@@ -307,6 +320,14 @@ async function main() {
       triggerMqtt.stop(),
       triggerHttp.stop(),
     ]);
+    console.log(`[signalRoutine] done.`);
+
+    console.log(`[signalRoutine] Stopping telemetry.`);
+    await telemetry.stop();
+    console.log(`[signalRoutine] done.`);
+
+    console.log(`[signalRoutine] Stopping db lock cleanup.`);
+    clearInterval(lockCleanupInterval);
     console.log(`[signalRoutine] done.`);
 
     console.log(`[signalRoutine] Stopping runner manager.`);

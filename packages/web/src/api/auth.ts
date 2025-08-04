@@ -1,11 +1,7 @@
-import { JobberGenericResponse } from "./common";
+import { JobberGenericResponse, JobberPermissions } from "./common";
 
 export type JobberAuth = {
-  permissions: Array<{
-    effect: "allow" | "deny";
-    resource: string;
-    actions: Array<"read" | "write" | "delete" | "execute">;
-  }>;
+  permissions: JobberPermissions;
   user?: {
     id: string;
     username: string;

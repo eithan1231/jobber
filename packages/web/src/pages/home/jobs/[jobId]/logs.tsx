@@ -1,7 +1,7 @@
 import { useParams } from "react-router-dom";
-import { useJob } from "../../../hooks/use-job";
-import { JobPageComponent } from "../../../components/job-page-component";
-import { useLogs } from "../../../hooks/use-logs";
+import { useJob } from "../../../../hooks/use-job";
+import { JobPageComponent } from "../../../../components/job-page-component";
+import { useLogs } from "../../../../hooks/use-logs";
 
 export const Component = () => {
   const { jobId } = useParams();
@@ -26,11 +26,7 @@ export const Component = () => {
   }
 
   return (
-    <JobPageComponent
-      jobId={jobId}
-      title={job.jobName}
-      description={job.description}
-    >
+    <JobPageComponent job={job}>
       <table className="table-auto w-full">
         <thead className="bg-gray-100">
           <tr>
