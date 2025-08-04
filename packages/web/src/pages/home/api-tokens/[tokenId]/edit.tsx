@@ -1,10 +1,10 @@
-import { HomePageComponent } from "../../../../components/home-page-component";
 import { MouseEvent, useEffect, useState } from "react";
-import { JobberPermissions } from "../../../../api/common";
-import { updateApiToken } from "../../../../api/api-tokens";
 import { useParams } from "react-router-dom";
-import { useApiToken } from "../../../../hooks/use-api-token";
+import { updateApiToken } from "../../../../api/api-tokens";
+import { JobberPermissions } from "../../../../api/common";
+import { HomePageComponent } from "../../../../components/home-page-component";
 import { TimeSinceComponent } from "../../../../components/time-since-component";
+import { useApiToken } from "../../../../hooks/use-api-token";
 
 const STATUS_OPTIONS = [
   { value: "enabled", label: "Enabled" },

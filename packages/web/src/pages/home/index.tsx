@@ -1,6 +1,11 @@
 import { Link, Outlet, RouteObject, useLocation } from "react-router-dom";
 import { useJobs } from "../../hooks/use-jobs";
 
+import { useConfig } from "../../hooks/use-config";
+import TokensTokenIdEditComponent from "./api-tokens/[tokenId]/edit";
+import TokensTokenIdLandingComponent from "./api-tokens/[tokenId]/landing";
+import TokensComponent from "./api-tokens/landing";
+import TokensNewComponent from "./api-tokens/new";
 import JobIdEnvironmentComponent from "./jobs/[jobId]/environment";
 import JobIdLandingComponent from "./jobs/[jobId]/landing";
 import JobIdLogsComponent from "./jobs/[jobId]/logs";
@@ -8,19 +13,14 @@ import JobIdMetricsComponent from "./jobs/[jobId]/metrics";
 import JobIdStoreComponent from "./jobs/[jobId]/store";
 import JobIdVersionsComponent from "./jobs/[jobId]/versions";
 import LandingComponent from "./landing";
-import UsersComponent from "./users/landing";
-import UsersUserIdLandingComponent from "./users/[userId]/landing";
 import UsersUserIdEditComponent from "./users/[userId]/edit";
-import TokensComponent from "./api-tokens/landing";
-import TokensTokenIdLandingComponent from "./api-tokens/[tokenId]/landing";
-import TokensNewComponent from "./api-tokens/new";
-import TokensTokenIdEditComponent from "./api-tokens/[tokenId]/edit";
-import { useConfig } from "../../hooks/use-config";
+import UsersUserIdLandingComponent from "./users/[userId]/landing";
+import UsersComponent from "./users/landing";
 
 const Component = () => {
   const location = useLocation().pathname;
 
-  const { jobs, jobsError, reloadJobs } = useJobs();
+  const { jobs } = useJobs();
   const { config } = useConfig();
 
   return (

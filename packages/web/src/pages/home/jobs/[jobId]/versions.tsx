@@ -1,12 +1,12 @@
-import { useParams } from "react-router-dom";
-import { useJob } from "../../../../hooks/use-job";
-import { JobPageComponent } from "../../../../components/job-page-component";
 import { useEffect, useMemo } from "react";
-import { useVersions } from "../../../../hooks/use-versions";
-import { TimeSinceComponent } from "../../../../components/time-since-component";
-import { ConfirmButtonComponent } from "../../../../components/confirm-button-component";
+import { useParams } from "react-router-dom";
 import { updateJob } from "../../../../api/jobs";
 import { JobberVersion } from "../../../../api/versions";
+import { ConfirmButtonComponent } from "../../../../components/confirm-button-component";
+import { JobPageComponent } from "../../../../components/job-page-component";
+import { TimeSinceComponent } from "../../../../components/time-since-component";
+import { useJob } from "../../../../hooks/use-job";
+import { useVersions } from "../../../../hooks/use-versions";
 
 export const Component = () => {
   const { jobId } = useParams();

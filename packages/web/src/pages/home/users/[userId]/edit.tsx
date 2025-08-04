@@ -1,9 +1,9 @@
+import { MouseEvent, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { JobberPermissions } from "../../../../api/common";
+import { updateUser } from "../../../../api/users";
 import { HomePageComponent } from "../../../../components/home-page-component";
 import { useUser } from "../../../../hooks/use-user";
-import { MouseEvent, useEffect, useState } from "react";
-import { updateUser } from "../../../../api/users";
-import { JobberPermissions } from "../../../../api/common";
 
 const Component = () => {
   const navigate = useNavigate();
@@ -16,7 +16,7 @@ const Component = () => {
   const [modifiedPassword, setModifiedPassword] = useState("");
   const [modifiedPermissions, setModifiedPermissions] = useState("");
 
-  const [loading, setLoading] = useState(false);
+  const [_loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { user, userError } = useUser(userId);

@@ -1,13 +1,13 @@
+import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { useJob } from "../../../../hooks/use-job";
-import { JobPageComponent } from "../../../../components/job-page-component";
-import { useEffect, useState } from "react";
-import { useEnvironment } from "../../../../hooks/use-environment";
-import { ConfirmButtonComponent } from "../../../../components/confirm-button-component";
 import {
   deleteJobEnvironmentVariable,
   upsertJobEnvironmentVariable,
 } from "../../../../api/environment";
+import { ConfirmButtonComponent } from "../../../../components/confirm-button-component";
+import { JobPageComponent } from "../../../../components/job-page-component";
+import { useEnvironment } from "../../../../hooks/use-environment";
+import { useJob } from "../../../../hooks/use-job";
 
 export const Component = () => {
   const { jobId } = useParams();

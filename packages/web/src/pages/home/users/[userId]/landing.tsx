@@ -1,7 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import { HomePageComponent } from "../../../../components/home-page-component";
-import { useUser } from "../../../../hooks/use-user";
 import { TimeSinceComponent } from "../../../../components/time-since-component";
+import { useUser } from "../../../../hooks/use-user";
 
 const Component = () => {
   const { userId } = useParams();

@@ -1,8 +1,8 @@
-import { useParams } from "react-router-dom";
-import { useJob } from "../../../../hooks/use-job";
-import { JobPageComponent } from "../../../../components/job-page-component";
 import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import { JobPageComponent } from "../../../../components/job-page-component";
 import { MetricMultipleComponent } from "../../../../components/metric-multiple-component";
+import { useJob } from "../../../../hooks/use-job";
 
 const METRICS_PERIODS = [
   { value: "60", label: "1 minute" },

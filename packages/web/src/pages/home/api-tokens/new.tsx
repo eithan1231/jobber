@@ -1,7 +1,7 @@
-import { HomePageComponent } from "../../../components/home-page-component";
 import { MouseEvent, useState } from "react";
-import { JobberPermissions } from "../../../api/common";
 import { createApiToken } from "../../../api/api-tokens";
+import { JobberPermissions } from "../../../api/common";
+import { HomePageComponent } from "../../../components/home-page-component";
 
 const TTL_OPTIONS = [
   { value: 300, label: "5 minutes" },

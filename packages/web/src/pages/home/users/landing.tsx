@@ -4,7 +4,7 @@ import { TimeSinceComponent } from "../../../components/time-since-component";
 import { useUsers } from "../../../hooks/use-users";
 
 const Component = () => {
-  const { users, usersError, reloadUsers } = useUsers();
+  const { users, usersError } = useUsers();
 
   return (
     <HomePageComponent title="Users">

@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
-import { useJob } from "../../../../hooks/use-job";
 import { JobPageComponent } from "../../../../components/job-page-component";
+import { useJob } from "../../../../hooks/use-job";
 import { useLogs } from "../../../../hooks/use-logs";
 
 export const Component = () => {
