@@ -2,11 +2,15 @@ import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { getDrizzle } from "~/db/index.js";
 import { jobVersionsTable } from "~/db/schema/job-versions.js";
+import { InternalHonoApp } from "~/index.js";
+import { createMiddlewareAuth } from "~/middleware/auth.js";
+import { canPerformAction } from "~/permissions.js";
 
 export async function createRouteVersions() {
-  const app = new Hono();
+  const app = new Hono<InternalHonoApp>();
 
-  app.get("/job/:jobId/versions", async (c, next) => {
+  app.get("/job/:jobId/versions", createMiddlewareAuth(), async (c, next) => {
+    const auth = c.get("auth")!;
     const jobId = c.req.param("jobId");
 
     const versions = await getDrizzle()
@@ -20,9 +24,17 @@ export async function createRouteVersions() {
       .from(jobVersionsTable)
       .where(eq(jobVersionsTable.jobId, jobId));
 
+    const versionsFiltered = versions.filter((version) => {
+      return canPerformAction(
+        auth.permissions,
+        `job/${version.jobId}/versions/${version.id}`,
+        "read"
+      );
+    });
+
     return c.json({
       success: true,
-      data: versions,
+      data: versionsFiltered,
     });
   });
 

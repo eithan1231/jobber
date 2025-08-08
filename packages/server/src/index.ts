@@ -1,12 +1,26 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
+import {
+  compare as bcryptCompare,
+  genSalt as bcryptGenSalt,
+  hash as bcryptHash,
+} from "bcryptjs";
 import { Hono } from "hono";
 import { StatusCode } from "hono/utils/http-status";
 import { mkdir } from "node:fs/promises";
 import { ZodError } from "zod";
 
-import { getPool, runDrizzleMigration } from "./db/index.js";
+import { getDrizzle, getPool, runDrizzleMigration } from "./db/index.js";
+import { ApiTokensTableType } from "./db/schema/api-tokens.js";
+import { SessionsTableType } from "./db/schema/sessions.js";
+import {
+  UserPasswordSchema,
+  usersTable,
+  UsersTableType,
+  UserUsernameSchema,
+} from "./db/schema/users.js";
 import { getJobActionArchiveDirectory } from "./paths.js";
+import { JobberPermissions, PERMISSION_SUPER } from "./permissions.js";
 import { getUnixTimestamp } from "./util.js";
 
 import { LogDriverBase } from "./jobber/log-drivers/abstract.js";
@@ -18,6 +32,10 @@ import { TriggerCron } from "./jobber/triggers/cron.js";
 import { TriggerHttp } from "./jobber/triggers/http.js";
 import { TriggerMqtt } from "./jobber/triggers/mqtt.js";
 
+import { getConfigOption } from "./config.js";
+import { cleanupLocks } from "./lock.js";
+import { createRouteApiTokens } from "./routes/api-tokens.js";
+import { createRouteAuth } from "./routes/auth.js";
 import { createRouteConfig } from "./routes/config.js";
 import { createRouteJobActions } from "./routes/job/actions.js";
 import { createRouteJobEnvironment } from "./routes/job/environment.js";
@@ -25,11 +43,30 @@ import { createRouteJob } from "./routes/job/job.js";
 import { createRouteJobLogs } from "./routes/job/logs.js";
 import { createRouteJobMetrics } from "./routes/job/metrics.js";
 import { createRouteJobPublish } from "./routes/job/publish.js";
+import { createRouteJobRunners } from "./routes/job/runners.js";
 import { createRouteJobStore } from "./routes/job/store.js";
 import { createRouteJobTriggers } from "./routes/job/triggers.js";
-import { createRouteMetrics } from "./routes/metrics.js";
 import { createRouteVersions } from "./routes/job/versions.js";
-import { createRouteJobRunners } from "./routes/job/runners.js";
+import { createRouteMetrics } from "./routes/metrics.js";
+import { createRouteUser } from "./routes/user.js";
+import { eq } from "drizzle-orm";
+
+export type InternalHonoApp = {
+  Variables: {
+    auth?:
+      | {
+          type: "session";
+          user: UsersTableType;
+          session: SessionsTableType;
+          permissions: JobberPermissions;
+        }
+      | {
+          type: "token";
+          token: ApiTokensTableType;
+          permissions: JobberPermissions;
+        };
+  };
+};
 
 async function createInternalHono(instances: {
   runnerManager: RunnerManager;
@@ -39,7 +76,7 @@ async function createInternalHono(instances: {
   triggerHttp: TriggerHttp;
   triggerMqtt: TriggerMqtt;
 }) {
-  const app = new Hono();
+  const app = new Hono<InternalHonoApp>();
 
   app.onError(async (err, c) => {
     if (err instanceof ZodError) {
@@ -83,6 +120,9 @@ async function createInternalHono(instances: {
     );
   });
 
+  app.route("/api/", await createRouteApiTokens());
+  app.route("/api/", await createRouteAuth());
+  app.route("/api/", await createRouteUser());
   app.route("/api/", await createRouteJobActions(instances.runnerManager));
   app.route("/api/", await createRouteJobEnvironment());
   app.route("/api/", await createRouteJob());
@@ -182,6 +222,58 @@ async function createGatewayHono(triggerHttp: TriggerHttp) {
   return app;
 }
 
+async function createStartupAccount() {
+  const configUsername = getConfigOption("STARTUP_USERNAME");
+  const configPassword = getConfigOption("STARTUP_PASSWORD");
+
+  if (!configUsername || !configPassword) {
+    console.log(
+      "[createStartupAccount] No startup username or password configured. Skipping account creation."
+    );
+
+    return;
+  }
+
+  const parsedUsername = UserUsernameSchema.safeParse(configUsername);
+  const parsedPassword = UserPasswordSchema.safeParse(configPassword);
+
+  if (!parsedUsername.success || !parsedPassword.success) {
+    console.error(
+      "[createStartupAccount] Invalid startup username or password. Please check your configuration."
+    );
+
+    return;
+  }
+
+  const salt = await bcryptGenSalt(10);
+  const hashedPassword = await bcryptHash(parsedPassword.data, salt);
+
+  const user = await getDrizzle()
+    .insert(usersTable)
+    .values({
+      username: parsedUsername.data,
+      password: hashedPassword,
+      permissions: PERMISSION_SUPER,
+    })
+    .onConflictDoNothing({
+      where: eq(usersTable.username, parsedUsername.data),
+    })
+    .returning()
+    .then((res) => res.at(0));
+
+  if (!user) {
+    console.log(
+      "[createStartupAccount] User already exists or could not be created."
+    );
+
+    return;
+  }
+
+  console.log(
+    `[createStartupAccount] Startup account created successfully: ${user.username}`
+  );
+}
+
 async function main() {
   const timestamp = getUnixTimestamp();
 
@@ -206,6 +298,21 @@ async function main() {
   await mkdir(getJobActionArchiveDirectory(), {
     recursive: true,
   });
+  console.log(`[main] done.`);
+
+  console.log(`[main] Starting db lock cleanup...`);
+  await cleanupLocks();
+  const lockCleanupInterval = setInterval(async () => {
+    try {
+      await cleanupLocks();
+    } catch (err) {
+      console.error("[main] Error during lock cleanup:", err);
+    }
+  }, 1000 * 60 * 5); // Every 5 minutes
+  console.log(`[main] done.`);
+
+  console.log(`[main] Creating startup account...`);
+  await createStartupAccount();
   console.log(`[main] done.`);
 
   console.log(`[main] Initialising logger...`);
@@ -284,6 +391,14 @@ async function main() {
       triggerMqtt.stop(),
       triggerHttp.stop(),
     ]);
+    console.log(`[signalRoutine] done.`);
+
+    console.log(`[signalRoutine] Stopping telemetry.`);
+    await telemetry.stop();
+    console.log(`[signalRoutine] done.`);
+
+    console.log(`[signalRoutine] Stopping db lock cleanup.`);
+    clearInterval(lockCleanupInterval);
     console.log(`[signalRoutine] done.`);
 
     console.log(`[signalRoutine] Stopping runner manager.`);

@@ -6,6 +6,9 @@ import { getConfigOption } from "~/config.js";
 import { getDrizzle } from "~/db/index.js";
 import { jobVersionsTable } from "~/db/schema/job-versions.js";
 import { jobsTable } from "~/db/schema/jobs.js";
+import { InternalHonoApp } from "~/index.js";
+import { createMiddlewareAuth } from "~/middleware/auth.js";
+import { canPerformAction } from "~/permissions.js";
 import { getUnixTimestamp } from "~/util.js";
 
 type PrometheusQueryResponse =
@@ -85,7 +88,7 @@ type MetricsResponse = {
 };
 
 export async function createRouteJobMetrics() {
-  const app = new Hono();
+  const app = new Hono<InternalHonoApp>();
 
   const durationSchema = z.coerce.number().min(1).max(10000).default(900);
 
@@ -109,7 +112,9 @@ export async function createRouteJobMetrics() {
   app.get(
     "/job/:jobId/metrics/:metric/:version",
     middlewareValidatePrometheusConfig,
+    createMiddlewareAuth(),
     async (c, next) => {
+      const auth = c.get("auth")!;
       const jobId = c.req.param("jobId");
       let version = c.req.param("version");
       const metric = c.req.param("metric");
@@ -128,6 +133,20 @@ export async function createRouteJobMetrics() {
       assert(typeof jobId === "string", "Job ID must be a string");
       assert(typeof version === "string", "Version must be a string");
       assert(typeof metric === "string", "Metric must be a string");
+
+      // TODO: Update to fetch from database, to compare jobId against the database record, not user input.
+      if (
+        !canPerformAction(
+          auth.permissions,
+          `job/${jobId.toLowerCase()}`,
+          "read"
+        )
+      ) {
+        return c.json(
+          { success: false, message: "Insufficient Permissions" },
+          403
+        );
+      }
 
       const job = (
         await getDrizzle()

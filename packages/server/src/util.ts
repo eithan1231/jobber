@@ -214,12 +214,12 @@ export const fileExists = async (filename: string) => {
 
 export const createToken = (options: { prefix?: string; length?: number }) => {
   if (options.prefix) {
-    return `${options.prefix}-${randomBytes(options.length ?? 16).toString(
-      "hex"
-    )}`;
+    return `${options.prefix}-${secureRandomBytes(
+      options.length ?? 16
+    ).toString("hex")}`;
   }
 
-  return randomBytes(options.length ?? 16).toString("hex");
+  return secureRandomBytes(options.length ?? 16).toString("hex");
 };
 
 export const shortenString = (input: string, maxLength = 20) => {
@@ -290,4 +290,10 @@ export const createBenchmark = () => {
   const start = performance.now();
 
   return () => performance.now() - start;
+};
+
+export const secureRandomBytes = (length: number) => {
+  const result = new Uint8Array(length);
+  crypto.getRandomValues(result);
+  return Buffer.from(result);
 };

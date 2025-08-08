@@ -1,0 +1,44 @@
+{
+  "name": "mqtt-typescript",
+  "version": "0.0.9",
+  "description": "Jobber Example for MQTT in TypeScript",
+  "main": "./dist/index.js",
+  "type": "module",
+  "action": {
+    "runnerAsynchronous": true,
+    "runnerMinCount": 1,
+    "runnerMaxCount": 16,
+    "runnerMaxAge": 60,
+    "runnerMaxIdleAge": 40,
+    "runnerMaxAgeHard": 65,
+    "runnerMode": "standard"
+  },
+  "triggers": [
+    {
+      "type": "mqtt",
+      "topics": [
+        "test"
+      ],
+      "connection": {
+        "protocol": "mqtt",
+        "host": "test.mosquitto.org",
+        "port": "1883"
+      }
+    }
+  ],
+  "scripts": {
+    "build": "rimraf ./dist/* && tsc && tsc-alias -p tsconfig.json",
+    "start": "node ./dist/index.js",
+    "dev": "pnpm build && node ./dist/index.js"
+  },
+  "keywords": [],
+  "author": "Jobber",
+  "license": "MIT",
+  "devDependencies": {
+    "@tsconfig/node20": "^20.1.4",
+    "@types/node": "^20.16.12",
+    "rimraf": "^5.0.10",
+    "tsc-alias": "^1.8.10",
+    "typescript": "^5.6.3"
+  }
+}

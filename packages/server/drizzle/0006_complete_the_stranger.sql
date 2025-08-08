@@ -1,0 +1,1 @@
+ALTER TABLE "apiTokens" ADD COLUMN "status" varchar(16) DEFAULT 'enabled' NOT NULL;
