@@ -2,6 +2,7 @@ import { MouseEvent, useState } from "react";
 import { createApiToken } from "../../../api/api-tokens";
 import { JobberPermissions } from "../../../api/common";
 import { HomePageComponent } from "../../../components/home-page-component";
+import { Link } from "react-router-dom";
 
 const TTL_OPTIONS = [
   { value: 300, label: "5 minutes" },
@@ -123,8 +124,18 @@ const Component = () => {
               />
             </div>
             <div className="mt-4">
-              <label className="block mb-2 text-sm font-medium text-gray-700">
-                Permissions{" "}
+              <label className="mb-2 text-sm font-medium text-gray-700">
+                Permissions
+                <span className="text-xs text-gray-500 ml-1">
+                  (
+                  <Link
+                    to="https://github.com/eithan1231/jobber/blob/main/docs/permissions.md"
+                    className="text-sm text-blue-500 hover:underline mb-2"
+                  >
+                    docs
+                  </Link>
+                  )
+                </span>
               </label>
               <textarea
                 rows={20}

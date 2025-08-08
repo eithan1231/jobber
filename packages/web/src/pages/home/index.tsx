@@ -103,7 +103,7 @@ const Component = () => {
             {jobs && (
               <>
                 <h2 className="text-lg font-bold mt-6 mb-2">Jobs</h2>
-                <ul className="space-y-1">
+                <ul className="space-y-2">
                   {jobs &&
                     jobs.map((job) => (
                       <li key={job.id}>
@@ -115,7 +115,22 @@ const Component = () => {
                               : ""
                           }`}
                         >
-                          {job.jobName}
+                          <div title={job.jobName}>
+                            {job.jobName}
+                            {/*  */}
+                            {job.status === "disabled" && (
+                              <span className="mx-2 bg-red-300 text-red-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full">
+                                Disabled
+                              </span>
+                            )}
+                          </div>
+
+                          <div
+                            className="text-sm text-gray-400 truncate"
+                            title={job.description}
+                          >
+                            {job.description}
+                          </div>
                         </Link>
                       </li>
                     ))}

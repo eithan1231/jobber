@@ -1,5 +1,5 @@
 import { MouseEvent, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { JobberPermissions } from "../../../../api/common";
 import { updateUser } from "../../../../api/users";
 import { HomePageComponent } from "../../../../components/home-page-component";
@@ -141,7 +141,17 @@ const Component = () => {
 
             <div className="mt-4">
               <label className="block mb-2 text-sm font-medium text-gray-700">
-                Permissions{" "}
+                Permissions
+                <span className="text-xs text-gray-500 ml-1">
+                  (
+                  <Link
+                    to="https://github.com/eithan1231/jobber/blob/main/docs/permissions.md"
+                    className="text-sm text-blue-500 hover:underline mb-2"
+                  >
+                    docs
+                  </Link>
+                  )
+                </span>
                 <span
                   hidden={
                     modifiedPermissions ===

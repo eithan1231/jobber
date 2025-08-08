@@ -1,5 +1,5 @@
 import { MouseEvent, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { updateApiToken } from "../../../../api/api-tokens";
 import { JobberPermissions } from "../../../../api/common";
 import { HomePageComponent } from "../../../../components/home-page-component";
@@ -176,8 +176,18 @@ const Component = () => {
             </div>
 
             <div className="mt-4">
-              <label className="block mb-2 text-sm font-medium text-gray-700">
-                Permissions
+              <label className="mb-2 text-sm font-medium text-gray-700">
+                Permissions{" "}
+                <span className="text-xs text-gray-500 ml-1">
+                  (
+                  <Link
+                    to="https://github.com/eithan1231/jobber/blob/main/docs/permissions.md"
+                    className="text-sm text-blue-500 hover:underline mb-2"
+                  >
+                    docs
+                  </Link>
+                  )
+                </span>
               </label>
               <textarea
                 rows={20}
