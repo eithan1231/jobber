@@ -11,7 +11,7 @@ export const handler = async (
     throw new Error("Expecting HTTP request");
   }
 
-  console.log("name:", request.name());
+  // console.log("name:", request.name());
 
   await context.setStoreJson(
     "medium-length",

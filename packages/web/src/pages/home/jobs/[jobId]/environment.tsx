@@ -60,7 +60,7 @@ export const Component = () => {
 
   return (
     <JobPageComponent job={job}>
-      <div>
+      <div className="container mx-auto px-4 py-6">
         <div className="w-full bg-white border rounded shadow p-6 mb-6">
           <form onSubmit={handleUpsert}>
             {/* Name Field */}

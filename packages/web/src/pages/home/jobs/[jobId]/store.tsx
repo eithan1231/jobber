@@ -27,6 +27,10 @@ export const Component = () => {
   const { store, storeError, reloadStore } = useStore(jobId);
 
   useEffect(() => {
+    if (!displayStoreId) {
+      return;
+    }
+
     const storeItemCached = store?.find((item) => item.id === displayStoreId);
     if (storeItemCached) {
       setShowStoreItem(storeItemCached);
@@ -116,7 +120,6 @@ export const Component = () => {
             </div>
           </div>
         )}
-
         <div className="container mx-auto my-8 p-4">
           <table className="min-w-full border-collapse">
             <thead>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getJobStore, JobberStoreItemPartial } from "../api/store";
+import { getJobStoreItems, JobberStoreItemPartial } from "../api/store";
 
 export const useStore = (jobId: string) => {
   const [store, setStore] = useState<JobberStoreItemPartial[] | null>(null);
@@ -7,7 +7,7 @@ export const useStore = (jobId: string) => {
   const [reloadFlag, setReloadFlag] = useState(0);
 
   const handleUpdate = () => {
-    getJobStore(jobId).then((res) => {
+    getJobStoreItems(jobId).then((res) => {
       if (!res.success) {
         setError("Failed to fetch store items");
 

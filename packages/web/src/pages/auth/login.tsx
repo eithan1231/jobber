@@ -4,6 +4,7 @@ import { createAuthLogin } from "../../api/auth";
 
 const Component = () => {
   const navigate = useNavigate();
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");

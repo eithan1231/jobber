@@ -12,7 +12,7 @@ export type JobberStoreItem = {
 
 export type JobberStoreItemPartial = Omit<JobberStoreItem, "value">;
 
-export const getJobStore = async (
+export const getJobStoreItems = async (
   jobId: string
 ): Promise<JobberGenericResponse<JobberStoreItemPartial[]>> => {
   const result = await fetch(`/api/job/${jobId}/store/`);

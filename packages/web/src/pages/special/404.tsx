@@ -6,6 +6,11 @@ const Component = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (pathname === "/") {
+      navigate("/home/");
+      return;
+    }
+
     if (pathname.startsWith("/jobber/")) {
       const matchResult = pathname.match(/^\/jobber\/([a-z0-9-]{0,64})/);
       const jobberId = matchResult ? matchResult[1] : null;

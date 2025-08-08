@@ -1,7 +1,16 @@
-import { Link, Outlet, RouteObject, useLocation } from "react-router-dom";
+import { useEffect } from "react";
+import {
+  Link,
+  Outlet,
+  RouteObject,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+
+import { useAuth } from "../../hooks/use-auth";
+import { useConfig } from "../../hooks/use-config";
 import { useJobs } from "../../hooks/use-jobs";
 
-import { useConfig } from "../../hooks/use-config";
 import TokensTokenIdEditComponent from "./api-tokens/[tokenId]/edit";
 import TokensTokenIdLandingComponent from "./api-tokens/[tokenId]/landing";
 import TokensComponent from "./api-tokens/landing";
@@ -18,10 +27,32 @@ import UsersUserIdLandingComponent from "./users/[userId]/landing";
 import UsersComponent from "./users/landing";
 
 const Component = () => {
-  const location = useLocation().pathname;
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
 
-  const { jobs } = useJobs();
+  const { auth, authError, reloadAuth } = useAuth();
+  const { jobs, reloadJobs } = useJobs();
   const { config } = useConfig();
+
+  useEffect(() => {
+    if (!auth && authError) {
+      navigate("/auth/login");
+      return;
+    }
+  }, [auth, authError, pathname]);
+
+  useEffect(() => {
+    const reload = () => {
+      reloadAuth();
+      reloadJobs();
+    };
+
+    const interval = setInterval(() => {
+      reload();
+    }, 3 * 1000);
+
+    return () => clearInterval(interval);
+  }, [reloadAuth, reloadJobs]);
 
   return (
     <>
@@ -39,7 +70,7 @@ const Component = () => {
                 <Link
                   to="/home/"
                   className={`block px-4 py-2 rounded hover:bg-gray-700 ${
-                    location === "/home/" ? "bg-gray-700" : ""
+                    pathname === "/home/" ? "bg-gray-700" : ""
                   }`}
                 >
                   Home
@@ -50,7 +81,7 @@ const Component = () => {
                 <Link
                   to="/home/users"
                   className={`block px-4 py-2 rounded hover:bg-gray-700 ${
-                    location === "/home/users" ? "bg-gray-700" : ""
+                    pathname === "/home/users" ? "bg-gray-700" : ""
                   }`}
                 >
                   User Management
@@ -61,7 +92,7 @@ const Component = () => {
                 <Link
                   to="/home/api-tokens/"
                   className={`block px-4 py-2 rounded hover:bg-gray-700 ${
-                    location === "/home/api-tokens/" ? "bg-gray-700" : ""
+                    pathname === "/home/api-tokens/" ? "bg-gray-700" : ""
                   }`}
                 >
                   API Tokens Management
@@ -79,7 +110,7 @@ const Component = () => {
                         <Link
                           to={`/home/job/${job.id}/`}
                           className={`block px-4 py-2 rounded hover:bg-gray-700 ${
-                            location.startsWith(`/home/job/${job.id}/`)
+                            pathname.startsWith(`/home/job/${job.id}/`)
                               ? "bg-gray-700"
                               : ""
                           }`}

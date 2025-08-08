@@ -1,7 +1,7 @@
 {
-  "name": "http-typescript",
+  "name": "mqtt-typescript",
   "version": "0.0.9",
-  "description": "Jobber Example, Typescript HTTP Demo",
+  "description": "Jobber Example for MQTT in TypeScript",
   "main": "./dist/index.js",
   "type": "module",
   "action": {
@@ -11,22 +11,19 @@
     "runnerMaxAge": 60,
     "runnerMaxIdleAge": 40,
     "runnerMaxAgeHard": 65,
-    "runnerDockerArguments": {
-      "labels": [
-        {
-          "key": "testing-label",
-          "value": "I-Am_Eithan-Spaces-Are-Banned"
-        }
-      ]
-    },
     "runnerMode": "standard"
   },
   "triggers": [
     {
-      "type": "http",
-      "name": "http-trigger",
-      "path": "/count",
-      "method": "GET"
+      "type": "mqtt",
+      "topics": [
+        "test"
+      ],
+      "connection": {
+        "protocol": "mqtt",
+        "host": "test.mosquitto.org",
+        "port": "1883"
+      }
     }
   ],
   "scripts": {

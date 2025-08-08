@@ -71,7 +71,7 @@ export const Component = () => {
 
   return (
     <JobPageComponent job={job}>
-      <>
+      <div className="container mx-auto px-4 py-6 max-w-[900px]">
         {versions && versions.length > 0 && (
           <div className="border rounded shadow-md p-4 pb-5 m-2 bg-white">
             <h2 className="text-xl font-semibold mb-2">Versions</h2>
@@ -150,7 +150,7 @@ export const Component = () => {
             </table>
           </div>
         )}
-      </>
+      </div>
     </JobPageComponent>
   );
 };

@@ -124,7 +124,7 @@ export const Component = () => {
       });
 
       items.push({
-        name: "Max retries",
+        name: "Mode",
         value: action.runnerMode === "run-once" ? "Run once" : "Standard",
       });
 
@@ -235,7 +235,7 @@ export const Component = () => {
 
   return (
     <JobPageComponent job={job}>
-      <div className="max-w-[800px]">
+      <div className="container mx-auto px-4 py-6 max-w-[900px]">
         {overviewItems.length > 0 && (
           <div className="border rounded shadow-md p-4 pb-5 m-2 bg-white">
             <h2 className="text-xl font-semibold mb-2">Job Details</h2>
@@ -447,7 +447,10 @@ export const Component = () => {
                         )}
 
                         {trigger.context.topics.map((topic, index) => (
-                          <div className="flex justify-between py-1 border-b">
+                          <div
+                            key={topic}
+                            className="flex justify-between py-1 border-b"
+                          >
                             <dt className="font-medium text-gray-700">
                               Topic #{index + 1}
                             </dt>
