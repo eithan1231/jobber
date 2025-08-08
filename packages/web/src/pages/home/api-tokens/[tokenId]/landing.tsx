@@ -62,6 +62,13 @@ const Component = () => {
                   />
                 </td>
               </tr>
+              <tr>
+                <td className="text-gray-700 py-2 font-medium">Description</td>
+                <td></td>
+                <td className="text-gray-700 py-2 text-right">
+                  {apiToken.description || "No description"}
+                </td>
+              </tr>
 
               {apiToken.permissions.length >= 1 && (
                 <>

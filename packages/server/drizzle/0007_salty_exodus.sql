@@ -1,0 +1,1 @@
+ALTER TABLE "apiTokens" ADD COLUMN "description" text;

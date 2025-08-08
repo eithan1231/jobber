@@ -4,6 +4,7 @@ export type JobberApiToken = {
   id: string;
   userId: string;
   permissions: JobberPermissions;
+  description: string | null;
   status: "enabled" | "disabled";
   created: string;
   expires: string;
@@ -31,6 +32,7 @@ export const getApiToken = async (
 
 export const createApiToken = async (
   permissions: JobberPermissions,
+  description: string,
   ttl: number
 ): Promise<JobberGenericResponse<JobberApiTokenFull>> => {
   const result = await fetch(`/api/api-tokens/`, {
@@ -38,7 +40,7 @@ export const createApiToken = async (
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ permissions, ttl }),
+    body: JSON.stringify({ permissions, ttl, description }),
   });
 
   return result.json();
@@ -49,6 +51,7 @@ export const updateApiToken = async (
   payload: {
     permissions?: JobberPermissions;
     status?: "enabled" | "disabled";
+    description?: string;
   }
 ): Promise<JobberGenericResponse<JobberApiToken>> => {
   const result = await fetch(`/api/api-tokens/${tokenId}`, {

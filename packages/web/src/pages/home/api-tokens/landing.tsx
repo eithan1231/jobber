@@ -14,6 +14,7 @@ const Component = () => {
             <tr>
               <th className="px-4 py-2">Status</th>
               <th className="px-4 py-2">Permissions</th>
+              <th className="px-4 py-2">Description</th>
               <th className="px-4 py-2">Expires</th>
               <th className="px-4 py-2">Created</th>
               <th className="px-4 py-2"></th>
@@ -33,6 +34,9 @@ const Component = () => {
                         )
                       </div>
                     ))}
+                  </td>
+                  <td className="border-t px-4 py-2">
+                    {token.description || "No description"}
                   </td>
                   <td className="border-t px-4 py-2">
                     <TimeSinceComponent

@@ -27,6 +27,7 @@ const Component = () => {
   const [payloadPermissions, setPayloadPermissions] = useState(
     JSON.stringify(DEFAULT_PERMISSIONS, null, 2)
   );
+  const [payloadDescription, setPayloadDescription] = useState("");
 
   const [_loading, setLoading] = useState(false);
   const [result, setResult] = useState<{
@@ -62,7 +63,11 @@ const Component = () => {
       return;
     }
 
-    const result = await createApiToken(parsedPermissions, payloadTtl);
+    const result = await createApiToken(
+      parsedPermissions,
+      payloadDescription,
+      payloadTtl
+    );
 
     if (!result.success) {
       setResult({
@@ -91,6 +96,7 @@ const Component = () => {
                 Period{" "}
               </label>
               <select
+                defaultValue={payloadTtl}
                 onChange={(e) => setPayloadTtl(Number(e.target.value))}
                 className="w-full p-2 border rounded bg-white text-gray-800"
               >
@@ -104,6 +110,17 @@ const Component = () => {
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="mt-4">
+              <label className="block mb-2 text-sm font-medium text-gray-700">
+                Description{" "}
+              </label>
+              <input
+                required
+                type="text"
+                onChange={(e) => setPayloadDescription(e.target.value)}
+                className="w-full p-2 border rounded bg-white text-gray-800"
+              />
             </div>
             <div className="mt-4">
               <label className="block mb-2 text-sm font-medium text-gray-700">

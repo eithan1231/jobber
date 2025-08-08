@@ -23,6 +23,7 @@ export async function createRouteApiTokens() {
       .select({
         id: apiTokensTable.id,
         userId: apiTokensTable.userId,
+        description: apiTokensTable.description,
         permissions: apiTokensTable.permissions,
         status: apiTokensTable.status,
         created: apiTokensTable.created,
@@ -53,6 +54,7 @@ export async function createRouteApiTokens() {
       .select({
         id: apiTokensTable.id,
         userId: apiTokensTable.userId,
+        description: apiTokensTable.description,
         permissions: apiTokensTable.permissions,
         status: apiTokensTable.status,
         created: apiTokensTable.created,
@@ -84,6 +86,7 @@ export async function createRouteApiTokens() {
     const schema = z
       .object({
         permissions: z.lazy(() => JobberPermissionsSchema),
+        description: z.string().min(1).max(1024),
         ttl: z
           .number()
           .min(60)
@@ -101,11 +104,13 @@ export async function createRouteApiTokens() {
     const { permissions } = body.data;
     const userId = auth.type === "session" ? auth.user.id : auth.token.userId;
     const expires = new Date(Date.now() + body.data.ttl * 1000);
+    const description = body.data.description;
 
     const token = await getDrizzle()
       .insert(apiTokensTable)
       .values({
         permissions,
+        description,
         userId,
         expires: expires,
       })
@@ -121,6 +126,7 @@ export async function createRouteApiTokens() {
       data: {
         id: token.id,
         token: token.token,
+        description: token.description,
         userId: token.userId,
         permissions: token.permissions,
         status: token.status,
@@ -159,6 +165,7 @@ export async function createRouteApiTokens() {
       .object({
         permissions: z.lazy(() => JobberPermissionsSchema).optional(),
         status: z.enum(["enabled", "disabled"]).optional(),
+        description: z.string().min(1).max(1024).optional(),
       })
       .strict();
 
@@ -168,11 +175,11 @@ export async function createRouteApiTokens() {
       return c.json({ success: false, message: "Invalid request body" }, 400);
     }
 
-    const { permissions, status } = body.data;
+    const { permissions, status, description } = body.data;
 
     return await withLock("api-tokens", token.id, async () => {
       const updateData: Partial<
-        Pick<ApiTokensTableType, "status" | "permissions">
+        Pick<ApiTokensTableType, "status" | "permissions" | "description">
       > = {};
 
       if (permissions) {
@@ -181,6 +188,10 @@ export async function createRouteApiTokens() {
 
       if (status) {
         updateData.status = status;
+      }
+
+      if (description) {
+        updateData.description = description;
       }
 
       await getDrizzle()
@@ -194,6 +205,7 @@ export async function createRouteApiTokens() {
         data: {
           id: token.id,
           userId: token.userId,
+          description: token.description,
           permissions: permissions ?? token.permissions,
           status: status ?? token.status,
           created: token.created,

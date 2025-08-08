@@ -1,4 +1,11 @@
-import { jsonb, pgTable, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import {
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  varchar,
+} from "drizzle-orm/pg-core";
 import { JobberPermissions } from "~/permissions.js";
 import { usersTable } from "./users.js";
 import { createToken } from "~/util.js";
@@ -12,6 +19,8 @@ export const apiTokensTable = pgTable("apiTokens", {
   userId: uuid()
     .notNull()
     .references(() => usersTable.id),
+
+  description: text(),
 
   permissions: jsonb().notNull().$type<JobberPermissions>(),
 

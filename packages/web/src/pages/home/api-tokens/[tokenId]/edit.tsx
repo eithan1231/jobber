@@ -17,8 +17,15 @@ const Component = () => {
     return "Token ID is required";
   }
 
-  const [payloadStatus, setPayloadStatus] = useState(STATUS_OPTIONS[0].value);
-  const [payloadPermissions, setPayloadPermissions] = useState("");
+  const [payloadStatus, setPayloadStatus] = useState<
+    "enabled" | "disabled" | null
+  >(null);
+  const [payloadPermissions, setPayloadPermissions] = useState<string | null>(
+    null
+  );
+  const [payloadDescription, setPayloadDescription] = useState<string | null>(
+    null
+  );
 
   const { apiToken } = useApiToken(tokenId);
 
@@ -32,6 +39,7 @@ const Component = () => {
     if (apiToken) {
       setPayloadStatus(apiToken.status);
       setPayloadPermissions(JSON.stringify(apiToken.permissions, null, 2));
+      setPayloadDescription(apiToken.description ?? "");
     }
   }, [apiToken]);
 
@@ -44,6 +52,7 @@ const Component = () => {
     const payload: {
       permissions?: JobberPermissions;
       status?: "enabled" | "disabled";
+      description?: string;
     } = {};
 
     if (payloadStatus) {
@@ -63,6 +72,10 @@ const Component = () => {
       }
     }
 
+    if (payloadDescription) {
+      payload.description = payloadDescription;
+    }
+
     const result = await updateApiToken(tokenId, payload);
 
     if (!result.success) {
@@ -80,7 +93,12 @@ const Component = () => {
     });
   };
 
-  if (!apiToken) {
+  if (
+    !apiToken ||
+    payloadDescription === null ||
+    payloadPermissions === null ||
+    payloadStatus === null
+  ) {
     return "Loading token...";
   }
 
@@ -125,10 +143,12 @@ const Component = () => {
           <form className="mt-12">
             <div className="mt-4">
               <label className="block mb-2 text-sm font-medium text-gray-700">
-                Status{" "}
+                Status
               </label>
               <select
-                onChange={(e) => setPayloadStatus(e.target.value)}
+                onChange={(e) =>
+                  setPayloadStatus(e.target.value as "enabled" | "disabled")
+                }
                 className="w-full p-2 border rounded bg-white text-gray-800"
               >
                 {STATUS_OPTIONS.map((option) => (
@@ -145,7 +165,19 @@ const Component = () => {
 
             <div className="mt-4">
               <label className="block mb-2 text-sm font-medium text-gray-700">
-                Permissions{" "}
+                Description
+              </label>
+              <input
+                type="text"
+                defaultValue={payloadDescription}
+                onChange={(e) => setPayloadDescription(e.target.value)}
+                className="w-full p-2 border rounded bg-white text-gray-800"
+              />
+            </div>
+
+            <div className="mt-4">
+              <label className="block mb-2 text-sm font-medium text-gray-700">
+                Permissions
               </label>
               <textarea
                 rows={20}
