@@ -7,7 +7,7 @@ import {
   environmentsTable,
 } from "~/db/schema/environments.js";
 import { getUnixTimestamp } from "~/util.js";
-import { jobEnvironmentNameSchema, jobNameSchema } from "./schemas-common.js";
+import { jobEnvironmentNameSchema } from "./schemas-common.js";
 import { InternalHonoApp } from "~/index.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { canPerformAction } from "~/permissions.js";

@@ -18,29 +18,30 @@ export async function createRouteJob() {
     const jobId = c.req.param("jobId");
     const auth = c.get("auth")!;
 
-    const job = (
-      await getDrizzle()
-        .select({
-          id: jobsTable.id,
-          jobName: jobsTable.jobName,
-          description: jobsTable.description,
-          jobVersionId: jobsTable.jobVersionId,
-          links: jobsTable.links,
-          status: jobsTable.status,
+    const job = await getDrizzle()
+      .select({
+        id: jobsTable.id,
+        jobName: jobsTable.jobName,
+        description: jobsTable.description,
+        jobVersionId: jobsTable.jobVersionId,
+        links: jobsTable.links,
+        status: jobsTable.status,
 
-          // DEPRECATED: Use jobVersionId instead
-          version: jobVersionsTable.version,
-        })
-        .from(jobsTable)
-        .leftJoin(
-          jobVersionsTable,
-          and(
-            eq(jobVersionsTable.jobId, jobsTable.id),
-            eq(jobVersionsTable.id, jobsTable.jobVersionId)
-          )
+        // DEPRECATED: Use jobVersionId instead
+        version: jobVersionsTable.version,
+      })
+      .from(jobsTable)
+      .leftJoin(
+        jobVersionsTable,
+        and(
+          eq(jobVersionsTable.jobId, jobsTable.id),
+          eq(jobVersionsTable.id, jobsTable.jobVersionId)
         )
-        .where(eq(jobsTable.id, jobId))
-    ).at(0);
+      )
+      .where(eq(jobsTable.id, jobId))
+      .limit(1)
+      .then((res) => res.at(0));
+    //
 
     if (!job) {
       return next();

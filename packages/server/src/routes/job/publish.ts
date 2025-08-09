@@ -179,25 +179,24 @@ export async function createRouteJobPublish() {
         });
       }
 
-      const action = (
-        await tx
-          .insert(actionsTable)
-          .values({
-            jobId: job.id,
-            jobVersionId: version.id,
-            runnerImage: classification.image.name,
-            runnerAsynchronous: packageJson.action.runnerAsynchronous,
-            runnerMaxAge: packageJson.action.runnerMaxAge,
-            runnerMaxAgeHard: packageJson.action.runnerMaxAgeHard,
-            runnerMaxCount: packageJson.action.runnerMaxCount,
-            runnerMinCount: packageJson.action.runnerMinCount,
-            runnerDockerArguments: packageJson.action.runnerDockerArguments,
-            runnerMode: packageJson.action.runnerMode,
-            runnerTimeout: packageJson.action.runnerTimeout,
-            runnerMaxIdleAge: packageJson.action.runnerMaxIdleAge,
-          })
-          .returning()
-      ).at(0);
+      const action = await tx
+        .insert(actionsTable)
+        .values({
+          jobId: job.id,
+          jobVersionId: version.id,
+          runnerImage: classification.image.name,
+          runnerAsynchronous: packageJson.action.runnerAsynchronous,
+          runnerMaxAge: packageJson.action.runnerMaxAge,
+          runnerMaxAgeHard: packageJson.action.runnerMaxAgeHard,
+          runnerMaxCount: packageJson.action.runnerMaxCount,
+          runnerMinCount: packageJson.action.runnerMinCount,
+          runnerDockerArguments: packageJson.action.runnerDockerArguments,
+          runnerMode: packageJson.action.runnerMode,
+          runnerTimeout: packageJson.action.runnerTimeout,
+          runnerMaxIdleAge: packageJson.action.runnerMaxIdleAge,
+        })
+        .returning()
+        .then((res) => res.at(0));
 
       await Promise.all(
         packageJson.triggers.map((trigger) => {

@@ -20,15 +20,6 @@ export const getJobRunners = async (
   return await result.json();
 };
 
-export const getJobRunnersByActionId = async (
-  jobId: string,
-  actionId: string
-): Promise<JobberGenericResponse<JobberRunner[]>> => {
-  const result = await fetch(`/api/job/${jobId}/action/${actionId}/runners`);
-
-  return await result.json();
-};
-
 export const deleteJobRunner = async (
   jobId: string,
   runnerId: string,

@@ -9,7 +9,6 @@
 Example resource pattern: `job/*/actions`
 
 - `job/:jobId/actions/:actionId` READ
-- `job/:jobId/actions/:actionId/runners` READ
 
 #### Job -> Environment
 
@@ -52,9 +51,7 @@ Example resource pattern: `job/*/actions`
 - `api-tokens` READ/WRITE
 - `api-tokens/:tokenId` READ/WRITE
 
-
 ### Example Permissions:
-
 
 #### API Publisher
 

@@ -209,12 +209,26 @@ export class RunnerManager extends LoopBase {
         and(isNotNull(jobsTable.jobVersionId), eq(jobsTable.status, "enabled"))
       );
 
-    await this.loopRunnerSpawner(currentVersions);
-    await this.loopCheckEnvironmentChanges(currentVersions);
-    await this.loopCheckVersion(currentVersions);
-    await this.loopCheckMaxAge(currentVersions);
-    await this.loopCheckHardMaxAge(currentVersions);
-    await this.loopCheckMaxIdleAge(currentVersions);
+    const currentVersionsGrouped = currentVersions.reduce((result, item) => {
+      if (!result[item.job.id]) {
+        result[item.job.id] = [];
+      }
+
+      result[item.job.id].push(item);
+
+      return result;
+    }, {} as Record<string, typeof currentVersions>);
+
+    await Promise.all(
+      Object.values(currentVersionsGrouped).map(async (items) => {
+        await this.loopRunnerSpawner(items);
+        await this.loopCheckEnvironmentChanges(items);
+        await this.loopCheckVersion(items);
+        await this.loopCheckMaxAge(items);
+        await this.loopCheckHardMaxAge(items);
+        await this.loopCheckMaxIdleAge(items);
+      })
+    );
 
     if (getUnixTimestamp() - this.danglingLastRun > 60) {
       await this.loopCheckDanglingContainers(currentVersions);
@@ -264,7 +278,7 @@ export class RunnerManager extends LoopBase {
       }
 
       const runnerId = await this.createRunner(version, action, job, {
-        dockerNamePrefix: "unknown",
+        dockerNamePrefix: job.jobName,
       });
 
       await this.server.awaitConnectionStatus(runnerId, "ready");
@@ -651,14 +665,13 @@ export class RunnerManager extends LoopBase {
       );
     }
 
-    const environment =
-      (
-        await getDrizzle()
-          .select()
-          .from(environmentsTable)
-          .where(eq(environmentsTable.jobId, action.jobId))
-          .limit(1)
-      ).at(0) ?? null;
+    const environment = await getDrizzle()
+      .select()
+      .from(environmentsTable)
+      .where(eq(environmentsTable.jobId, action.jobId))
+      .limit(1)
+      .then((res) => res.at(0) ?? null);
+    //
 
     const args: string[] = [];
 

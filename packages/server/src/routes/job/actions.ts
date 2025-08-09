@@ -115,41 +115,5 @@ export async function createRouteJobActions(runnerManager: RunnerManager) {
     });
   });
 
-  app.get(
-    "/job/:jobId/actions/:actionId/runners",
-    createMiddlewareAuth(),
-    async (c, next) => {
-      const jobId = c.req.param("jobId");
-      const actionId = c.req.param("actionId");
-      const auth = c.get("auth")!;
-
-      const job = await getDrizzle()
-        .select()
-        .from(jobsTable)
-        .where(eq(jobsTable.id, jobId))
-        .limit(1)
-        .then((res) => res.at(0));
-
-      if (!job) {
-        return next();
-      }
-
-      const runners = await runnerManager.findRunnersByActionId(actionId);
-
-      const runnersFiltered = runners.filter((runner) => {
-        return canPerformAction(
-          auth.permissions,
-          `job/${job.id}/actions/${actionId}/runners/${runner.id}`,
-          "read"
-        );
-      });
-
-      return c.json({
-        success: true,
-        data: runnersFiltered,
-      });
-    }
-  );
-
   return app;
 }
