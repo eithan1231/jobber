@@ -209,26 +209,15 @@ export class RunnerManager extends LoopBase {
         and(isNotNull(jobsTable.jobVersionId), eq(jobsTable.status, "enabled"))
       );
 
-    const currentVersionsGrouped = currentVersions.reduce((result, item) => {
-      if (!result[item.job.id]) {
-        result[item.job.id] = [];
-      }
-
-      result[item.job.id].push(item);
-
-      return result;
-    }, {} as Record<string, typeof currentVersions>);
-
     await Promise.all(
-      Object.values(currentVersionsGrouped).map(async (items) => {
-        await this.loopRunnerSpawner(items);
-        await this.loopCheckEnvironmentChanges(items);
-        await this.loopCheckVersion(items);
-        await this.loopCheckMaxAge(items);
-        await this.loopCheckHardMaxAge(items);
-        await this.loopCheckMaxIdleAge(items);
-      })
+      currentVersions.map(async (item) => this.loopRunnerSpawner([item]))
     );
+
+    await this.loopCheckEnvironmentChanges(currentVersions);
+    await this.loopCheckVersion(currentVersions);
+    await this.loopCheckMaxAge(currentVersions);
+    await this.loopCheckHardMaxAge(currentVersions);
+    await this.loopCheckMaxIdleAge(currentVersions);
 
     if (getUnixTimestamp() - this.danglingLastRun > 60) {
       await this.loopCheckDanglingContainers(currentVersions);
