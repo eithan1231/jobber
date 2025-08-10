@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { JobPageComponent } from "../../../../components/job-page-component";
 import { MetricMultipleComponent } from "../../../../components/metric-multiple-component";
 import { useJob } from "../../../../hooks/use-job";
+import { PermissionGuardComponent } from "../../../../components/permission-guard";
 
 const METRICS_PERIODS = [
   { value: "60", label: "1 minute" },
@@ -14,11 +15,7 @@ const METRICS_PERIODS = [
 ];
 
 export const Component = () => {
-  const { jobId } = useParams();
-
-  if (!jobId) {
-    return "Job ID is required";
-  }
+  const jobId = useParams().jobId ?? "";
 
   const { job, jobError, reloadJob } = useJob(jobId);
 
@@ -51,106 +48,108 @@ export const Component = () => {
   }
 
   return (
-    <JobPageComponent job={job}>
-      <div className="container mx-auto my-8 p-4">
-        <select
-          onChange={(e) => {
-            setSelectedPeriod(e.target.value);
-          }}
-        >
-          {METRICS_PERIODS.map((period) => (
-            <option
-              key={period.value}
-              value={period.value}
-              selected={period.value === selectedPeriod}
-            >
-              {period.label}
-            </option>
-          ))}
-        </select>
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold mb-4">Requests</h2>
-          <p className="text-sm text-gray-500 mb-2">
-            This page displays various metrics related to the job, including
-            request duration, active runners, and more.
-          </p>
-          <MetricMultipleComponent
-            jobId={jobId}
-            metricType="runner_requests_total"
-            version="latest"
-            autoUpdate={true}
-            duration={selectedPeriod}
-            showLegend={true}
-          />
+    <PermissionGuardComponent resource={`jobs/${jobId}`} action="read">
+      <JobPageComponent job={job}>
+        <div className="container mx-auto my-8 p-4">
+          <select
+            onChange={(e) => {
+              setSelectedPeriod(e.target.value);
+            }}
+          >
+            {METRICS_PERIODS.map((period) => (
+              <option
+                key={period.value}
+                value={period.value}
+                selected={period.value === selectedPeriod}
+              >
+                {period.label}
+              </option>
+            ))}
+          </select>
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold mb-4">Requests</h2>
+            <p className="text-sm text-gray-500 mb-2">
+              This page displays various metrics related to the job, including
+              request duration, active runners, and more.
+            </p>
+            <MetricMultipleComponent
+              jobId={jobId}
+              metricType="runner_requests_total"
+              version="latest"
+              autoUpdate={true}
+              duration={selectedPeriod}
+              showLegend={true}
+            />
+          </div>
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-2">Request Duration</h3>
+            <p className="text-sm text-gray-500 mb-2">
+              This metric shows the average duration of requests made by runners
+              for this job.
+            </p>
+            <MetricMultipleComponent
+              jobId={jobId}
+              metricType="runner_request_duration"
+              axisYSuffix="ms"
+              version="latest"
+              autoUpdate={true}
+              duration={selectedPeriod}
+            />
+          </div>
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-2">Runners Active</h3>
+            <p className="text-sm text-gray-500 mb-2">
+              This metric shows the number of active runners for this job. A
+              sudden spike may indicate a large number of jobs being processed
+              or a sudden increase in load.
+            </p>
+            <MetricMultipleComponent
+              jobId={jobId}
+              metricType="active_runners"
+              version="latest"
+              autoUpdate={true}
+              duration={selectedPeriod}
+            />
+          </div>
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-2">
+              Runner Startup Duration
+            </h3>
+            <p className="text-sm text-gray-500 mb-2">
+              This metric shows the duration it takes for a runner to start up
+              after being created. Spikes may indicate abnormal load, large job
+              archives, and more.
+            </p>
+            <MetricMultipleComponent
+              jobId={jobId}
+              metricType="runner_startup_duration"
+              axisYSuffix="s"
+              version="latest"
+              autoUpdate={true}
+              duration={selectedPeriod}
+            />
+          </div>
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold mb-2">
+              Runner Shutdown Duration
+            </h3>
+            <p className="text-sm text-gray-500 mb-2">
+              This metric shows the duration it takes for a runner to shut down
+              after receiving a shutdown signal. Spikes in this metric may
+              indicate a runner is under load.
+            </p>
+            <MetricMultipleComponent
+              jobId={jobId}
+              metricType="runner_shutdown_duration"
+              axisYSuffix="s"
+              version="latest"
+              autoUpdate={true}
+              duration={selectedPeriod}
+            />
+          </div>
         </div>
-        <div className="mb-6">
-          <h3 className="text-xl font-semibold mb-2">Request Duration</h3>
-          <p className="text-sm text-gray-500 mb-2">
-            This metric shows the average duration of requests made by runners
-            for this job.
-          </p>
-          <MetricMultipleComponent
-            jobId={jobId}
-            metricType="runner_request_duration"
-            axisYSuffix="ms"
-            version="latest"
-            autoUpdate={true}
-            duration={selectedPeriod}
-          />
-        </div>
-        <div className="mb-6">
-          <h3 className="text-xl font-semibold mb-2">Runners Active</h3>
-          <p className="text-sm text-gray-500 mb-2">
-            This metric shows the number of active runners for this job. A
-            sudden spike may indicate a large number of jobs being processed or
-            a sudden increase in load.
-          </p>
-          <MetricMultipleComponent
-            jobId={jobId}
-            metricType="active_runners"
-            version="latest"
-            autoUpdate={true}
-            duration={selectedPeriod}
-          />
-        </div>
-        <div className="mb-6">
-          <h3 className="text-xl font-semibold mb-2">
-            Runner Startup Duration
-          </h3>
-          <p className="text-sm text-gray-500 mb-2">
-            This metric shows the duration it takes for a runner to start up
-            after being created. Spikes may indicate abnormal load, large job
-            archives, and more.
-          </p>
-          <MetricMultipleComponent
-            jobId={jobId}
-            metricType="runner_startup_duration"
-            axisYSuffix="s"
-            version="latest"
-            autoUpdate={true}
-            duration={selectedPeriod}
-          />
-        </div>
-        <div className="mb-6">
-          <h3 className="text-xl font-semibold mb-2">
-            Runner Shutdown Duration
-          </h3>
-          <p className="text-sm text-gray-500 mb-2">
-            This metric shows the duration it takes for a runner to shut down
-            after receiving a shutdown signal. Spikes in this metric may
-            indicate a runner is under load.
-          </p>
-          <MetricMultipleComponent
-            jobId={jobId}
-            metricType="runner_shutdown_duration"
-            axisYSuffix="s"
-            version="latest"
-            autoUpdate={true}
-            duration={selectedPeriod}
-          />
-        </div>
-      </div>
-    </JobPageComponent>
+      </JobPageComponent>
+    </PermissionGuardComponent>
   );
 };
 

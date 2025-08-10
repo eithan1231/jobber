@@ -135,38 +135,25 @@ export async function createRouteJobMetrics() {
       assert(typeof metric === "string", "Metric must be a string");
 
       // TODO: Update to fetch from database, to compare jobId against the database record, not user input.
-      if (
-        !canPerformAction(
-          auth.permissions,
-          `job/${jobId.toLowerCase()}`,
-          "read"
-        )
-      ) {
-        return c.json(
-          { success: false, message: "Insufficient Permissions" },
-          403
-        );
-      }
 
-      const job = (
-        await getDrizzle()
-          .select({
-            id: jobsTable.id,
-            jobName: jobsTable.jobName,
-            jobVersionId: jobsTable.jobVersionId,
-            version: jobVersionsTable.version,
-          })
-          .from(jobsTable)
-          .leftJoin(
-            jobVersionsTable,
-            and(
-              eq(jobsTable.id, jobVersionsTable.jobId),
-              eq(jobsTable.jobVersionId, jobVersionsTable.id)
-            )
+      const job = await getDrizzle()
+        .select({
+          id: jobsTable.id,
+          jobName: jobsTable.jobName,
+          jobVersionId: jobsTable.jobVersionId,
+          version: jobVersionsTable.version,
+        })
+        .from(jobsTable)
+        .leftJoin(
+          jobVersionsTable,
+          and(
+            eq(jobsTable.id, jobVersionsTable.jobId),
+            eq(jobsTable.jobVersionId, jobVersionsTable.id)
           )
-          .where(eq(jobsTable.id, jobId))
-          .limit(1)
-      )?.at(0);
+        )
+        .where(eq(jobsTable.id, jobId))
+        .limit(1)
+        .then((rows) => rows[0] ?? null);
 
       if (!job) {
         return c.json(
@@ -175,6 +162,13 @@ export async function createRouteJobMetrics() {
             message: "Job not found",
           },
           404
+        );
+      }
+
+      if (!canPerformAction(auth.permissions, `job/${job.id}`, "read")) {
+        return c.json(
+          { success: false, message: "Insufficient Permissions" },
+          403
         );
       }
 

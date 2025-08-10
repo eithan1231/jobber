@@ -1,9 +1,10 @@
-import { useCallback, useState } from "react";
+import { useCallback, useContext, useState } from "react";
 import { Link, RouteObject, useNavigate } from "react-router-dom";
-import { createAuthLogin } from "../../api/auth";
+import { AuthContext } from "../../contexts/auth-context";
 
 const Component = () => {
   const navigate = useNavigate();
+  const { login } = useContext(AuthContext);
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -13,9 +14,9 @@ const Component = () => {
     async (e: React.FormEvent) => {
       e.preventDefault();
 
-      const result = await createAuthLogin(username, password);
+      const result = await login(username, password);
       if (!result.success) {
-        setMessage(result.message || "Registration failed");
+        setMessage(result.message || "Login failed.");
         return;
       }
 

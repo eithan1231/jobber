@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { updateApiToken } from "../../../../api/api-tokens";
 import { JobberPermissions } from "../../../../api/common";
 import { HomePageComponent } from "../../../../components/home-page-component";
+import { PermissionGuardComponent } from "../../../../components/permission-guard";
 import { TimeSinceComponent } from "../../../../components/time-since-component";
 import { useApiToken } from "../../../../hooks/use-api-token";
 
@@ -12,10 +13,7 @@ const STATUS_OPTIONS = [
 ];
 
 const Component = () => {
-  const { tokenId } = useParams();
-  if (!tokenId) {
-    return "Token ID is required";
-  }
+  const tokenId = useParams().tokenId || "";
 
   const [payloadStatus, setPayloadStatus] = useState<
     "enabled" | "disabled" | null
@@ -103,120 +101,124 @@ const Component = () => {
   }
 
   return (
-    <HomePageComponent title="Update API Token">
-      <div className="max-w-[800px]">
-        <div className="border rounded shadow-md p-4 pb-5 m-2 bg-white">
-          <h2 className="text-xl font-semibold mb-2">Update API Token</h2>
+    <PermissionGuardComponent resource={`api-tokens/${tokenId}`} action="write">
+      <HomePageComponent title="Update API Token">
+        <div className="max-w-[800px]">
+          <div className="border rounded shadow-md p-4 pb-5 m-2 bg-white">
+            <h2 className="text-xl font-semibold mb-2">Update API Token</h2>
 
-          <table className="text-sm mt-4 w-full border-b">
-            <tbody className="divide-y divide-gray-200">
-              <tr>
-                <td className="text-gray-700 py-2 font-medium">ID</td>
-                <td></td>
-                <td className="text-gray-700 py-2 text-right">{apiToken.id}</td>
-              </tr>
-              <tr>
-                <td className="text-gray-700 py-2 font-medium">Expires</td>
-                <td></td>
-                <td className="text-gray-700 py-2 text-right">
-                  <TimeSinceComponent
-                    timestamp={Math.floor(
-                      new Date(apiToken.expires).getTime() / 1000
-                    )}
-                  />
-                </td>
-              </tr>
-              <tr>
-                <td className="text-gray-700 py-2 font-medium">Created</td>
-                <td></td>
-                <td className="text-gray-700 py-2 text-right">
-                  <TimeSinceComponent
-                    timestamp={Math.floor(
-                      new Date(apiToken.created).getTime() / 1000
-                    )}
-                  />
-                </td>
-              </tr>
-            </tbody>
-          </table>
+            <table className="text-sm mt-4 w-full border-b">
+              <tbody className="divide-y divide-gray-200">
+                <tr>
+                  <td className="text-gray-700 py-2 font-medium">ID</td>
+                  <td></td>
+                  <td className="text-gray-700 py-2 text-right">
+                    {apiToken.id}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="text-gray-700 py-2 font-medium">Expires</td>
+                  <td></td>
+                  <td className="text-gray-700 py-2 text-right">
+                    <TimeSinceComponent
+                      timestamp={Math.floor(
+                        new Date(apiToken.expires).getTime() / 1000
+                      )}
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td className="text-gray-700 py-2 font-medium">Created</td>
+                  <td></td>
+                  <td className="text-gray-700 py-2 text-right">
+                    <TimeSinceComponent
+                      timestamp={Math.floor(
+                        new Date(apiToken.created).getTime() / 1000
+                      )}
+                    />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
 
-          <form className="mt-12">
-            <div className="mt-4">
-              <label className="block mb-2 text-sm font-medium text-gray-700">
-                Status
-              </label>
-              <select
-                onChange={(e) =>
-                  setPayloadStatus(e.target.value as "enabled" | "disabled")
-                }
-                className="w-full p-2 border rounded bg-white text-gray-800"
-              >
-                {STATUS_OPTIONS.map((option) => (
-                  <option
-                    key={option.value}
-                    value={option.value}
-                    selected={option.value === payloadStatus}
-                  >
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <form className="mt-12">
+              <div className="mt-4">
+                <label className="block mb-2 text-sm font-medium text-gray-700">
+                  Status
+                </label>
+                <select
+                  onChange={(e) =>
+                    setPayloadStatus(e.target.value as "enabled" | "disabled")
+                  }
+                  className="w-full p-2 border rounded bg-white text-gray-800"
+                >
+                  {STATUS_OPTIONS.map((option) => (
+                    <option
+                      key={option.value}
+                      value={option.value}
+                      selected={option.value === payloadStatus}
+                    >
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="mt-4">
-              <label className="block mb-2 text-sm font-medium text-gray-700">
-                Description
-              </label>
-              <input
-                type="text"
-                defaultValue={payloadDescription}
-                onChange={(e) => setPayloadDescription(e.target.value)}
-                className="w-full p-2 border rounded bg-white text-gray-800"
-              />
-            </div>
+              <div className="mt-4">
+                <label className="block mb-2 text-sm font-medium text-gray-700">
+                  Description
+                </label>
+                <input
+                  type="text"
+                  defaultValue={payloadDescription}
+                  onChange={(e) => setPayloadDescription(e.target.value)}
+                  className="w-full p-2 border rounded bg-white text-gray-800"
+                />
+              </div>
 
-            <div className="mt-4">
-              <label className="mb-2 text-sm font-medium text-gray-700">
-                Permissions{" "}
-                <span className="text-xs text-gray-500 ml-1">
-                  (
-                  <Link
-                    to="https://github.com/eithan1231/jobber/blob/main/docs/permissions.md"
-                    className="text-sm text-blue-500 hover:underline mb-2"
-                  >
-                    docs
-                  </Link>
-                  )
-                </span>
-              </label>
-              <textarea
-                rows={20}
-                defaultValue={payloadPermissions}
-                onChange={(e) => setPayloadPermissions(e.target.value)}
-                className="w-full p-2 border rounded bg-white text-gray-800"
-              />
-            </div>
+              <div className="mt-4">
+                <label className="mb-2 text-sm font-medium text-gray-700">
+                  Permissions{" "}
+                  <span className="text-xs text-gray-500 ml-1">
+                    (
+                    <Link
+                      to="https://github.com/eithan1231/jobber/blob/main/docs/permissions.md"
+                      className="text-sm text-blue-500 hover:underline mb-2"
+                    >
+                      docs
+                    </Link>
+                    )
+                  </span>
+                </label>
+                <textarea
+                  rows={20}
+                  defaultValue={payloadPermissions}
+                  onChange={(e) => setPayloadPermissions(e.target.value)}
+                  className="w-full p-2 border rounded bg-white text-gray-800"
+                />
+              </div>
 
-            <div className="mt-4">
-              {result && result.success && (
-                <div className="text-gray-600 mb-2">{result.message}</div>
-              )}
-              {result && !result.success && (
-                <div className="text-red-600 mb-2">{result.message}</div>
-              )}
+              <div className="mt-4">
+                {result && result.success && (
+                  <div className="text-gray-600 mb-2">{result.message}</div>
+                )}
+                {result && !result.success && (
+                  <div className="text-red-600 mb-2">{result.message}</div>
+                )}
 
-              <button
-                type="submit"
-                className="w-full bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-                onClick={(e) => handleEditToken(e)}
-              >
-                Update Token
-              </button>
-            </div>
-          </form>
+                <button
+                  type="submit"
+                  className="w-full bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                  onClick={(e) => handleEditToken(e)}
+                >
+                  Update Token
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
-    </HomePageComponent>
+      </HomePageComponent>
+    </PermissionGuardComponent>
   );
 };
 

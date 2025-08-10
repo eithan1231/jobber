@@ -6,6 +6,7 @@ import pageHome from "./pages/home/index";
 import pageAuthRegister from "./pages/auth/register";
 import pageAuthLogin from "./pages/auth/login";
 import pageSpecial404 from "./pages/special/404";
+import { AuthProvider } from "./contexts/auth-context";
 
 Chart.register(CategoryScale);
 
@@ -17,7 +18,11 @@ const router = createBrowserRouter([
 ]);
 
 function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
+  );
 }
 
 export default App;

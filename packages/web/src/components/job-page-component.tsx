@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { deleteJob, JobberJob, updateJob } from "../api/jobs";
 import { ConfirmButtonComponent } from "./confirm-button-component";
+import { PermissionGuardComponent } from "./permission-guard";
 
 export const JobPageComponent = (props: {
   children: React.ReactElement | React.ReactElement[];
@@ -39,88 +40,133 @@ export const JobPageComponent = (props: {
 
         {props.job.id && (
           <div className="mt-auto flex gap-4 pt-4 text-sm rounded-lg">
-            <Link
-              to={`/home/job/${props.job.id}/`}
-              className={`text-blue-300 hover:underline ${
-                location === `/home/job/${props.job.id}/` ? "font-bold" : ""
-              }`}
+            <PermissionGuardComponent
+              resource={`jobs/${props.job.id}`}
+              action="read"
             >
-              Overview
-            </Link>
-            <Link
-              to={`/home/job/${props.job.id}/versions`}
-              className={`text-blue-300 hover:underline ${
-                location.startsWith(`/home/job/${props.job.id}/versions`)
-                  ? "font-bold"
-                  : ""
-              }`}
-            >
-              View Versions
-            </Link>
-            <Link
-              to={`/home/job/${props.job.id}/metrics`}
-              className={`text-blue-300 hover:underline ${
-                location.startsWith(`/home/job/${props.job.id}/metrics`)
-                  ? "font-bold"
-                  : ""
-              }`}
-            >
-              View Metrics
-            </Link>
-            <Link
-              to={`/home/job/${props.job.id}/logs`}
-              className={`text-blue-300 hover:underline ${
-                location.startsWith(`/home/job/${props.job.id}/logs`)
-                  ? "font-bold"
-                  : ""
-              }`}
-            >
-              View Logs
-            </Link>
-            <Link
-              to={`/home/job/${props.job.id}/environment`}
-              className={`text-blue-300 hover:underline ${
-                location.startsWith(`/home/job/${props.job.id}/environment`)
-                  ? "font-bold"
-                  : ""
-              }`}
-            >
-              View Environment
-            </Link>
-            <Link
-              to={`/home/job/${props.job.id}/store`}
-              className={`text-blue-300 hover:underline ${
-                location.startsWith(`/home/job/${props.job.id}/store`)
-                  ? "font-bold"
-                  : ""
-              }`}
-            >
-              View Store
-            </Link>
+              <Link
+                to={`/home/job/${props.job.id}/`}
+                className={`text-blue-300 hover:underline ${
+                  location === `/home/job/${props.job.id}/` ? "font-bold" : ""
+                }`}
+              >
+                Overview
+              </Link>
+            </PermissionGuardComponent>
 
-            {props.job.status === "enabled" && (
-              <ConfirmButtonComponent
-                buttonClassName="text-red-500 hover:underline ml-auto"
-                buttonText="Disable"
-                confirmTitle="Confirm disabling job"
-                onConfirm={() => handleDisableJob()}
-              />
-            )}
-            {props.job.status === "disabled" && (
-              <ConfirmButtonComponent
-                buttonClassName="text-green-500 hover:underline ml-auto"
-                buttonText="Enable"
-                confirmTitle="Confirm enabling job"
-                onConfirm={() => handleEnableJob()}
-              />
-            )}
+            <PermissionGuardComponent
+              resource={`jobs/${props.job.id}/versions`}
+              action="read"
+            >
+              <Link
+                to={`/home/job/${props.job.id}/versions`}
+                className={`text-blue-300 hover:underline ${
+                  location.startsWith(`/home/job/${props.job.id}/versions`)
+                    ? "font-bold"
+                    : ""
+                }`}
+              >
+                View Versions
+              </Link>
+            </PermissionGuardComponent>
 
-            <ConfirmButtonComponent
-              buttonClassName="text-red-500 hover:underline"
-              buttonText="Delete"
-              confirmTitle="Confirm Deletion"
-              onConfirm={() => handleDeleteJob()}
-            />
+            <PermissionGuardComponent
+              resource={`jobs/${props.job.id}/metrics`}
+              action="read"
+            >
+              <Link
+                to={`/home/job/${props.job.id}/metrics`}
+                className={`text-blue-300 hover:underline ${
+                  location.startsWith(`/home/job/${props.job.id}/metrics`)
+                    ? "font-bold"
+                    : ""
+                }`}
+              >
+                View Metrics
+              </Link>
+            </PermissionGuardComponent>
+
+            <PermissionGuardComponent
+              resource={`jobs/${props.job.id}/logs`}
+              action="read"
+            >
+              <Link
+                to={`/home/job/${props.job.id}/logs`}
+                className={`text-blue-300 hover:underline ${
+                  location.startsWith(`/home/job/${props.job.id}/logs`)
+                    ? "font-bold"
+                    : ""
+                }`}
+              >
+                View Logs
+              </Link>
+            </PermissionGuardComponent>
+
+            <PermissionGuardComponent
+              resource={`jobs/${props.job.id}/environment`}
+              action="read"
+            >
+              <Link
+                to={`/home/job/${props.job.id}/environment`}
+                className={`text-blue-300 hover:underline ${
+                  location.startsWith(`/home/job/${props.job.id}/environment`)
+                    ? "font-bold"
+                    : ""
+                }`}
+              >
+                View Environment
+              </Link>
+            </PermissionGuardComponent>
+
+            <PermissionGuardComponent
+              resource={`jobs/${props.job.id}/store`}
+              action="read"
+            >
+              <Link
+                to={`/home/job/${props.job.id}/store`}
+                className={`text-blue-300 hover:underline ${
+                  location.startsWith(`/home/job/${props.job.id}/store`)
+                    ? "font-bold"
+                    : ""
+                }`}
+              >
+                View Store
+              </Link>
+            </PermissionGuardComponent>
+
+            <PermissionGuardComponent
+              resource={`jobs/${props.job.id}`}
+              action="write"
+            >
+              {props.job.status === "enabled" && (
+                <ConfirmButtonComponent
+                  buttonClassName="text-red-500 hover:underline ml-auto"
+                  buttonText="Disable"
+                  confirmTitle="Confirm disabling job"
+                  onConfirm={() => handleDisableJob()}
+                />
+              )}
+              {props.job.status === "disabled" && (
+                <ConfirmButtonComponent
+                  buttonClassName="text-green-500 hover:underline ml-auto"
+                  buttonText="Enable"
+                  confirmTitle="Confirm enabling job"
+                  onConfirm={() => handleEnableJob()}
+                />
+              )}
+            </PermissionGuardComponent>
+
+            <PermissionGuardComponent
+              resource={`jobs/${props.job.id}`}
+              action="delete"
+            >
+              <ConfirmButtonComponent
+                buttonClassName="text-red-500 hover:underline"
+                buttonText="Delete"
+                confirmTitle="Confirm Deletion"
+                onConfirm={() => handleDeleteJob()}
+              />
+            </PermissionGuardComponent>
           </div>
         )}
       </div>

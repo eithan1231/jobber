@@ -45,12 +45,8 @@ export const Component = () => {
     return "loading...";
   }
 
-  if (!job) {
-    return "Failed to load job";
-  }
-
-  if (jobError) {
-    return `Failed to load job: ${jobError}`;
+  if (!job || jobError) {
+    return "Failed to load";
   }
 
   const handleSetActiveVersion = async (versionId: string | null) => {

@@ -6,6 +6,9 @@ export type JobberAuth = {
     id: string;
     username: string;
   };
+  session?: {
+    expires: string;
+  };
   token?: {
     expires: string;
   };

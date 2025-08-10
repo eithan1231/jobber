@@ -1,8 +1,9 @@
 import { MouseEvent, useState } from "react";
+import { Link } from "react-router-dom";
 import { createApiToken } from "../../../api/api-tokens";
 import { JobberPermissions } from "../../../api/common";
 import { HomePageComponent } from "../../../components/home-page-component";
-import { Link } from "react-router-dom";
+import { PermissionGuardComponent } from "../../../components/permission-guard";
 
 const TTL_OPTIONS = [
   { value: 300, label: "5 minutes" },
@@ -86,85 +87,87 @@ const Component = () => {
   };
 
   return (
-    <HomePageComponent title="New API Token">
-      <div className="max-w-[800px]">
-        <div className="border rounded shadow-md p-4 pb-5 m-2 bg-white">
-          <h2 className="text-xl font-semibold mb-2">New API Token</h2>
+    <PermissionGuardComponent resource="api-tokens" action="write">
+      <HomePageComponent title="New API Token">
+        <div className="max-w-[800px]">
+          <div className="border rounded shadow-md p-4 pb-5 m-2 bg-white">
+            <h2 className="text-xl font-semibold mb-2">New API Token</h2>
 
-          <form>
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700">
-                Period{" "}
-              </label>
-              <select
-                defaultValue={payloadTtl}
-                onChange={(e) => setPayloadTtl(Number(e.target.value))}
-                className="w-full p-2 border rounded bg-white text-gray-800"
-              >
-                {TTL_OPTIONS.map((option) => (
-                  <option
-                    key={option.value}
-                    value={option.value}
-                    selected={option.value === payloadTtl}
-                  >
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="mt-4">
-              <label className="block mb-2 text-sm font-medium text-gray-700">
-                Description{" "}
-              </label>
-              <input
-                required
-                type="text"
-                onChange={(e) => setPayloadDescription(e.target.value)}
-                className="w-full p-2 border rounded bg-white text-gray-800"
-              />
-            </div>
-            <div className="mt-4">
-              <label className="mb-2 text-sm font-medium text-gray-700">
-                Permissions
-                <span className="text-xs text-gray-500 ml-1">
-                  (
-                  <Link
-                    to="https://github.com/eithan1231/jobber/blob/main/docs/permissions.md"
-                    className="text-sm text-blue-500 hover:underline mb-2"
-                  >
-                    docs
-                  </Link>
-                  )
-                </span>
-              </label>
-              <textarea
-                rows={20}
-                defaultValue={payloadPermissions}
-                onChange={(e) => setPayloadPermissions(e.target.value)}
-                className="w-full p-2 border rounded bg-white text-gray-800"
-              />
-            </div>
+            <form>
+              <div>
+                <label className="block mb-2 text-sm font-medium text-gray-700">
+                  Period{" "}
+                </label>
+                <select
+                  defaultValue={payloadTtl}
+                  onChange={(e) => setPayloadTtl(Number(e.target.value))}
+                  className="w-full p-2 border rounded bg-white text-gray-800"
+                >
+                  {TTL_OPTIONS.map((option) => (
+                    <option
+                      key={option.value}
+                      value={option.value}
+                      selected={option.value === payloadTtl}
+                    >
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="mt-4">
+                <label className="block mb-2 text-sm font-medium text-gray-700">
+                  Description{" "}
+                </label>
+                <input
+                  required
+                  type="text"
+                  onChange={(e) => setPayloadDescription(e.target.value)}
+                  className="w-full p-2 border rounded bg-white text-gray-800"
+                />
+              </div>
+              <div className="mt-4">
+                <label className="mb-2 text-sm font-medium text-gray-700">
+                  Permissions
+                  <span className="text-xs text-gray-500 ml-1">
+                    (
+                    <Link
+                      to="https://github.com/eithan1231/jobber/blob/main/docs/permissions.md"
+                      className="text-sm text-blue-500 hover:underline mb-2"
+                    >
+                      docs
+                    </Link>
+                    )
+                  </span>
+                </label>
+                <textarea
+                  rows={20}
+                  defaultValue={payloadPermissions}
+                  onChange={(e) => setPayloadPermissions(e.target.value)}
+                  className="w-full p-2 border rounded bg-white text-gray-800"
+                />
+              </div>
 
-            <div className="mt-4">
-              {result && result.success && (
-                <div className="text-gray-600 mb-2">{result.message}</div>
-              )}
-              {result && !result.success && (
-                <div className="text-red-600 mb-2">{result.message}</div>
-              )}
+              <div className="mt-4">
+                {result && result.success && (
+                  <div className="text-gray-600 mb-2">{result.message}</div>
+                )}
+                {result && !result.success && (
+                  <div className="text-red-600 mb-2">{result.message}</div>
+                )}
 
-              <button
-                type="submit"
-                className="w-full bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-                onClick={(e) => handleCreateToken(e)}
-              >
-                Create Token
-              </button>
-            </div>
-          </form>
+                <button
+                  type="submit"
+                  className="w-full bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                  onClick={(e) => handleCreateToken(e)}
+                >
+                  Create Token
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
-    </HomePageComponent>
+      </HomePageComponent>
+    </PermissionGuardComponent>
   );
 };
 

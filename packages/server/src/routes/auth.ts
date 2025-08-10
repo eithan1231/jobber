@@ -198,6 +198,9 @@ export async function createRouteAuth() {
             id: auth.user.id,
             username: auth.user.username,
           },
+          session: {
+            expires: auth.session.expires.toString(),
+          },
         },
       });
     }
