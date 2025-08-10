@@ -8,7 +8,7 @@ const Component = () => {
   const { users, usersError } = useUsers();
 
   return (
-    <PermissionGuardComponent resource="users" action="read">
+    <PermissionGuardComponent resource="user" action="read">
       <HomePageComponent title="Users">
         <div>
           <table>
@@ -42,7 +42,7 @@ const Component = () => {
                     </td>
                     <td className="border-t px-4 py-2">
                       <PermissionGuardComponent
-                        resource={`users/${user.id}`}
+                        resource={`user/${user.id}`}
                         action="read"
                       >
                         <Link

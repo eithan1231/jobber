@@ -41,7 +41,7 @@ export const JobPageComponent = (props: {
         {props.job.id && (
           <div className="mt-auto flex gap-4 pt-4 text-sm rounded-lg">
             <PermissionGuardComponent
-              resource={`jobs/${props.job.id}`}
+              resource={`job/${props.job.id}`}
               action="read"
             >
               <Link
@@ -55,7 +55,7 @@ export const JobPageComponent = (props: {
             </PermissionGuardComponent>
 
             <PermissionGuardComponent
-              resource={`jobs/${props.job.id}/versions`}
+              resource={`job/${props.job.id}/versions`}
               action="read"
             >
               <Link
@@ -71,7 +71,7 @@ export const JobPageComponent = (props: {
             </PermissionGuardComponent>
 
             <PermissionGuardComponent
-              resource={`jobs/${props.job.id}/metrics`}
+              resource={`job/${props.job.id}/metrics`}
               action="read"
             >
               <Link
@@ -87,7 +87,7 @@ export const JobPageComponent = (props: {
             </PermissionGuardComponent>
 
             <PermissionGuardComponent
-              resource={`jobs/${props.job.id}/logs`}
+              resource={`job/${props.job.id}/logs`}
               action="read"
             >
               <Link
@@ -103,7 +103,7 @@ export const JobPageComponent = (props: {
             </PermissionGuardComponent>
 
             <PermissionGuardComponent
-              resource={`jobs/${props.job.id}/environment`}
+              resource={`job/${props.job.id}/environment`}
               action="read"
             >
               <Link
@@ -119,7 +119,7 @@ export const JobPageComponent = (props: {
             </PermissionGuardComponent>
 
             <PermissionGuardComponent
-              resource={`jobs/${props.job.id}/store`}
+              resource={`job/${props.job.id}/store`}
               action="read"
             >
               <Link
@@ -135,7 +135,7 @@ export const JobPageComponent = (props: {
             </PermissionGuardComponent>
 
             <PermissionGuardComponent
-              resource={`jobs/${props.job.id}`}
+              resource={`job/${props.job.id}`}
               action="write"
             >
               {props.job.status === "enabled" && (
@@ -157,7 +157,7 @@ export const JobPageComponent = (props: {
             </PermissionGuardComponent>
 
             <PermissionGuardComponent
-              resource={`jobs/${props.job.id}`}
+              resource={`job/${props.job.id}`}
               action="delete"
             >
               <ConfirmButtonComponent

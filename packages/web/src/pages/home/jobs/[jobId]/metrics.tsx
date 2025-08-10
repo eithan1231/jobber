@@ -48,7 +48,7 @@ export const Component = () => {
   }
 
   return (
-    <PermissionGuardComponent resource={`jobs/${jobId}`} action="read">
+    <PermissionGuardComponent resource={`job/${jobId}`} action="read">
       <JobPageComponent job={job}>
         <div className="container mx-auto my-8 p-4">
           <select

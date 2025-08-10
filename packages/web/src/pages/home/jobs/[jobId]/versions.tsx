@@ -7,6 +7,7 @@ import { JobPageComponent } from "../../../../components/job-page-component";
 import { TimeSinceComponent } from "../../../../components/time-since-component";
 import { useJob } from "../../../../hooks/use-job";
 import { useVersions } from "../../../../hooks/use-versions";
+import { PermissionGuardComponent } from "../../../../components/permission-guard";
 
 export const Component = () => {
   const { jobId } = useParams();
@@ -104,41 +105,46 @@ export const Component = () => {
                     </td>
 
                     <td className="px-4 py-2 text-gray-700">
-                      {index === 0 && version.id !== job.jobVersionId && (
-                        <ConfirmButtonComponent
-                          buttonClassName="bg-blue-500 hover:bg-blue-600 text-white font-medium py-1 px-3 rounded-md text-xs shadow-sm"
-                          confirmTitle="Confirm Activation"
-                          confirmDescription="Are you sure you want to activate this version? This will make it the active version for the job."
-                          buttonText="Activate"
-                          onConfirm={() => {
-                            handleSetActiveVersion(version.id);
-                          }}
-                        />
-                      )}
+                      <PermissionGuardComponent
+                        resource={`job/${job.id}/versions/${version.id}`}
+                        action="write"
+                      >
+                        {index === 0 && version.id !== job.jobVersionId && (
+                          <ConfirmButtonComponent
+                            buttonClassName="bg-blue-500 hover:bg-blue-600 text-white font-medium py-1 px-3 rounded-md text-xs shadow-sm"
+                            confirmTitle="Confirm Activation"
+                            confirmDescription="Are you sure you want to activate this version? This will make it the active version for the job."
+                            buttonText="Activate"
+                            onConfirm={() => {
+                              handleSetActiveVersion(version.id);
+                            }}
+                          />
+                        )}
 
-                      {version.id === job.jobVersionId && (
-                        <ConfirmButtonComponent
-                          buttonClassName="bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded-md text-xs shadow-sm"
-                          confirmTitle="Confirm Deactivation"
-                          confirmDescription="Are you sure you want to deactivate this version? This will stop all running instances of this version."
-                          buttonText="Deactivate"
-                          onConfirm={() => {
-                            handleSetActiveVersion(null);
-                          }}
-                        />
-                      )}
+                        {version.id === job.jobVersionId && (
+                          <ConfirmButtonComponent
+                            buttonClassName="bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded-md text-xs shadow-sm"
+                            confirmTitle="Confirm Deactivation"
+                            confirmDescription="Are you sure you want to deactivate this version? This will stop all running instances of this version."
+                            buttonText="Deactivate"
+                            onConfirm={() => {
+                              handleSetActiveVersion(null);
+                            }}
+                          />
+                        )}
 
-                      {index !== 0 && version.id !== job.jobVersionId && (
-                        <ConfirmButtonComponent
-                          buttonClassName="bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded-md text-xs shadow-sm"
-                          confirmTitle="Confirm Activation"
-                          confirmDescription="Are you sure you want to activate this version? It will downgrade the current version."
-                          buttonText="Activate"
-                          onConfirm={() => {
-                            handleSetActiveVersion(version.id);
-                          }}
-                        />
-                      )}
+                        {index !== 0 && version.id !== job.jobVersionId && (
+                          <ConfirmButtonComponent
+                            buttonClassName="bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded-md text-xs shadow-sm"
+                            confirmTitle="Confirm Activation"
+                            confirmDescription="Are you sure you want to activate this version? It will downgrade the current version."
+                            buttonText="Activate"
+                            onConfirm={() => {
+                              handleSetActiveVersion(version.id);
+                            }}
+                          />
+                        )}
+                      </PermissionGuardComponent>
                     </td>
                   </tr>
                 ))}

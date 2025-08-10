@@ -62,7 +62,7 @@ export const Component = () => {
   }
 
   return (
-    <PermissionGuardComponent resource={`jobs/${jobId}/store`} action="read">
+    <PermissionGuardComponent resource={`job/${jobId}/store`} action="read">
       <JobPageComponent job={job}>
         <>
           {displayStoreId && (

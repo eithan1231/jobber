@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   deleteJobEnvironmentVariable,
@@ -9,9 +9,12 @@ import { JobPageComponent } from "../../../../components/job-page-component";
 import { useEnvironment } from "../../../../hooks/use-environment";
 import { useJob } from "../../../../hooks/use-job";
 import { PermissionGuardComponent } from "../../../../components/permission-guard";
+import { AuthContext } from "../../../../contexts/auth-context";
 
 export const Component = () => {
   const jobId = useParams().jobId ?? "";
+
+  const { canPerformAction } = useContext(AuthContext);
 
   const { job, jobError } = useJob(jobId);
   const { environment, environmentError, reloadEnvironment } =
@@ -57,7 +60,7 @@ export const Component = () => {
 
   return (
     <PermissionGuardComponent
-      resource={`jobs/${jobId}/environment`}
+      resource={`job/${jobId}/environment`}
       action="read"
     >
       <JobPageComponent job={job}>
@@ -127,9 +130,24 @@ export const Component = () => {
 
               {/* Submit Button */}
               <div className="mt-6">
+                {!canPerformAction(
+                  `job/${jobId}/environment/${nameInternal}`,
+                  "write"
+                ) && (
+                  <div className="text-red-500 mb-2">
+                    You do not have permission to upsert the environment
+                    variable "{nameInternal.toUpperCase()}".
+                  </div>
+                )}
                 <button
+                  disabled={
+                    !canPerformAction(
+                      `job/${jobId}/environment/${nameInternal}`,
+                      "write"
+                    )
+                  }
                   type="submit"
-                  className="w-full bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                  className="w-full bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Upsert Variable
                 </button>
@@ -159,27 +177,38 @@ export const Component = () => {
                     {value}
                   </div>
                   <div className="mt-4 flex space-x-2">
-                    <button
-                      className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
-                      onClick={() => {
-                        setNameInternal(name);
-                        setTypeInternal(data.type);
-                        setValueInternal(
-                          data.type === "text" ? data.value : ""
-                        );
-                      }}
+                    <PermissionGuardComponent
+                      resource={`job/${jobId}/environment/${name}`}
+                      action="write"
                     >
-                      Edit
-                    </button>
-                    <ConfirmButtonComponent
-                      buttonText="Delete"
-                      buttonClassName="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
-                      confirmTitle="Delete Confirmation"
-                      confirmDescription={`"${name}" will be deleted. Are you sure?`}
-                      onConfirm={() => {
-                        handleDelete(name);
-                      }}
-                    />
+                      <button
+                        className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                        onClick={() => {
+                          setNameInternal(name);
+                          setTypeInternal(data.type);
+                          setValueInternal(
+                            data.type === "text" ? data.value : ""
+                          );
+                        }}
+                      >
+                        Edit
+                      </button>
+                    </PermissionGuardComponent>
+
+                    <PermissionGuardComponent
+                      resource={`job/${jobId}/environment/${name}`}
+                      action="delete"
+                    >
+                      <ConfirmButtonComponent
+                        buttonText="Delete"
+                        buttonClassName="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
+                        confirmTitle="Delete Confirmation"
+                        confirmDescription={`"${name}" will be deleted. Are you sure?`}
+                        onConfirm={() => {
+                          handleDelete(name);
+                        }}
+                      />
+                    </PermissionGuardComponent>
                   </div>
                 </div>
               );

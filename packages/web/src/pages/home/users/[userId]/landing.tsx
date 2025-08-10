@@ -18,7 +18,7 @@ const Component = () => {
   }
 
   return (
-    <PermissionGuardComponent resource={`users/${user.id}`} action="read">
+    <PermissionGuardComponent resource={`user/${user.id}`} action="read">
       <HomePageComponent title={`User ${user.username}`}>
         <div className="max-w-[800px]">
           <div className="border rounded shadow-md p-4 pb-5 m-2 bg-white">
@@ -26,7 +26,7 @@ const Component = () => {
               <h2 className="text-xl font-semibold mb-2">User Details</h2>
 
               <PermissionGuardComponent
-                resource={`users/${user.id}`}
+                resource={`user/${user.id}`}
                 action="write"
               >
                 <Link

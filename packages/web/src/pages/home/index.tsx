@@ -124,7 +124,7 @@ const Component = () => {
                 </Link>
               </li>
 
-              <PermissionGuardComponent resource={`users`} action="read">
+              <PermissionGuardComponent resource={`user`} action="read">
                 <li>
                   <Link
                     to="/home/users"

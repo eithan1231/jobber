@@ -27,7 +27,7 @@ export const Component = () => {
   }
 
   return (
-    <PermissionGuardComponent resource={`jobs/${jobId}/logs`} action="read">
+    <PermissionGuardComponent resource={`job/${jobId}/logs`} action="read">
       <JobPageComponent job={job}>
         <div className="container mx-auto px-4 py-6">
           <table className="table-auto w-full">
