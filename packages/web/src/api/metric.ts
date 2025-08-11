@@ -20,6 +20,26 @@ export type JobberMetricItem = {
   }>;
 };
 
+export type JobberMetricOverview = {
+  runnerMetrics: {
+    runnersTotal: number;
+    runnersStarting: number;
+    runnersReady: number;
+    runnersClosing: number;
+    runnersClosed: number;
+
+    runnersLoadTotal: number;
+    runnersLoadAverage: number;
+
+    lastRequestAt: number;
+  };
+  jobsMetrics: {
+    jobsTotal: number;
+    jobsDisabled: number;
+    jobsEnabled: number;
+  };
+};
+
 export const getJobMetric = async (
   jobId: string,
   metric: JobberMetricType,
@@ -29,6 +49,14 @@ export const getJobMetric = async (
   const result = await fetch(
     `/api/job/${jobId}/metrics/${metric}/${version}?duration=${duration ?? 900}`
   );
+
+  return await result.json();
+};
+
+export const getMetricOverview = async (): Promise<
+  JobberGenericResponse<JobberMetricOverview>
+> => {
+  const result = await fetch(`/api/metrics/overview`);
 
   return await result.json();
 };

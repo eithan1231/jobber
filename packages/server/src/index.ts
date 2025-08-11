@@ -142,7 +142,7 @@ async function createInternalHono(instances: {
   app.route("/api/", await createRouteConfig());
   app.route("/api/", await createRouteVersions());
 
-  app.route("/api/", await createRouteMetrics());
+  app.route("/api/", await createRouteMetrics(instances.runnerManager));
 
   app.get("/", async (c) => c.redirect("/jobber/"));
 

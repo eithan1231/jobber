@@ -569,6 +569,21 @@ export class RunnerManager extends LoopBase {
     } as const;
   }
 
+  public async getRunners() {
+    return Object.values(this.runners).map((index) => ({
+      status: index.status,
+      jobId: index.action.jobId,
+      actionId: index.action.id,
+      id: index.id,
+      requestsProcessing: index.requestsProcessing,
+      lastRequestAt: index.lastRequestAt,
+      createdAt: index.createdAt,
+      readyAt: index.readyAt,
+      closingAt: index.closingAt,
+      closedAt: index.closedAt,
+    }));
+  }
+
   public async findRunnersByJobId(jobId: string) {
     return Object.values(this.runners)
       .filter((index) => index.action.jobId === jobId)
@@ -578,6 +593,7 @@ export class RunnerManager extends LoopBase {
         actionId: index.action.id,
         id: index.id,
         requestsProcessing: index.requestsProcessing,
+        lastRequestAt: index.lastRequestAt,
         createdAt: index.createdAt,
         readyAt: index.readyAt,
         closingAt: index.closingAt,
@@ -594,6 +610,7 @@ export class RunnerManager extends LoopBase {
         actionId: index.action.id,
         id: index.id,
         requestsProcessing: index.requestsProcessing,
+        lastRequestAt: index.lastRequestAt,
         createdAt: index.createdAt,
         readyAt: index.readyAt,
         closingAt: index.closingAt,
