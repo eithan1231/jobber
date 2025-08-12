@@ -417,6 +417,23 @@ export class TriggerMqtt extends LoopBase {
 
       for (const publishItem of handleResponse.mqtt.publish) {
         try {
+          if (!triggerItem.client.connected) {
+            console.warn(
+              `[TriggerMqtt/onMqttMessage] MQTT client is not connected, cannot publish message to topic "${publishItem.topic}"`
+            );
+
+            this.logger.write({
+              source: "system",
+              actionId: triggerItem.action.id,
+              jobId: triggerItem.job.id,
+              jobName: triggerItem.job.jobName,
+              message: `[SYSTEM] MQTT client is not connected, cannot publish message to topic "${publishItem.topic}"`,
+              created: new Date(),
+            });
+
+            continue;
+          }
+
           this.logger.write({
             source: "system",
             actionId: triggerItem.action.id,

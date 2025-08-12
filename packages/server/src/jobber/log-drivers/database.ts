@@ -11,7 +11,14 @@ import {
 export class LogDriverDatabase extends LogDriverBase {
   protected async flushChunk(logs: LogDriverBaseItem[]): Promise<void> {
     while (logs.length >= 1) {
-      const iteration = logs.splice(0, 1000);
+      const iteration = logs.splice(0, 1000).map((log) => {
+        if (log.message.includes("\x00")) {
+          log.message = log.message.replace(/\x00/g, "");
+        }
+
+        return log;
+      });
+
       await getDrizzle().insert(logsTable).values(iteration);
     }
   }

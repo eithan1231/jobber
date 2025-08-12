@@ -355,62 +355,62 @@ async function main() {
 
   console.log(`[main] Application startup routine has completed.`);
 
-  // const signalRoutine = async () => {
-  //   console.log(`[signalRoutine] Received shutdown signal.`);
+  const signalRoutine = async () => {
+    console.log(`[signalRoutine] Received shutdown signal.`);
 
-  //   console.log(`[signalRoutine] Closing API Internal...`);
-  //   serverInternal.close();
-  //   console.log(`[signalRoutine] done.`);
+    console.log(`[signalRoutine] Closing API Internal...`);
+    serverInternal.close();
+    console.log(`[signalRoutine] done.`);
 
-  //   console.log(`[signalRoutine] Stopping all triggers.`);
-  //   await Promise.all([
-  //     triggerCron.stop(),
-  //     triggerMqtt.stop(),
-  //     triggerHttp.stop(),
-  //   ]);
-  //   console.log(`[signalRoutine] done.`);
+    console.log(`[signalRoutine] Stopping all triggers.`);
+    await Promise.all([
+      triggerCron.stop(),
+      triggerMqtt.stop(),
+      triggerHttp.stop(),
+    ]);
+    console.log(`[signalRoutine] done.`);
 
-  //   console.log(`[signalRoutine] Stopping telemetry.`);
-  //   await telemetry.stop();
-  //   console.log(`[signalRoutine] done.`);
+    console.log(`[signalRoutine] Stopping telemetry.`);
+    await telemetry.stop();
+    console.log(`[signalRoutine] done.`);
 
-  //   console.log(`[signalRoutine] Stopping db lock cleanup.`);
-  //   clearInterval(lockCleanupInterval);
-  //   console.log(`[signalRoutine] done.`);
+    console.log(`[signalRoutine] Stopping db lock cleanup.`);
+    clearInterval(lockCleanupInterval);
+    console.log(`[signalRoutine] done.`);
 
-  //   console.log(`[signalRoutine] Stopping runner manager.`);
-  //   await runnerManager.stop();
-  //   console.log(`[signalRoutine] done.`);
+    console.log(`[signalRoutine] Stopping runner manager.`);
+    await runnerManager.stop();
+    console.log(`[signalRoutine] done.`);
 
-  //   console.log(`[signalRoutine] Stopping logger.`);
-  //   await logger.stop();
-  //   console.log(`[signalRoutine] done.`);
+    console.log(`[signalRoutine] Stopping logger.`);
+    await logger.stop();
+    console.log(`[signalRoutine] done.`);
 
-  //   console.log(`[signalRoutine] Stopping store.`);
-  //   await store.stop();
-  //   console.log(`[signalRoutine] done.`);
+    console.log(`[signalRoutine] Stopping store.`);
+    await store.stop();
+    console.log(`[signalRoutine] done.`);
 
-  //   console.log(`[signalRoutine] Closing API Gateway...`);
-  //   serverGateway.close();
-  //   console.log(`[signalRoutine] done.`);
+    console.log(`[signalRoutine] Closing API Gateway...`);
+    serverGateway.close();
+    console.log(`[signalRoutine] done.`);
 
-  //   console.log(`[signalRoutine] Ending Database connection...`);
-  //   const dbPool = getPool();
-  //   /*await*/ dbPool.end(); // TODO: Look into why this hangs.
-  //   console.log(`[signalRoutine] done.`);
+    console.log(`[signalRoutine] Ending Database connection...`);
+    const dbPool = getPool();
+    /*await*/ dbPool.end(); // TODO: Look into why this hangs.
+    console.log(`[signalRoutine] done.`);
 
-  //   console.log(`[signalRoutine] Routine complete... Goodbye!`);
+    console.log(`[signalRoutine] Routine complete... Goodbye!`);
 
-  //   process.exit(0);
-  // };
+    process.exit(0);
+  };
 
-  // process.once("SIGTERM", async () => {
-  //   await signalRoutine();
-  // });
+  process.once("SIGTERM", async () => {
+    await signalRoutine();
+  });
 
-  // process.once("SIGINT", async () => {
-  //   await signalRoutine();
-  // });
+  process.once("SIGINT", async () => {
+    await signalRoutine();
+  });
 }
 
 main();
