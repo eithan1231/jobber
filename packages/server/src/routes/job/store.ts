@@ -1,10 +1,12 @@
 import { Hono } from "hono";
+import { container } from "tsyringe";
 import { InternalHonoApp } from "~/index.js";
 import { Store } from "~/jobber/store.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { canPerformAction } from "~/permissions.js";
 
-export async function createRouteJobStore(store: Store) {
+export async function createRouteJobStore() {
+  const store = container.resolve(Store);
   const app = new Hono<InternalHonoApp>();
 
   app.get(

@@ -1,6 +1,8 @@
 import assert from "assert";
 import { ChildProcessWithoutNullStreams, spawn } from "child_process";
 import { and, eq, isNotNull } from "drizzle-orm";
+import { inject, singleton } from "tsyringe";
+
 import { getConfigOption } from "~/config.js";
 import { ENTRYPOINT_NODE } from "~/constants.js";
 import { getDrizzle } from "~/db/index.js";
@@ -58,14 +60,11 @@ type RunnerManagerItem = {
   closedAt?: number;
 };
 
+@singleton()
 export class RunnerManager extends LoopBase {
   protected loopDuration = 500;
   protected loopClosing = undefined;
   protected loopStarting = undefined;
-
-  private logger: LogDriverBase;
-
-  private store: Store;
 
   private server: RunnerServer;
 
@@ -75,12 +74,11 @@ export class RunnerManager extends LoopBase {
 
   private danglingLastRun = 0;
 
-  constructor(store: Store, logger: LogDriverBase) {
+  constructor(
+    @inject("LogDriverBase") private logger: LogDriverBase,
+    @inject(Store) private store: Store
+  ) {
     super();
-
-    this.logger = logger;
-
-    this.store = store;
 
     this.server = new RunnerServer(this.store);
 

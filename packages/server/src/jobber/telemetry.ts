@@ -1,10 +1,13 @@
 import { eq, sql } from "drizzle-orm";
+import { autoInjectable, singleton } from "tsyringe";
 import { getDrizzle } from "~/db/index.js";
 import { jobsTable } from "~/db/schema/jobs.js";
 import { storeTable } from "~/db/schema/store.js";
 import { LoopBase } from "~/loop-base.js";
 import { gaugeAppInfo, gaugeJobsInfo, gaugeJobStoreCount } from "~/metrics.js";
+import { getUnixTimestamp } from "~/util.js";
 
+@singleton()
 export class Telemetry extends LoopBase {
   protected loopDuration = 1000;
   protected loopStarted = undefined;
@@ -13,10 +16,10 @@ export class Telemetry extends LoopBase {
 
   private startTime: number;
 
-  constructor(startTime: number) {
+  constructor() {
     super();
 
-    this.startTime = startTime;
+    this.startTime = getUnixTimestamp();
   }
 
   protected async loopStarting() {

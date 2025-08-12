@@ -1,12 +1,14 @@
 import { eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { register } from "prom-client";
+import { container } from "tsyringe";
 import { getDrizzle } from "~/db/index.js";
 import { jobsTable } from "~/db/schema/jobs.js";
 import { InternalHonoApp } from "~/index.js";
 import { RunnerManager } from "~/jobber/runners/manager.js";
 
-export async function createRouteMetrics(runnerManager: RunnerManager) {
+export async function createRouteMetrics() {
+  const runnerManager = container.resolve(RunnerManager);
   const app = new Hono<InternalHonoApp>();
 
   app.get("/metrics", async (c) => {

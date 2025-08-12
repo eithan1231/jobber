@@ -1,6 +1,15 @@
 import assert from "node:assert";
-import { StatusLifecycle } from "./jobber/types.js";
 import { awaitTruthy, timeout } from "./util.js";
+
+/**
+ * Lifecycle:
+ * 1) neutral = = default state (pre-start or stopped)
+ * 2) starting = in process of starting
+ * 3) started = active and running
+ * 4) stopping = in process of stopping
+ * 5) One stopped, goes to neutral.
+ */
+export type StatusLifecycle = "neutral" | "starting" | "started" | "stopping";
 
 export abstract class LoopBase {
   private isLoopRunning = false;

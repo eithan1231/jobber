@@ -1,13 +1,22 @@
+import "reflect-metadata";
+
+import "./jobber/log-drivers/index.js";
+import { LogDriverBase } from "./jobber/log-drivers/abstract.js";
+import { RunnerManager } from "./jobber/runners/manager.js";
+import { Store } from "./jobber/store.js";
+import { Telemetry } from "./jobber/telemetry.js";
+import { TriggerCron } from "./jobber/triggers/cron.js";
+import { TriggerHttp } from "./jobber/triggers/http.js";
+import { TriggerMqtt } from "./jobber/triggers/mqtt.js";
+
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
-import {
-  compare as bcryptCompare,
-  genSalt as bcryptGenSalt,
-  hash as bcryptHash,
-} from "bcryptjs";
+import { genSalt as bcryptGenSalt, hash as bcryptHash } from "bcryptjs";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { StatusCode } from "hono/utils/http-status";
 import { mkdir } from "node:fs/promises";
+import { container } from "tsyringe";
 import { ZodError } from "zod";
 
 import { getDrizzle, getPool, runDrizzleMigration } from "./db/index.js";
@@ -19,21 +28,12 @@ import {
   UsersTableType,
   UserUsernameSchema,
 } from "./db/schema/users.js";
-import { getJobActionArchiveDirectory } from "./paths.js";
-import { JobberPermissions, PERMISSION_SUPER } from "./permissions.js";
-import { getUnixTimestamp } from "./util.js";
-
-import { LogDriverBase } from "./jobber/log-drivers/abstract.js";
-import { createLogDriver } from "./jobber/log-drivers/index.js";
-import { RunnerManager } from "./jobber/runners/manager.js";
-import { Store } from "./jobber/store.js";
-import { Telemetry } from "./jobber/telemetry.js";
-import { TriggerCron } from "./jobber/triggers/cron.js";
-import { TriggerHttp } from "./jobber/triggers/http.js";
-import { TriggerMqtt } from "./jobber/triggers/mqtt.js";
 
 import { getConfigOption } from "./config.js";
 import { cleanupLocks } from "./lock.js";
+import { getJobActionArchiveDirectory } from "./paths.js";
+import { JobberPermissions, PERMISSION_SUPER } from "./permissions.js";
+
 import { createRouteApiTokens } from "./routes/api-tokens.js";
 import { createRouteAuth } from "./routes/auth.js";
 import { createRouteConfig } from "./routes/config.js";
@@ -49,7 +49,6 @@ import { createRouteJobTriggers } from "./routes/job/triggers.js";
 import { createRouteVersions } from "./routes/job/versions.js";
 import { createRouteMetrics } from "./routes/metrics.js";
 import { createRouteUser } from "./routes/user.js";
-import { eq } from "drizzle-orm";
 
 export type InternalHonoApp = {
   Variables: {
@@ -68,14 +67,7 @@ export type InternalHonoApp = {
   };
 };
 
-async function createInternalHono(instances: {
-  runnerManager: RunnerManager;
-  logger: LogDriverBase;
-  store: Store;
-  triggerCron: TriggerCron;
-  triggerHttp: TriggerHttp;
-  triggerMqtt: TriggerMqtt;
-}) {
+async function createInternalHono() {
   const app = new Hono<InternalHonoApp>();
 
   app.onError(async (err, c) => {
@@ -123,26 +115,18 @@ async function createInternalHono(instances: {
   app.route("/api/", await createRouteApiTokens());
   app.route("/api/", await createRouteAuth());
   app.route("/api/", await createRouteUser());
-  app.route("/api/", await createRouteJobActions(instances.runnerManager));
+  app.route("/api/", await createRouteJobActions());
   app.route("/api/", await createRouteJobEnvironment());
   app.route("/api/", await createRouteJob());
-  app.route("/api/", await createRouteJobRunners(instances.runnerManager));
+  app.route("/api/", await createRouteJobRunners());
   app.route("/api/", await createRouteJobMetrics());
-  app.route("/api/", await createRouteJobLogs(instances.logger));
+  app.route("/api/", await createRouteJobLogs());
   app.route("/api/", await createRouteJobPublish());
-  app.route("/api/", await createRouteJobStore(instances.store));
-  app.route(
-    "/api/",
-    await createRouteJobTriggers(
-      instances.triggerCron,
-      instances.triggerHttp,
-      instances.triggerMqtt
-    )
-  );
+  app.route("/api/", await createRouteJobStore());
+  app.route("/api/", await createRouteJobTriggers());
   app.route("/api/", await createRouteConfig());
   app.route("/api/", await createRouteVersions());
-
-  app.route("/api/", await createRouteMetrics(instances.runnerManager));
+  app.route("/api/", await createRouteMetrics());
 
   app.get("/", async (c) => c.redirect("/jobber/"));
 
@@ -164,7 +148,9 @@ async function createInternalHono(instances: {
   return app;
 }
 
-async function createGatewayHono(triggerHttp: TriggerHttp) {
+async function createGatewayHono() {
+  const triggerHttp = container.resolve(TriggerHttp);
+
   const app = new Hono();
 
   app.all("*", async (c, next) => {
@@ -275,8 +261,6 @@ async function createStartupAccount() {
 }
 
 async function main() {
-  const timestamp = getUnixTimestamp();
-
   console.log(
     "WARNING: This is an experimental runtime, and issues ARE expected! Report any issue, or raise a PR with a fix. Issues WILL be investigated and fixed."
   );
@@ -316,24 +300,24 @@ async function main() {
   console.log(`[main] done.`);
 
   console.log(`[main] Initialising logger...`);
-  const logger = await createLogDriver();
+  const logger = container.resolve<LogDriverBase>("LogDriverBase");
   await logger.start();
   console.log(`[main] done.`);
 
   console.log(`[main] Initialising store...`);
-  const store = new Store();
+  const store = container.resolve(Store);
   await store.start();
   console.log(`[main] done.`);
 
   console.log(`[main] Initialising runner manager...`);
-  const runnerManager = new RunnerManager(store, logger);
+  const runnerManager = container.resolve(RunnerManager);
   await runnerManager.start();
   console.log(`[main] done.`);
 
   console.log(`[main] Initialising triggers (Cron, MQTT, HTTP)...`);
-  const triggerCron = new TriggerCron(runnerManager, logger);
-  const triggerMqtt = new TriggerMqtt(runnerManager, logger);
-  const triggerHttp = new TriggerHttp(runnerManager, logger);
+  const triggerCron = container.resolve(TriggerCron);
+  const triggerMqtt = container.resolve(TriggerMqtt);
+  const triggerHttp = container.resolve(TriggerHttp);
 
   await Promise.all([
     triggerCron.start(),
@@ -343,20 +327,13 @@ async function main() {
   console.log(`[main] done.`);
 
   console.log(`[main] Initialising telemetry...`);
-  const telemetry = new Telemetry(timestamp);
+  const telemetry = container.resolve(Telemetry);
   await telemetry.start();
   console.log(`[main] done.`);
 
   console.log(`[main] Initialising APIs (API Internal, API Gateway)...`);
-  const appInternal = await createInternalHono({
-    runnerManager,
-    logger,
-    store,
-    triggerCron,
-    triggerHttp,
-    triggerMqtt,
-  });
-  const appGateway = await createGatewayHono(triggerHttp);
+  const appInternal = await createInternalHono();
+  const appGateway = await createGatewayHono();
 
   const serverInternal = serve({
     port: 3000,
@@ -378,62 +355,62 @@ async function main() {
 
   console.log(`[main] Application startup routine has completed.`);
 
-  const signalRoutine = async () => {
-    console.log(`[signalRoutine] Received shutdown signal.`);
+  // const signalRoutine = async () => {
+  //   console.log(`[signalRoutine] Received shutdown signal.`);
 
-    console.log(`[signalRoutine] Closing API Internal...`);
-    serverInternal.close();
-    console.log(`[signalRoutine] done.`);
+  //   console.log(`[signalRoutine] Closing API Internal...`);
+  //   serverInternal.close();
+  //   console.log(`[signalRoutine] done.`);
 
-    console.log(`[signalRoutine] Stopping all triggers.`);
-    await Promise.all([
-      triggerCron.stop(),
-      triggerMqtt.stop(),
-      triggerHttp.stop(),
-    ]);
-    console.log(`[signalRoutine] done.`);
+  //   console.log(`[signalRoutine] Stopping all triggers.`);
+  //   await Promise.all([
+  //     triggerCron.stop(),
+  //     triggerMqtt.stop(),
+  //     triggerHttp.stop(),
+  //   ]);
+  //   console.log(`[signalRoutine] done.`);
 
-    console.log(`[signalRoutine] Stopping telemetry.`);
-    await telemetry.stop();
-    console.log(`[signalRoutine] done.`);
+  //   console.log(`[signalRoutine] Stopping telemetry.`);
+  //   await telemetry.stop();
+  //   console.log(`[signalRoutine] done.`);
 
-    console.log(`[signalRoutine] Stopping db lock cleanup.`);
-    clearInterval(lockCleanupInterval);
-    console.log(`[signalRoutine] done.`);
+  //   console.log(`[signalRoutine] Stopping db lock cleanup.`);
+  //   clearInterval(lockCleanupInterval);
+  //   console.log(`[signalRoutine] done.`);
 
-    console.log(`[signalRoutine] Stopping runner manager.`);
-    await runnerManager.stop();
-    console.log(`[signalRoutine] done.`);
+  //   console.log(`[signalRoutine] Stopping runner manager.`);
+  //   await runnerManager.stop();
+  //   console.log(`[signalRoutine] done.`);
 
-    console.log(`[signalRoutine] Stopping logger.`);
-    await logger.stop();
-    console.log(`[signalRoutine] done.`);
+  //   console.log(`[signalRoutine] Stopping logger.`);
+  //   await logger.stop();
+  //   console.log(`[signalRoutine] done.`);
 
-    console.log(`[signalRoutine] Stopping store.`);
-    await store.stop();
-    console.log(`[signalRoutine] done.`);
+  //   console.log(`[signalRoutine] Stopping store.`);
+  //   await store.stop();
+  //   console.log(`[signalRoutine] done.`);
 
-    console.log(`[signalRoutine] Closing API Gateway...`);
-    serverGateway.close();
-    console.log(`[signalRoutine] done.`);
+  //   console.log(`[signalRoutine] Closing API Gateway...`);
+  //   serverGateway.close();
+  //   console.log(`[signalRoutine] done.`);
 
-    console.log(`[signalRoutine] Ending Database connection...`);
-    const dbPool = getPool();
-    /*await*/ dbPool.end(); // TODO: Look into why this hangs.
-    console.log(`[signalRoutine] done.`);
+  //   console.log(`[signalRoutine] Ending Database connection...`);
+  //   const dbPool = getPool();
+  //   /*await*/ dbPool.end(); // TODO: Look into why this hangs.
+  //   console.log(`[signalRoutine] done.`);
 
-    console.log(`[signalRoutine] Routine complete... Goodbye!`);
+  //   console.log(`[signalRoutine] Routine complete... Goodbye!`);
 
-    process.exit(0);
-  };
+  //   process.exit(0);
+  // };
 
-  process.once("SIGTERM", async () => {
-    await signalRoutine();
-  });
+  // process.once("SIGTERM", async () => {
+  //   await signalRoutine();
+  // });
 
-  process.once("SIGINT", async () => {
-    await signalRoutine();
-  });
+  // process.once("SIGINT", async () => {
+  //   await signalRoutine();
+  // });
 }
 
 main();

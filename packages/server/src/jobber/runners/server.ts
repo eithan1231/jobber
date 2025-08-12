@@ -97,12 +97,8 @@ export class RunnerServer extends EventEmitter<{
 
   private server: Server;
 
-  private store: Store;
-
-  constructor(store: Store) {
+  constructor(private store: Store) {
     super();
-
-    this.store = store;
 
     this.server = new Server({
       noDelay: true,

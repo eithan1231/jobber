@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
+import { container } from "tsyringe";
 import { getDrizzle } from "~/db/index.js";
 import { jobsTable } from "~/db/schema/jobs.js";
 import { InternalHonoApp } from "~/index.js";
@@ -7,7 +8,9 @@ import { RunnerManager } from "~/jobber/runners/manager.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { canPerformAction } from "~/permissions.js";
 
-export async function createRouteJobRunners(runnerManager: RunnerManager) {
+export async function createRouteJobRunners() {
+  const runnerManager = container.resolve(RunnerManager);
+
   const app = new Hono<InternalHonoApp>();
 
   app.get("/job/:jobId/runners", createMiddlewareAuth(), async (c, next) => {

@@ -1,10 +1,13 @@
 import { Hono } from "hono";
+import { container } from "tsyringe";
 import { InternalHonoApp } from "~/index.js";
 import { LogDriverBase } from "~/jobber/log-drivers/abstract.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { canPerformAction } from "~/permissions.js";
 
-export async function createRouteJobLogs(logger: LogDriverBase) {
+export async function createRouteJobLogs() {
+  const logger = container.resolve<LogDriverBase>("LogDriverBase");
+
   const app = new Hono<InternalHonoApp>();
 
   app.get("/job/:jobId/logs", createMiddlewareAuth(), async (c, next) => {

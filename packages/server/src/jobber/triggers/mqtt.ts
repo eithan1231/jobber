@@ -15,9 +15,10 @@ import { jobsTable, JobsTableType } from "~/db/schema/jobs.js";
 import { triggersTable, TriggersTableType } from "~/db/schema/triggers.js";
 import { LoopBase } from "~/loop-base.js";
 import { counterTriggerMqtt, counterTriggerMqttPublish } from "~/metrics.js";
-import { createSha1Hash, getUnixTimestamp } from "~/util.js";
+import { createSha1Hash } from "~/util.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
 import { RunnerManager } from "../runners/manager.js";
+import { autoInjectable, inject, singleton } from "tsyringe";
 
 type TriggerMqttItem = {
   trigger: TriggersTableType;
@@ -35,24 +36,20 @@ type TriggerMqttItem = {
   clientConfigHash: string;
 };
 
+@singleton()
 export class TriggerMqtt extends LoopBase {
   protected loopDuration = 1000;
   protected loopStarting = undefined;
   protected loopStarted = undefined;
   protected loopClosing = undefined;
 
-  private runnerManager: RunnerManager;
-
-  private logger: LogDriverBase;
-
   private triggers: Record<string, TriggerMqttItem> = {};
 
-  constructor(runnerManager: RunnerManager, logger: LogDriverBase) {
+  constructor(
+    @inject(RunnerManager) private runnerManager: RunnerManager,
+    @inject("LogDriverBase") private logger: LogDriverBase
+  ) {
     super();
-
-    this.runnerManager = runnerManager;
-
-    this.logger = logger;
   }
 
   public async getTriggerStatus(jobId: string, triggerId: string) {

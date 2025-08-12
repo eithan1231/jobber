@@ -1,6 +1,7 @@
 import assert from "assert";
 import { CronTime } from "cron";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
+import { autoInjectable, inject, singleton } from "tsyringe";
 import { getDrizzle } from "~/db/index.js";
 import { actionsTable, ActionsTableType } from "~/db/schema/actions.js";
 import {
@@ -23,6 +24,7 @@ type TriggerCronItem = {
   scheduledAt: number;
 };
 
+@singleton()
 export class TriggerCron extends LoopBase {
   protected loopDuration = 1000;
   protected loopStarting = undefined;
@@ -30,18 +32,13 @@ export class TriggerCron extends LoopBase {
   protected loopClosing = undefined;
   protected loopClosed = undefined;
 
-  private runnerManager: RunnerManager;
-
-  private logger: LogDriverBase;
-
   private triggers: Record<string, TriggerCronItem> = {};
 
-  constructor(runnerManager: RunnerManager, logger: LogDriverBase) {
+  constructor(
+    @inject(RunnerManager) private runnerManager: RunnerManager,
+    @inject("LogDriverBase") private logger: LogDriverBase
+  ) {
     super();
-
-    this.runnerManager = runnerManager;
-
-    this.logger = logger;
   }
 
   public async getTriggerStatus(jobId: string, triggerId: string) {

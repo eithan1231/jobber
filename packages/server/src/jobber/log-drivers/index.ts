@@ -1,8 +1,13 @@
 import { getConfigOption } from "~/config.js";
-import { LogDriverDatabase } from "./database.js";
 import { LogDriverLoki } from "./loki.js";
+import { container } from "tsyringe";
+import { LogDriverDatabase } from "./database.js";
 
-export async function createLogDriver() {
+container.register("LogDriverBase", {
+  useValue: createLogDriver(),
+});
+
+export function createLogDriver() {
   const driver = getConfigOption("LOG_DRIVER");
 
   if (driver === "database") {

@@ -1,4 +1,5 @@
 import { and, eq, lt } from "drizzle-orm";
+import { autoInjectable, inject, injectable, singleton } from "tsyringe";
 import { getDrizzle } from "~/db/index.js";
 import { storeTable } from "~/db/schema/store.js";
 import { LoopBase } from "~/loop-base.js";
@@ -16,6 +17,7 @@ type StoreItem = {
 
 type StoreItemNoValue = Omit<StoreItem, "value">;
 
+@singleton()
 export class Store extends LoopBase {
   protected loopDuration = 1000;
   protected loopStarting = undefined;

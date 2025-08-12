@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
+import { container } from "tsyringe";
 import { getDrizzle } from "~/db/index.js";
 import { jobVersionsTable } from "~/db/schema/job-versions.js";
 import { jobsTable } from "~/db/schema/jobs.js";
@@ -11,11 +12,11 @@ import { TriggerMqtt } from "~/jobber/triggers/mqtt.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { canPerformAction } from "~/permissions.js";
 
-export async function createRouteJobTriggers(
-  triggerCron: TriggerCron,
-  triggerHttp: TriggerHttp,
-  triggerMqtt: TriggerMqtt
-) {
+export async function createRouteJobTriggers() {
+  const triggerCron = container.resolve(TriggerCron);
+  const triggerHttp = container.resolve(TriggerHttp);
+  const triggerMqtt = container.resolve(TriggerMqtt);
+
   const app = new Hono<InternalHonoApp>();
 
   app.get(

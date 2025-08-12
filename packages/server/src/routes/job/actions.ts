@@ -5,11 +5,10 @@ import { actionsTable } from "~/db/schema/actions.js";
 import { jobVersionsTable } from "~/db/schema/job-versions.js";
 import { jobsTable } from "~/db/schema/jobs.js";
 import { InternalHonoApp } from "~/index.js";
-import { RunnerManager } from "~/jobber/runners/manager.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { canPerformAction } from "~/permissions.js";
 
-export async function createRouteJobActions(runnerManager: RunnerManager) {
+export async function createRouteJobActions() {
   const app = new Hono<InternalHonoApp>();
 
   app.get(

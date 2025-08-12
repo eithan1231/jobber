@@ -14,6 +14,7 @@ import { getUnixTimestamp } from "~/util.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
 import { RunnerManager } from "../runners/manager.js";
 import { HandleRequest, HandleRequestHttp } from "../runners/server.js";
+import { autoInjectable, inject, singleton } from "tsyringe";
 
 type TriggerHttpItem = {
   trigger: Omit<TriggersTableType, "context"> & {
@@ -26,6 +27,7 @@ type TriggerHttpItem = {
   job: JobsTableType;
 };
 
+@singleton()
 export class TriggerHttp extends LoopBase {
   protected loopDuration = 1000;
   protected loopStarting = undefined;
@@ -33,18 +35,13 @@ export class TriggerHttp extends LoopBase {
   protected loopClosing = undefined;
   protected loopClosed = undefined;
 
-  private runnerManager: RunnerManager;
-
-  private logger: LogDriverBase;
-
   private triggers: Record<string, TriggerHttpItem> = {};
 
-  constructor(runnerManager: RunnerManager, logger: LogDriverBase) {
+  constructor(
+    @inject(RunnerManager) private runnerManager: RunnerManager,
+    @inject("LogDriverBase") private logger: LogDriverBase
+  ) {
     super();
-
-    this.runnerManager = runnerManager;
-
-    this.logger = logger;
   }
 
   public async getTriggerStatus(jobId: string, triggerId: string) {
