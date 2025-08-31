@@ -1,5 +1,6 @@
 import {
   index,
+  integer,
   pgTable,
   text,
   timestamp,
@@ -19,6 +20,8 @@ export const logsTable = pgTable(
     source: varchar({
       enum: ["system", "runner"],
     }).notNull(),
+
+    sort: varchar({ length: 32 }).notNull().default(""),
 
     created: timestamp().defaultNow().notNull(),
     message: text().notNull(),

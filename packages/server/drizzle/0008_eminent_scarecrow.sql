@@ -1,0 +1,1 @@
+ALTER TABLE "logs" ADD COLUMN "sort" varchar(32) DEFAULT '' NOT NULL;

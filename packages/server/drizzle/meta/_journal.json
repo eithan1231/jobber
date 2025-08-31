@@ -57,6 +57,13 @@
       "when": 1754650752556,
       "tag": "0007_salty_exodus",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1756628895947,
+      "tag": "0008_eminent_scarecrow",
+      "breakpoints": true
     }
   ]
 }

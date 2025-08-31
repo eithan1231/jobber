@@ -29,7 +29,7 @@ export async function createRouteJobLogs() {
 
     return c.json({
       success: true,
-      data: logs.reverse().map((log) => ({
+      data: logs.map((log) => ({
         ...log,
 
         // Frontend still uses unix timestamp, so lets convert it.

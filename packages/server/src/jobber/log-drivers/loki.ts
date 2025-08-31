@@ -32,8 +32,17 @@ type LokiQueryResult =
       status: "?";
       data: unknown;
     };
+//
 
 export class LogDriverLoki extends LogDriverBase {
+  private jobSequences: Record<
+    string,
+    {
+      msGroup: number;
+      sequence: number;
+    }
+  > = {};
+
   private options: LogDriverLokiOptions;
 
   constructor(options: LogDriverLokiOptions) {
@@ -43,15 +52,61 @@ export class LogDriverLoki extends LogDriverBase {
   }
 
   protected async flushChunk(logs: LogDriverBaseItem[]): Promise<void> {
-    const streams: Record<string, LogDriverBaseItem[]> = {};
+    const streams: Record<
+      string,
+      {
+        stream: Record<string, string>;
+        values: Array<[string, string]>;
+      }
+    > = {};
 
     for (const log of logs) {
       const streamName = `${log.jobId}:${log.actionId}`;
 
-      if (streams[streamName]) {
-        streams[streamName].push(log);
+      if (this.jobSequences[log.jobId] === undefined) {
+        this.jobSequences[log.jobId] = {
+          msGroup: 0,
+          sequence: -1,
+        };
+      }
+
+      if (this.jobSequences[log.jobId].msGroup === log.created.getTime()) {
+        this.jobSequences[log.jobId].sequence++;
+      } else if (
+        !this.jobSequences[log.jobId].msGroup ||
+        this.jobSequences[log.jobId].msGroup < log.created.getTime()
+      ) {
+        this.jobSequences[log.jobId].msGroup = log.created.getTime();
+        this.jobSequences[log.jobId].sequence = 0;
       } else {
-        streams[streamName] = [log];
+        // When we receive a LOT of logs per second, meaning thousands. We reach this
+        // condition. I assume its related to back-pressure in the event loop. Coding
+        // a fix here for this will have a negative performance impact.
+      }
+
+      // ask me about my sanity, i dare you.
+      const timestamp = `${this.jobSequences[log.jobId].msGroup
+        .toString()
+        .padStart(13, "0")}${this.jobSequences[log.jobId].sequence
+        .toString()
+        .padStart(6, "0")}`;
+
+      const message =
+        log.message.indexOf("\x00") >= 0
+          ? log.message.replace(/\x00/g, "")
+          : log.message;
+
+      if (streams[streamName]) {
+        streams[streamName].values.push([timestamp, message]);
+      } else {
+        streams[streamName] = {
+          stream: {
+            jobberJobId: log.jobId,
+            jobberActionId: log.actionId,
+            jobberSource: log.source,
+          },
+          values: [[timestamp, message]],
+        };
       }
     }
 
@@ -62,23 +117,10 @@ export class LogDriverLoki extends LogDriverBase {
       }>;
     } = { streams: [] };
 
-    for (const stream of Object.values(streams)) {
-      const actionId = stream[0].actionId;
-      const jobId = stream[0].jobId;
-      const source = stream[0].source;
-
+    for (const { stream, values } of Object.values(streams)) {
       body.streams.push({
-        stream: {
-          jobberJobId: jobId,
-          jobberActionId: actionId,
-          jobberSource: source,
-        },
-        values: stream.map((line) => {
-          return [
-            (line.created.getTime() * 1000 * 1000).toString(),
-            line.message,
-          ];
-        }),
+        stream: stream,
+        values: values,
       });
     }
 
@@ -155,7 +197,7 @@ export class LogDriverLoki extends LogDriverBase {
       }
     }
 
-    return result;
+    return result.reverse();
   }
 
   public isQueryEnabled(): boolean {
