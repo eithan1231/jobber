@@ -93,7 +93,7 @@ export class JobberHandlerResponse {
     assert(typeof status === "number");
     assert(this._body);
 
-    this.header("Content-Type", "text/json");
+    this.header("Content-Type", "application/json");
 
     const removed = this._body.splice(0, this._body.length).length;
     if (removed > 0) {

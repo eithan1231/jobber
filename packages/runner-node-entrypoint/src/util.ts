@@ -38,8 +38,6 @@ export const unzip = (
   timeout: number = 60
 ) => {
   return new Promise((resolve, reject) => {
-    console.log("[unzip] unzipping file..");
-
     const logs: string[] = [];
 
     let hasResolved = false;
@@ -93,8 +91,6 @@ export const unzip = (
       clearTimeout(timeoutInterval);
 
       if (code === 0) {
-        console.log(`[unzip] Finished successfully`);
-
         return resolve(true);
       }
 

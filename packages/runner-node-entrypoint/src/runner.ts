@@ -280,20 +280,6 @@ export class Runner {
         jobberResponse
       );
 
-      if (jobberRequest.type() === "http") {
-        console.log(
-          `Request HTTP ${jobberRequest.method()} ${jobberRequest.path()}`
-        );
-      }
-
-      if (jobberRequest.type() === "schedule") {
-        console.log(`Request Schedule`);
-      }
-
-      if (jobberRequest.type() === "mqtt") {
-        console.log(`Request MQTT ${jobberRequest.topic()}`);
-      }
-
       await clientModule.handler(jobberRequest, jobberResponse, jobberContext);
 
       const responseData: any = {
@@ -309,18 +295,6 @@ export class Runner {
           headers: jobberResponse._headers,
           body: Buffer.concat(jobberResponse._body).toString("base64"),
         };
-
-        console.log(
-          `Response HTTP ${jobberRequest.method()} ${jobberRequest.path()} - ${
-            jobberResponse._status
-          } - ${responseData.duration.toFixed(2)}ms`
-        );
-      }
-
-      if (jobberRequest.type() === "schedule") {
-        console.log(
-          `Response Schedule - ${responseData.duration.toFixed(2)}ms`
-        );
       }
 
       if (jobberRequest.type() === "mqtt") {
@@ -332,12 +306,6 @@ export class Runner {
             body: index.body.toString("base64"),
           })),
         };
-
-        console.log(
-          `Response MQTT ${jobberRequest.topic()} - ${responseData.duration.toFixed(
-            2
-          )}ms`
-        );
       }
 
       await this.writeFrame(
