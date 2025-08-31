@@ -44,27 +44,27 @@ export class TriggerHttp extends LoopBase {
     super();
   }
 
-  public async getTriggerStatus(jobId: string, triggerId: string) {
+  public getTriggerStatus(jobId: string, triggerId: string) {
     const trigger = this.triggers[triggerId];
 
     if (!trigger || trigger.job.id !== jobId) {
       return {
         status: "unknown",
         message: "unknown",
-      };
+      } as const;
     }
 
     if (this.status !== "started") {
       return {
         status: "unhealthy",
         message: "Cron not running",
-      };
+      } as const;
     }
 
     return {
       status: "healthy",
       message: `HTTP Trigger registered for version ${trigger.version.version}`,
-    };
+    } as const;
   }
 
   protected async loopIteration() {

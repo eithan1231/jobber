@@ -1,5 +1,6 @@
 import assert from "assert";
 import { CronTime } from "cron";
+import { CronError } from "cron/dist/errors.js";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { autoInjectable, inject, singleton } from "tsyringe";
 import { getDrizzle } from "~/db/index.js";
@@ -20,9 +21,17 @@ type TriggerCronItem = {
   version: JobVersionsTableType;
   action: ActionsTableType;
   job: JobsTableType;
-  cron: CronTime;
-  scheduledAt: number;
-};
+} & (
+  | {
+      state: "error";
+      error: string;
+    }
+  | {
+      state: "ready";
+      cron: CronTime;
+      scheduledAt: number;
+    }
+);
 
 @singleton()
 export class TriggerCron extends LoopBase {
@@ -41,27 +50,34 @@ export class TriggerCron extends LoopBase {
     super();
   }
 
-  public async getTriggerStatus(jobId: string, triggerId: string) {
+  public getTriggerStatus(jobId: string, triggerId: string) {
     const trigger = this.triggers[triggerId];
 
     if (!trigger || trigger.job.id !== jobId) {
       return {
         status: "unknown",
         message: "unknown",
-      };
+      } as const;
     }
 
     if (this.status !== "started") {
       return {
         status: "unhealthy",
         message: "Cron not running",
-      };
+      } as const;
+    }
+
+    if (trigger.state === "error") {
+      return {
+        status: "unhealthy",
+        message: trigger.error,
+      } as const;
     }
 
     return {
       status: "healthy",
       message: `Next run at ${new Date(trigger.scheduledAt).toISOString()}`,
-    };
+    } as const;
   }
 
   protected async loopIteration() {
@@ -125,19 +141,50 @@ export class TriggerCron extends LoopBase {
 
       assert(triggerSource.trigger.context.type === "schedule");
 
-      const cron = new CronTime(
-        triggerSource.trigger.context.cron,
-        triggerSource.trigger.context.timezone
-      );
+      try {
+        const cron = new CronTime(
+          triggerSource.trigger.context.cron,
+          triggerSource.trigger.context.timezone
+        );
 
-      this.triggers[triggerSource.trigger.id] = {
-        trigger: structuredClone(triggerSource.trigger),
-        action: structuredClone(triggerSource.action),
-        version: structuredClone(triggerSource.version),
-        job: structuredClone(triggerSource.job),
-        cron: cron,
-        scheduledAt: cron.sendAt().toMillis(),
-      };
+        this.triggers[triggerSource.trigger.id] = {
+          state: "ready",
+          trigger: structuredClone(triggerSource.trigger),
+          action: structuredClone(triggerSource.action),
+          version: structuredClone(triggerSource.version),
+          job: structuredClone(triggerSource.job),
+          cron: cron,
+          scheduledAt: cron.sendAt().toMillis(),
+        };
+      } catch (err) {
+        if (err instanceof CronError) {
+          this.triggers[triggerSource.trigger.id] = {
+            state: "error",
+            error: `Cron Schedule Error. See logs.`,
+            trigger: structuredClone(triggerSource.trigger),
+            action: structuredClone(triggerSource.action),
+            version: structuredClone(triggerSource.version),
+            job: structuredClone(triggerSource.job),
+          };
+
+          console.log(
+            `[TriggerCron/loopCheckNewTriggers] Invalid cron syntax for trigger ${triggerSource.trigger.id} on job ${triggerSource.job.id}: ${err.message}`
+          );
+
+          this.logger.write({
+            jobId: triggerSource.job.id,
+            jobName: triggerSource.job.jobName,
+            actionId: triggerSource.action.id,
+            source: "system",
+            message: `Invalid cron for trigger ${triggerSource.trigger.id}: ${err.message}`,
+            created: new Date(),
+          });
+
+          continue;
+        }
+
+        throw err;
+      }
     }
   }
 
@@ -174,6 +221,10 @@ export class TriggerCron extends LoopBase {
     const time = Date.now();
 
     for (const [triggerId, trigger] of Object.entries(this.triggers)) {
+      if (trigger.state === "error") {
+        continue;
+      }
+
       if (trigger.scheduledAt > time) {
         continue;
       }

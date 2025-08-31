@@ -373,7 +373,15 @@ export const Component = () => {
                           "Schedule Trigger Context"}
                       </h3>
 
-                      <div className="text-sm text-gray-600 mb-2"></div>
+                      <div
+                        className={`text-xs mb-2 ${
+                          trigger.status.status === "unhealthy"
+                            ? "text-red-500"
+                            : "text-gray-600"
+                        }`}
+                      >
+                        {trigger.status.message}
+                      </div>
 
                       <dl className="text-sm mt-4">
                         {trigger.context.type === "schedule" && (

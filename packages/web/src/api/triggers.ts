@@ -47,6 +47,11 @@ export type JobberTrigger = {
         };
       };
 
+  status: {
+    status: "unknown" | "unhealthy" | "healthy";
+    message: string;
+  };
+
   created: number;
 };
 

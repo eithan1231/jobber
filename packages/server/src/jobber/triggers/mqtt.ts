@@ -52,55 +52,55 @@ export class TriggerMqtt extends LoopBase {
     super();
   }
 
-  public async getTriggerStatus(jobId: string, triggerId: string) {
+  public getTriggerStatus(jobId: string, triggerId: string) {
     const trigger = this.triggers[triggerId];
 
     if (!trigger || trigger.job.id !== jobId) {
       return {
         status: "unknown",
         message: "unknown",
-      };
+      } as const;
     }
 
     if (this.status !== "started") {
       return {
         status: "unhealthy",
         message: "Cron not running",
-      };
+      } as const;
     }
 
     if (trigger.client.disconnecting) {
       return {
         status: "unhealthy",
         message: "Disconnecting...",
-      };
+      } as const;
     }
 
     if (trigger.client.disconnected) {
       return {
         status: "unhealthy",
         message: "Disconnected",
-      };
+      } as const;
     }
 
     if (trigger.client.reconnecting) {
       return {
         status: "unhealthy",
         message: "Reconnecting...",
-      };
+      } as const;
     }
 
     if (trigger.client.connected) {
       return {
         status: "healthy",
         message: `Connected`,
-      };
+      } as const;
     }
 
     return {
       status: "unhealthy",
       message: "Unknown connection status",
-    };
+    } as const;
   }
 
   protected async loopIteration() {

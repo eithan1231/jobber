@@ -53,7 +53,44 @@ export async function createRouteJobTriggers() {
         )
         .where(eq(triggersTable.jobId, jobId));
 
-      const triggersFiltered = triggers.filter((trigger) => {
+      const triggersWithStatus = triggers.map((trigger) => {
+        if (trigger.context.type === "schedule") {
+          const status = triggerCron.getTriggerStatus(jobId, trigger.id);
+
+          return {
+            ...trigger,
+            status,
+          };
+        }
+
+        if (trigger.context.type === "http") {
+          const status = triggerHttp.getTriggerStatus(jobId, trigger.id);
+
+          return {
+            ...trigger,
+            status,
+          };
+        }
+
+        if (trigger.context.type === "mqtt") {
+          const status = triggerMqtt.getTriggerStatus(jobId, trigger.id);
+
+          return {
+            ...trigger,
+            status,
+          };
+        }
+
+        return {
+          ...trigger,
+          status: {
+            status: "unknown",
+            message: "unknown",
+          } as const,
+        };
+      });
+
+      const triggersFiltered = triggersWithStatus.filter((trigger) => {
         return canPerformAction(
           auth.permissions,
           `job/${trigger.jobId}/triggers/${trigger.id}`,
@@ -92,7 +129,40 @@ export async function createRouteJobTriggers() {
       )
       .where(eq(triggersTable.jobId, jobId));
 
-    const triggersFiltered = triggers.filter((trigger) => {
+    const triggersWithStatus = triggers.map((trigger) => {
+      if (trigger.context.type === "schedule") {
+        const status = triggerCron.getTriggerStatus(jobId, trigger.id);
+
+        return {
+          ...trigger,
+          status,
+        };
+      } else if (trigger.context.type === "http") {
+        const status = triggerHttp.getTriggerStatus(jobId, trigger.id);
+
+        return {
+          ...trigger,
+          status,
+        };
+      } else if (trigger.context.type === "mqtt") {
+        const status = triggerMqtt.getTriggerStatus(jobId, trigger.id);
+
+        return {
+          ...trigger,
+          status,
+        };
+      } else {
+        return {
+          ...trigger,
+          status: {
+            status: "unknown",
+            message: "unknown",
+          } as const,
+        };
+      }
+    });
+
+    const triggersFiltered = triggersWithStatus.filter((trigger) => {
       return canPerformAction(
         auth.permissions,
         `job/${trigger.jobId}/triggers/${trigger.id}`,
@@ -114,7 +184,7 @@ export async function createRouteJobTriggers() {
       const jobId = c.req.param("jobId");
       const triggerId = c.req.param("triggerId");
 
-      const triggers = await getDrizzle()
+      const trigger = await getDrizzle()
         .select({
           id: triggersTable.id,
           jobId: triggersTable.jobId,
@@ -125,9 +195,8 @@ export async function createRouteJobTriggers() {
         .where(
           and(eq(triggersTable.id, triggerId), eq(triggersTable.jobId, jobId))
         )
-        .limit(1);
-
-      const trigger = triggers.at(0);
+        .limit(1)
+        .then((row) => row.at(0) ?? null);
 
       if (!trigger) {
         return next();
