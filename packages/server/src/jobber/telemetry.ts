@@ -1,5 +1,5 @@
 import { eq, sql } from "drizzle-orm";
-import { autoInjectable, singleton } from "tsyringe";
+import { singleton } from "tsyringe";
 import { getDrizzle } from "~/db/index.js";
 import { jobsTable } from "~/db/schema/jobs.js";
 import { storeTable } from "~/db/schema/store.js";

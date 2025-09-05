@@ -6,17 +6,36 @@ import { getDrizzle } from "~/db/index.js";
 import { jobsTable } from "~/db/schema/jobs.js";
 import { InternalHonoApp } from "~/index.js";
 import { RunnerManager } from "~/jobber/runners/manager.js";
+import { createMiddlewareAuth } from "~/middleware/auth.js";
+import { canPerformAction } from "~/permissions.js";
 
 export async function createRouteMetrics() {
   const runnerManager = container.resolve(RunnerManager);
   const app = new Hono<InternalHonoApp>();
 
-  app.get("/metrics", async (c) => {
+  app.get("/metrics", createMiddlewareAuth(), async (c) => {
+    const auth = c.get("auth")!;
+
+    if (
+      !canPerformAction(auth.permissions, `system/metrics/prometheus`, "read")
+    ) {
+      return c.text("Insufficient Permissions", 403);
+    }
+
     c.header("Content-Type", register.contentType);
+
     return c.text(await register.metrics(), 200);
   });
 
-  app.get("/metrics/overview", async (c) => {
+  app.get("/metrics/overview", createMiddlewareAuth(), async (c) => {
+    const auth = c.get("auth")!;
+
+    if (
+      !canPerformAction(auth.permissions, `system/metrics/overview`, "read")
+    ) {
+      return c.text("Insufficient Permissions", 403);
+    }
+
     const runners = await runnerManager.getRunners();
 
     const runnersTotal = runners.length;

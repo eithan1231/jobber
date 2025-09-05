@@ -58,6 +58,36 @@ export const stopDockerContainer = (id: string): Promise<boolean> => {
     });
 
     process.once("exit", (code) => {
+      if (code !== 0) {
+        console.error(
+          `[stopDockerContainer] Failed to stop container ${id}: ${lines.join(
+            ""
+          )}`
+        );
+      }
+
+      return resolve(code === 0);
+    });
+  });
+};
+
+export const pullDockerImage = (image: string): Promise<boolean> => {
+  return new Promise((resolve, reject) => {
+    const lines: string[] = [];
+
+    const process = spawn("docker", ["image", "pull", image]);
+
+    process.stdout.on("data", (chunk: Buffer) => {
+      lines.push(chunk.toString());
+    });
+
+    process.once("exit", (code) => {
+      if (code !== 0) {
+        console.error(
+          `[pullDockerImage] Failed to pull image ${image}: ${lines.join("")}`
+        );
+      }
+
       return resolve(code === 0);
     });
   });

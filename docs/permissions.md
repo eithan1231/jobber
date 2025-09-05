@@ -51,6 +51,11 @@ Example resource pattern: `job/*/actions`
 - `api-tokens` READ/WRITE
 - `api-tokens/:tokenId` READ/WRITE
 
+#### System -> Metrics
+
+- `system/metrics/prometheus` READ
+- `system/metrics/overview` READ
+
 ### Example Permissions:
 
 #### API Publisher

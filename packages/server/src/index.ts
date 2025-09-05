@@ -31,7 +31,7 @@ import {
 
 import { getConfigOption } from "./config.js";
 import { cleanupLocks } from "./lock.js";
-import { getJobActionArchiveDirectory } from "./paths.js";
+import { getJobActionArchiveDirectory, getPgDumpDirectory } from "./paths.js";
 import { JobberPermissions, PERMISSION_SUPER } from "./permissions.js";
 
 import { createRouteApiTokens } from "./routes/api-tokens.js";
@@ -49,10 +49,17 @@ import { createRouteJobTriggers } from "./routes/job/triggers.js";
 import { createRouteVersions } from "./routes/job/versions.js";
 import { createRouteMetrics } from "./routes/metrics.js";
 import { createRouteUser } from "./routes/user.js";
+import { USERNAME_ANONYMOUS } from "./constants.js";
+import { PgBackup } from "./pg-backup.js";
 
 export type InternalHonoApp = {
   Variables: {
     auth?:
+      | {
+          type: "anonymous";
+          user: UsersTableType;
+          permissions: JobberPermissions;
+        }
       | {
           type: "session";
           user: UsersTableType;
@@ -260,6 +267,26 @@ async function createStartupAccount() {
   );
 }
 
+async function createAnonymousAccount() {
+  await getDrizzle()
+    .insert(usersTable)
+    .values({
+      username: USERNAME_ANONYMOUS,
+      password: "", // No password, should be hashed. Login will always fail.
+      enabled: false,
+      permissions: [
+        {
+          effect: "deny",
+          actions: ["read", "write", "delete"],
+          resource: "*",
+        },
+      ],
+    })
+    .onConflictDoNothing({
+      where: eq(usersTable.username, USERNAME_ANONYMOUS),
+    });
+}
+
 async function main() {
   console.log(
     "WARNING: This is an experimental runtime, and issues ARE expected! Report any issue, or raise a PR with a fix. Issues WILL be investigated and fixed."
@@ -278,12 +305,14 @@ async function main() {
     console.log(`[main] skipped.`);
   }
 
-  console.log(`[main] Creating action-archive directory...`);
+  console.log(`[main] Creating directories...`);
   await mkdir(getJobActionArchiveDirectory(), {
     recursive: true,
   });
+  await mkdir(getPgDumpDirectory(), {
+    recursive: true,
+  });
   console.log(`[main] done.`);
-
   console.log(`[main] Starting db lock cleanup...`);
   await cleanupLocks();
   const lockCleanupInterval = setInterval(async () => {
@@ -297,6 +326,15 @@ async function main() {
 
   console.log(`[main] Creating startup account...`);
   await createStartupAccount();
+  console.log(`[main] done.`);
+
+  console.log(`[main] Creating anonymous account...`);
+  await createAnonymousAccount();
+  console.log(`[main] done.`);
+
+  console.log("[main] Starting pg backup service...");
+  const pgBackup = container.resolve(PgBackup);
+  await pgBackup.start();
   console.log(`[main] done.`);
 
   console.log(`[main] Initialising logger...`);
@@ -380,6 +418,10 @@ async function main() {
 
     console.log(`[signalRoutine] Stopping runner manager.`);
     await runnerManager.stop();
+    console.log(`[signalRoutine] done.`);
+
+    console.log(`[signalRoutine] Stopping pg backup service.`);
+    await pgBackup.stop();
     console.log(`[signalRoutine] done.`);
 
     console.log(`[signalRoutine] Stopping logger.`);

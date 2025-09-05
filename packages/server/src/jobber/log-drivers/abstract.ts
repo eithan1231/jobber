@@ -38,6 +38,8 @@ export abstract class LogDriverBase extends LoopBase {
 
   protected async loopIteration() {
     await this.flushLogs();
+
+    await this.cleanup();
   }
 
   public write(log: LogDriverBaseItem) {

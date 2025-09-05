@@ -134,8 +134,6 @@ export async function createRouteJobMetrics() {
       assert(typeof version === "string", "Version must be a string");
       assert(typeof metric === "string", "Metric must be a string");
 
-      // TODO: Update to fetch from database, to compare jobId against the database record, not user input.
-
       const job = await getDrizzle()
         .select({
           id: jobsTable.id,

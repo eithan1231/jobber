@@ -3,6 +3,9 @@ import { z } from "zod";
 
 export const ConfigurationOptionsSchema = z.object({
   DATABASE_URL: z.string(),
+  DATABASE_BACKUP_SCHEDULE: z.string().default("0 0 * * *"),
+  DATABASE_BACKUP_SCHEDULE_TIMEZONE: z.string().default("UTC"),
+  DATABASE_BACKUP_RETENTION_COUNT: z.coerce.number().default(32),
 
   JOBBER_NAME: z.string().default("Jobber"),
 

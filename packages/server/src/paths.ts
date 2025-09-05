@@ -17,3 +17,7 @@ export function getJobActionArchiveFile(
     sanitiseFilename(`${version.version}_${action.id}.zip`)
   );
 }
+
+export function getPgDumpDirectory() {
+  return path.join(PATH_CONFIG, "pg-dumps");
+}

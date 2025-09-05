@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, gt, lt, sql } from "drizzle-orm";
 import { getDrizzle } from "~/db/index.js";
 import { logsTable, LogsTableInsertType } from "~/db/schema/logs.js";
 import {
@@ -51,6 +51,7 @@ export class LogDriverDatabase extends LogDriverBase {
         ].sequence
           .toString()
           .padStart(6, "0")}`;
+        //
 
         chunk.add({
           actionId: log.actionId,
@@ -93,6 +94,7 @@ export class LogDriverDatabase extends LogDriverBase {
       .orderBy(desc(logsTable.sort))
       .offset(offset)
       .limit(count);
+    //
 
     return logs.map((log) => {
       return {
@@ -108,6 +110,9 @@ export class LogDriverDatabase extends LogDriverBase {
   }
 
   protected async cleanup(): Promise<void> {
+    await getDrizzle()
+      .delete(logsTable)
+      .where(lt(logsTable.created, sql`NOW() - INTERVAL '7 days'`));
     //
   }
 }

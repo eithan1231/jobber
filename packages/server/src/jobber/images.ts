@@ -57,6 +57,10 @@ export const getImage = async (name: string): Promise<ImagesEntry | null> => {
   return images.find((image) => image.name === name) ?? null;
 };
 
+export const getImages = async (): Promise<ImagesEntry[]> => {
+  return images;
+};
+
 const getImageFromArchivePackageJson = (
   packageJson: ArchivePackageJsonSchemaType
 ): string => {

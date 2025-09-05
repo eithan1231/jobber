@@ -6,6 +6,7 @@ import { getDrizzle } from "~/db/index.js";
 import { actionsTable } from "~/db/schema/actions.js";
 import { jobVersionsTable } from "~/db/schema/job-versions.js";
 import { jobsTable } from "~/db/schema/jobs.js";
+import { logsTable } from "~/db/schema/logs.js";
 import { InternalHonoApp } from "~/index.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { getJobActionArchiveFile } from "~/paths.js";
@@ -128,40 +129,56 @@ export async function createRouteJob() {
     const jobId = c.req.param("jobId");
     const auth = c.get("auth")!;
 
-    // TODO: Update to fetch from database, to compare jobId against the database record, not user input.
-    if (
-      !canPerformAction(
-        auth.permissions,
-        `job/${jobId.toLowerCase()}`,
-        "delete"
-      )
-    ) {
+    const job = await getDrizzle()
+      .select()
+      .from(jobsTable)
+      .where(eq(jobsTable.id, jobId))
+      .limit(1)
+      .then((res) => res.at(0) ?? null);
+
+    if (!job) {
+      return c.json({ success: false, message: "Job not found" }, 404);
+    }
+
+    if (!canPerformAction(auth.permissions, `job/${job.id}`, "delete")) {
       return c.text("Insufficient Permissions", 403);
     }
 
-    const actionsDeleted = await getDrizzle()
-      .delete(actionsTable)
-      .where(eq(actionsTable.jobId, jobId))
-      .returning();
+    // Get all actions and versions, to delete archives after records have been purged.
+    const actionArchives = await getDrizzle()
+      .select({
+        action: actionsTable,
+        version: jobVersionsTable,
+      })
+      .from(actionsTable)
+      .where(eq(actionsTable.jobId, job.id))
+      .innerJoin(
+        jobVersionsTable,
+        eq(actionsTable.jobVersionId, jobVersionsTable.id)
+      );
+    //
 
-    for (const actionDeleted of actionsDeleted) {
-      const jobVersionDeleted = await getDrizzle()
-        .delete(jobVersionsTable)
-        .where(eq(jobVersionsTable.id, actionDeleted.jobVersionId))
-        .returning();
+    await Promise.all([
+      // Delete Jobs
+      getDrizzle().delete(jobsTable).where(eq(jobsTable.id, job.id)),
 
-      const deletedVersion = jobVersionDeleted.at(0);
+      // Delete Logs (does not have foreign key constraint)
+      getDrizzle().delete(logsTable).where(eq(logsTable.jobId, job.id)),
+    ]);
 
-      if (!deletedVersion) {
-        continue;
-      }
+    // Delete archive files
+    for (const actionArchive of actionArchives) {
+      const filename = getJobActionArchiveFile(
+        actionArchive.version,
+        actionArchive.action
+      );
 
-      const filename = getJobActionArchiveFile(deletedVersion, actionDeleted);
-
-      await rm(filename);
+      await rm(filename).catch((err) => {
+        if (err.code !== "ENOENT") {
+          throw err;
+        }
+      });
     }
-
-    await getDrizzle().delete(jobsTable).where(eq(jobsTable.id, jobId));
 
     return c.json({
       success: true,

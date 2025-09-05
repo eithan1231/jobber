@@ -102,7 +102,7 @@ export async function createRouteApiTokens() {
     }
 
     const { permissions } = body.data;
-    const userId = auth.type === "session" ? auth.user.id : auth.token.userId;
+    const userId = auth.type === "token" ? auth.token.userId : auth.user.id;
     const expires = new Date(Date.now() + body.data.ttl * 1000);
     const description = body.data.description;
 

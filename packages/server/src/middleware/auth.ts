@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { Context, Next } from "hono";
 import { getCookie } from "hono/cookie";
+import { USERNAME_ANONYMOUS } from "~/constants.js";
 import { getDrizzle } from "~/db/index.js";
 import { apiTokensTable } from "~/db/schema/api-tokens.js";
 import { sessionsTable } from "~/db/schema/sessions.js";
@@ -52,6 +53,13 @@ export const createMiddlewareAuth = () => {
       }
 
       const { users, sessions } = result;
+
+      if (!users.enabled) {
+        return c.json(
+          { success: false, message: "Insufficient Permissions" },
+          403
+        );
+      }
 
       if (sessions.expires < new Date()) {
         return c.json(
@@ -117,6 +125,47 @@ export const createMiddlewareAuth = () => {
       return await next();
     }
 
-    return c.json({ success: false, message: "Insufficient Permissions" }, 403);
+    // Anonymous User
+    const anonymousUser = await getDrizzle()
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.username, USERNAME_ANONYMOUS))
+      .limit(1)
+      .then((res) => res.at(0) ?? null);
+
+    if (!anonymousUser) {
+      return c.json(
+        { success: false, message: "Insufficient Permissions" },
+        403
+      );
+    }
+
+    if (!anonymousUser.enabled) {
+      return c.json(
+        { success: false, message: "Insufficient Permissions" },
+        403
+      );
+    }
+
+    if (
+      !anonymousUser.permissions.some(
+        (permission) => permission.effect === "allow"
+      )
+    ) {
+      // The anonymous user doesn't have any allow permissions, safe to assume they are
+      // going to be rejected downstream
+      return c.json(
+        { success: false, message: "Insufficient Permissions" },
+        403
+      );
+    }
+
+    c.set("auth", {
+      type: "anonymous",
+      user: anonymousUser,
+      permissions: anonymousUser.permissions,
+    });
+
+    return await next();
   };
 };

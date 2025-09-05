@@ -115,23 +115,23 @@ export async function createRouteJobPublish() {
     return await getDrizzle().transaction(async (tx) => {
       const timestamp = getUnixTimestamp();
 
-      const job = (
-        await getDrizzle()
-          .insert(jobsTable)
-          .values({
-            jobName: packageJson.name,
+      const job = await getDrizzle()
+        .insert(jobsTable)
+        .values({
+          jobName: packageJson.name,
+          description: packageJson.description,
+          links: packageJson.links,
+        })
+        .onConflictDoUpdate({
+          set: {
             description: packageJson.description,
             links: packageJson.links,
-          })
-          .onConflictDoUpdate({
-            set: {
-              description: packageJson.description,
-              links: packageJson.links,
-            },
-            target: jobsTable.jobName,
-          })
-          .returning()
-      ).at(0);
+          },
+          target: jobsTable.jobName,
+        })
+        .returning()
+        .then((res) => res.at(0) ?? null);
+      //
 
       if (!job) {
         console.log(`[/publish/] Failed to create job for ${packageJson.name}`);
@@ -142,20 +142,19 @@ export async function createRouteJobPublish() {
         });
       }
 
-      const version = (
-        await getDrizzle()
-          .insert(jobVersionsTable)
-          .values({
-            jobId: job.id,
-            version: packageJson.version,
-            created: timestamp,
-            modified: timestamp,
-          })
-          .onConflictDoNothing({
-            target: [jobVersionsTable.jobId, jobVersionsTable.version],
-          })
-          .returning()
-      ).at(0);
+      const version = await getDrizzle()
+        .insert(jobVersionsTable)
+        .values({
+          jobId: job.id,
+          version: packageJson.version,
+          created: timestamp,
+          modified: timestamp,
+        })
+        .onConflictDoNothing({
+          target: [jobVersionsTable.jobId, jobVersionsTable.version],
+        })
+        .returning()
+        .then((res) => res.at(0) ?? null);
 
       if (!version) {
         console.log(
@@ -196,7 +195,7 @@ export async function createRouteJobPublish() {
           runnerMaxIdleAge: packageJson.action.runnerMaxIdleAge,
         })
         .returning()
-        .then((res) => res.at(0));
+        .then((res) => res.at(0) ?? null);
 
       await Promise.all(
         packageJson.triggers.map((trigger) => {

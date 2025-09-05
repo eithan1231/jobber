@@ -16,7 +16,11 @@ import {
   JobVersionsTableType,
 } from "~/db/schema/job-versions.js";
 import { jobsTable, JobsTableType } from "~/db/schema/jobs.js";
-import { getDockerContainers, stopDockerContainer } from "~/docker.js";
+import {
+  getDockerContainers,
+  pullDockerImage,
+  stopDockerContainer,
+} from "~/docker.js";
 import { LoopBase } from "~/loop-base.js";
 import {
   counterRunnerRequests,
@@ -35,7 +39,7 @@ import {
   shortenString,
   timeout,
 } from "~/util.js";
-import { getImage } from "../images.js";
+import { getImage, getImages } from "../images.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
 import { Store } from "../store.js";
 import { HandleRequest, HandleResponse, RunnerServer } from "./server.js";
@@ -73,6 +77,8 @@ export class RunnerManager extends LoopBase {
   private requestedVersionIds = new Set<string>();
 
   private danglingLastRun = 0;
+
+  private imagePullLastRun = 0;
 
   constructor(
     @inject("LogDriverBase") private logger: LogDriverBase,
@@ -221,6 +227,12 @@ export class RunnerManager extends LoopBase {
       await this.loopCheckDanglingContainers(currentVersions);
 
       this.danglingLastRun = getUnixTimestamp();
+    }
+
+    if (getUnixTimestamp() - this.imagePullLastRun > 300) {
+      await this.loopImagePull();
+
+      this.imagePullLastRun = getUnixTimestamp();
     }
 
     const benchmarkResult = benchmark();
@@ -1000,6 +1012,26 @@ export class RunnerManager extends LoopBase {
         );
       }
     }
+  }
+
+  private async loopImagePull() {
+    const images = await getImages();
+
+    await Promise.all(
+      images.map(async (image) => {
+        if (image.status !== "active") {
+          return;
+        }
+
+        const result = await pullDockerImage(image.imageUrl);
+
+        if (!result) {
+          console.log(
+            `[RunnerManager/loopImagePull] Failed to pull image ${image.imageUrl}`
+          );
+        }
+      })
+    );
   }
 
   private async loopRunnerSpawner(

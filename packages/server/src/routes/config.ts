@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { getConfigOption } from "~/config.js";
+import { USERNAME_ANONYMOUS } from "~/constants.js";
 
 export async function createRouteConfig() {
   const app = new Hono();

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   jsonb,
   pgTable,
   text,
@@ -21,6 +22,8 @@ export const usersTable = pgTable(
 
     username: varchar().notNull().unique(),
     password: text().notNull(),
+
+    enabled: boolean().default(true).notNull(),
 
     permissions: jsonb().notNull().$type<JobberPermissions>(),
 

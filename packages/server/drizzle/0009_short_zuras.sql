@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "enabled" boolean DEFAULT true NOT NULL;
