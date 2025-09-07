@@ -1,14 +1,17 @@
-FROM node:20-slim AS base
+FROM node:24-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
-RUN corepack prepare pnpm@9.12.0 --activate
 WORKDIR /app
 
-# install unzip and docker-cli
+# Corepack Enable, and setup
+RUN corepack enable && corepack prepare pnpm@10.15.1 --activate
+
+# Setup Postgres Client, unzip, and DockerCLI
 RUN apt update \
-  && apt install unzip ca-certificates curl postgresql-client-17 postgresql-client-common --no-install-recommends -y \
-  &&  install -m 0755 -d /etc/apt/keyrings \
+  && apt install unzip ca-certificates curl postgresql-common --no-install-recommends -y \
+  && /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y \
+  && apt install postgresql-client-17 --no-install-recommends -y \
+  && install -m 0755 -d /etc/apt/keyrings \
   && curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc \
   && chmod a+r /etc/apt/keyrings/docker.asc \
   && echo \
@@ -18,16 +21,18 @@ RUN apt update \
   && apt update \
   && apt install docker-ce-cli --no-install-recommends -y \
   && rm -rf /var/lib/apt/lists/*
-
+#
 
 FROM base AS build
 COPY . /repo
 WORKDIR /repo
+
 RUN pnpm install --frozen-lockfile \
   && pnpm run -r build \
-  && pnpm deploy --filter=@jobber/server --prod /app \
+  && pnpm --prod --filter=@jobber/server --node-linker hoisted deploy /app \
+  && mkdir /app/public/ \
   && cp -r packages/web/dist/* /app/public/
-
+#
 
 
 FROM base

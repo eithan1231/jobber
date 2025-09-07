@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'docker/node-20.Dockerfile'
+      - '.github/workflows/publish-node-20.yaml'
+      - 'packages/runner-node-entrypoint/**'
+      - 'packages/tcp-frame-socket/**'
 
 jobs:
   publish_node_20:

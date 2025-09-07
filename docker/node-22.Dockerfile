@@ -1,9 +1,8 @@
 FROM node:22-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
-RUN corepack prepare pnpm@9.12.0 --activate
 WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@10.15.1 --activate
 
 # install unzip
 RUN apt update \
@@ -16,7 +15,7 @@ COPY . /repo
 WORKDIR /repo
 RUN pnpm install --frozen-lockfile \
   && pnpm run -r build \
-  && pnpm deploy --filter=@jobber/runner-node-entrypoint --prod /app
+  && pnpm --prod --filter=@jobber/runner-node-entrypoint --node-linker hoisted deploy /app
 
 
 

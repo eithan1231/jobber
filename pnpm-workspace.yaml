@@ -1,2 +1,4 @@
+injectWorkspacePackages: true
+
 packages:
   - 'packages/*'
