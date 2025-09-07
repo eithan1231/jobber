@@ -6,12 +6,6 @@ The objective of this project is to provide nothing more than a basic interface 
 
 <hr>
 
-### Screenshots
-
-[Click Here](/docs/pictures.md) to see some demo pictures of the application in action!
-
-<hr>
-
 ### Terminology
 
 - Jobber: This application/service
@@ -23,6 +17,30 @@ The objective of this project is to provide nothing more than a basic interface 
 - Runner Manager: Describes the component that controls the connections between runners, actions and triggers.
 - Gateway: Describes the http server we utilise for forwarding traffic to jobs and runners.
 
+<hr>
+
+### Screenshots
+
+[Click Here](/docs/pictures.md) to see some demo pictures of the application in action!
+
+<hr>
+
+### Metrics (Prometheus)
+
+[Click Here](/docs/metrics.md) For more detailed explanation of metrics!
+
+<hr>
+
+### Environment Variables
+
+[Click Here](/docs/environment-variables.md) For more extensive list of environment variable configuration!
+
+- `DATABASE_URL` Postgres connection URL. Example: `postgresql://user:pass@host/db`
+- `JOBBER_NAME` The name of your jobber instance, should be unique per host.
+- `MANAGER_PORT` Port that runner-manager server operates on. Default: 5211
+- `MANAGER_HOST` Host that runner-manager server operates on. Default: hostname()
+- `STARTUP_USERNAME` The administrator account username. Created at every startup. Has full permissions. If you change this after a previous start, it will create a NEW account, not update the previous account.
+- `STARTUP_PASSWORD` The administrator account password.
 <hr>
 
 ### Docker Compose
@@ -40,57 +58,9 @@ Port 3001: HTTP Gateway (Router for HTTP triggers)
 
 <hr>
 
-### Environment Variables
-
-- `DATABASE_URL` Postgres connection URL. Example: `postgresql://user:pass@host/db`
-- `MANAGER_PORT` Port that runner-manager server operates on. Default: 5211
-- `MANAGER_HOST` Host that runner-manager server operates on. Default: hostname()
-- `AUTH_PUBLIC_REGISTRATION_ENABLED` Determines if public registration is enabled.
-- `AUTH_PUBLIC_LOGIN_ENABLED` Determines if public login is enabled.
-- `STARTUP_USERNAME` The administrator account username. Created at every startup. Has full permissions. If you change this after a previous start, it will create a NEW account, not update the previous account.
-- `STARTUP_PASSWORD` The administrator account password.
-- `RUNNER_IMAGE_NODE22_URL`: Runner docker image for Node22
-- `RUNNER_IMAGE_NODE20_URL`: Runner docker image for Node20
-- `RUNNER_CONTAINER_DOCKER_NETWORK`: Docker network that runners operate on. Needs access to MANAGER_HOST
-- `RUNNER_ALLOW_DOCKER_ARGUMENT_TYPES`: Permissible docker arguments specified for each project. Know the risks. Values "volumes", "networks", "labels", "memoryLimit", "directPassthroughArguments". Default is none. Example: `volumes, labels, memoryLimit`.
-- `RUNNER_ALLOW_ARGUMENT_DIRECT_PASSTHROUGH`: Additional flag to permit "directPassthroughArguments" argument type. This is insecure. Default `false`
-- `LOG_DRIVER`: Logging method for runners. Enum: database, loki. Default: database.
-- `LOG_DRIVER_LOKI_PUSH`: Loki log push url. Example: `http://localhost/loki/api/v1/push`
-- `LOG_DRIVER_LOKI_QUERY`: Loki log query url. Example: `http://localhost/loki/api/v1/query_range`
-- `LOG_DRIVER_LOKI_QUERY_RANGE`: Loki log query maximum look-back period, in seconds. Default is 60\*60\*24 (1d)
-- `METRICS_PROMETHEUS_QUERY`: Prometheus metrics query url. Example: `http://localhost/api/v1/query_range`
-- `METRICS_PROMETHEUS_JOB_NAME`: The `job_name` in your prometheus.yaml scraping config.
-- `METRICS_PROMETHEUS_QUERY_STEP`: The step in seconds for the Prometheus query. Default is 15 seconds. Configure to your scrape_interval in Prometheus
-<hr>
-
 ### Logging (Loki and Database)
 
 It is highly suggested to use loki as your log driver if you have a decent amount of log-spam, especially high bandwidth logging. This will defer a lot of load from the database.
-
-<hr>
-
-### Metrics (Prometheus)
-
-By default an endpoint of `/api/metrics` is available for prometheus scraping. This will allow you to record time-series data within your prometheus instance.
-
-With addition to this, Jobber supports querying prometheus within the Jobber Dashboard to provide metrics and oversights without leaving Jobber. To achieve this, you need to configure the environment variables for `METRICS_PROMETHEUS_QUERY` and `METRICS_PROMETHEUS_JOB_NAME`.
-
-Your prometheus config should look similar to:
-
-```yaml
-scrape_configs:
-  - job_name: jobber_job_name
-    metrics_path: /api/metrics
-    scrape_interval: 15s
-    static_configs:
-      - targets: ["127.0.0.1"]
-```
-
-`METRICS_PROMETHEUS_QUERY` Environment variable should be set to `http://localhost/api/v1/query_range` if your prometheus is running locally.
-
-`METRICS_PROMETHEUS_JOB_NAME` Environment variable should reflect the `job_name` option in your prometheus scraping config, as seen above. As per the configuration above, we should set it to `jobber_job_name`
-
-`METRICS_PROMETHEUS_QUERY_STEP`: Environment variable should reflect your `scrape_interval` in prometheus.
 
 <hr>
 

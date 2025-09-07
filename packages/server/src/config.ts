@@ -9,8 +9,8 @@ export const ConfigurationOptionsSchema = z.object({
 
   JOBBER_NAME: z.string().default("Jobber"),
 
-  STARTUP_USERNAME: z.string().default("admin"),
-  STARTUP_PASSWORD: z.string().default("Password1!"),
+  STARTUP_USERNAME: z.string().optional().default("admin"),
+  STARTUP_PASSWORD: z.string().optional().default("Password1!"),
 
   AUTH_PUBLIC_REGISTRATION_ENABLED: z
     .string()

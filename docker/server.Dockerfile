@@ -7,7 +7,7 @@ WORKDIR /app
 
 # install unzip and docker-cli
 RUN apt update \
-  && apt install unzip ca-certificates curl postgresql-client postgresql-client-common --no-install-recommends -y \
+  && apt install unzip ca-certificates curl postgresql-client-17 postgresql-client-common --no-install-recommends -y \
   &&  install -m 0755 -d /etc/apt/keyrings \
   && curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc \
   && chmod a+r /etc/apt/keyrings/docker.asc \
