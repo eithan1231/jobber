@@ -38,6 +38,7 @@ export type JobberMetricOverview = {
     jobsDisabled: number;
     jobsEnabled: number;
   };
+  uptime: number;
 };
 
 export const getJobMetric = async (

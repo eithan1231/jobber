@@ -101,4 +101,8 @@ export class Telemetry extends LoopBase {
       console.error(err);
     }
   }
+
+  public getStartTime() {
+    return this.startTime;
+  }
 }

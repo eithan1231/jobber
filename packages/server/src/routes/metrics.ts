@@ -6,8 +6,10 @@ import { getDrizzle } from "~/db/index.js";
 import { jobsTable } from "~/db/schema/jobs.js";
 import { InternalHonoApp } from "~/index.js";
 import { RunnerManager } from "~/jobber/runners/manager.js";
+import { Telemetry } from "~/jobber/telemetry.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { canPerformAction } from "~/permissions.js";
+import { getUnixTimestamp } from "~/util.js";
 
 export async function createRouteMetrics() {
   const runnerManager = container.resolve(RunnerManager);
@@ -35,6 +37,8 @@ export async function createRouteMetrics() {
     ) {
       return c.text("Insufficient Permissions", 403);
     }
+
+    const telemetry = container.resolve(Telemetry);
 
     const runners = await runnerManager.getRunners();
 
@@ -134,6 +138,8 @@ export async function createRouteMetrics() {
           jobsDisabled,
           jobsEnabled,
         },
+
+        uptime: getUnixTimestamp() - telemetry.getStartTime(),
       },
     });
   });

@@ -1,9 +1,15 @@
 import { HomePageComponent } from "../../components/home-page-component";
 import { TimeSinceComponent } from "../../components/time-since-component";
 import { useMetricOverview } from "../../hooks/use-metric-overview";
+import { formatRelativeTime } from "../../util";
 
 const Component = () => {
   const { metricsOverview } = useMetricOverview();
+
+  const uptimeTimestamp =
+    Math.floor(Date.now() / 1000) - (metricsOverview?.uptime ?? 0);
+
+  const uptimeRelative = formatRelativeTime(uptimeTimestamp);
 
   return (
     <HomePageComponent title="Homepage">
@@ -11,6 +17,23 @@ const Component = () => {
         <h1 className="text-2xl font-bold mb-4">Welcome to the Homepage</h1>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+          <div
+            className="group rounded-xl border border-gray-200 bg-white/70 backdrop-blur-sm p-5 shadow-sm transition hover:shadow-md"
+            aria-label="Total jobs metric"
+          >
+            <div className="flex items-start justify-between">
+              <span className="text-sm font-medium text-gray-500">Uptime</span>
+            </div>
+            <div
+              className="mt-3 flex items-end gap-2"
+              title={new Date(uptimeTimestamp * 1000).toLocaleString()}
+            >
+              <span className="text-3xl font-semibold text-gray-900">
+                {uptimeRelative}
+              </span>
+            </div>
+          </div>
+
           <div
             className="group rounded-xl border border-gray-200 bg-white/70 backdrop-blur-sm p-5 shadow-sm transition hover:shadow-md"
             aria-label="Total jobs metric"
