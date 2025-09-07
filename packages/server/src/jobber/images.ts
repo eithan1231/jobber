@@ -17,6 +17,13 @@ export type ImagesEntry = {
 
 const images: Array<ImagesEntry> = [
   {
+    name: "node24",
+    status: "active",
+    runtime: "node",
+    version: "v24",
+    imageUrl: getConfigOption("RUNNER_IMAGE_NODE24_URL"),
+  },
+  {
     name: "node22",
     status: "active",
     runtime: "node",
@@ -47,7 +54,7 @@ const images: Array<ImagesEntry> = [
 ];
 
 const defaultRuntimeImages = {
-  node: "node22",
+  node: "node24",
   python: "python3",
 } as const;
 
