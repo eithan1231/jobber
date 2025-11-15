@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres:14
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=jobber-username
+      - POSTGRES_PASSWORD=jobber-password
+      - POSTGRES_DB=jobber-database
+    ports:
+      - 8640:5432
+  pgadmin:
+    image: dpage/pgadmin4
+    restart: unless-stopped
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=localpart@example.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    ports:
+      - 8641:80
+  prometheus:
+    network_mode: host
+    image: prom/prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus.yaml:/etc/prometheus/prometheus.yml
+    ports:
+      - 8642:9090

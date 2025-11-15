@@ -8,6 +8,7 @@ import { JobVersionsTableType } from "~/db/schema/job-versions.js";
 import { getJobActionArchiveFile } from "~/paths.js";
 import { awaitTruthy, createToken, shortenString } from "~/util.js";
 import { Store } from "../store.js";
+import { container } from "tsyringe";
 
 export type HandleRequestSchedule = {
   type: "schedule";
@@ -87,6 +88,7 @@ export class RunnerServer extends EventEmitter<{
   "runner-closing": [runnerId: string];
   "runner-starting": [runnerId: string];
   "runner-ready": [runnerId: string];
+  "mqtt-publish-request": [jobId: string, topic: string, message: Buffer];
 }> {
   private connections = new Map<string, RunnerServerItem>();
 
@@ -107,7 +109,9 @@ export class RunnerServer extends EventEmitter<{
     this.server.on("connection", (socket) => {
       const socketFrame = new TcpFrameSocket(socket);
 
-      socketFrame.on("frame", (buffer) => this.onFrame(socketFrame, buffer));
+      socketFrame.on("frame", (buffer: Buffer) =>
+        this.onFrame(socketFrame, buffer)
+      );
     });
 
     this.server.on("error", (err) => console.error(err));
@@ -336,150 +340,182 @@ export class RunnerServer extends EventEmitter<{
     const frame = JSON.parse(chunkJson.toString("utf8")) as FrameJson;
 
     if (frame.name === "response") {
-      const traceResponseCallback = this.traceResponses.get(frame.traceId);
-
-      if (!traceResponseCallback) {
-        return;
-      }
-
-      traceResponseCallback(frame, bodyBuffer);
-
-      return;
+      return await this.onFrameResponse(socket, frame, bodyBuffer);
     }
 
     if (frame.name === "init") {
-      const connection = this.connections.get(frame.runnerId);
+      return await this.onFrameInit(socket, frame, bodyBuffer);
+    }
 
-      if (!connection) {
-        console.warn(
-          `[RunnerServer/onFrame] handle frame name "${
-            frame.name
-          }", cannot find connection for runner ${shortenString(
-            frame.runnerId
-          )}!`
-        );
+    if (frame.name === "ready") {
+      return await this.onFrameReady(socket, frame, bodyBuffer);
+    }
 
-        return;
-      }
+    if (frame.name.startsWith("store")) {
+      return await this.onFrameStore(socket, frame, bodyBuffer);
+    }
 
-      if (connection.status !== "pending") {
-        console.warn(
-          `[RunnerServer/onFrame] handle frame name "${
-            frame.name
-          }", connection already initialised, with status of ${
-            connection.status
-          }, for runner ${shortenString(frame.runnerId)}!`
-        );
+    if (frame.name.startsWith("mqtt")) {
+      return await this.onFrameMqtt(socket, frame, bodyBuffer);
+    }
 
-        return;
-      }
+    console.warn(
+      `[RunnerServer/onFrame] Received unknown frame name "${frame.name}"!`
+    );
+  }
 
-      this.connections.set(frame.runnerId, {
-        ...connection,
-        status: "starting",
-        socket,
-      });
+  private async onFrameResponse(
+    _socket: TcpFrameSocket,
+    frame: FrameJson,
+    bodyBuffer: Buffer
+  ) {
+    const traceResponseCallback = this.traceResponses.get(frame.traceId);
 
-      this.emit("runner-starting", frame.runnerId);
+    if (!traceResponseCallback) {
+      return;
+    }
 
-      socket.once("close", () => {
-        this.emit("runner-close", frame.runnerId);
-        this.connections.delete(frame.runnerId);
-      });
+    traceResponseCallback(frame, bodyBuffer);
+  }
 
-      this.writeFrame(
-        {
-          name: "response",
-          runnerId: frame.runnerId,
-          traceId: frame.traceId,
-          dataType: "buffer",
-        },
-        await readFile(
-          getJobActionArchiveFile(connection.version, connection.action)
-        )
+  private async onFrameInit(
+    socket: TcpFrameSocket,
+    frame: FrameJson,
+    _bodyBuffer: Buffer
+  ) {
+    const connection = this.connections.get(frame.runnerId);
+
+    if (!connection) {
+      console.warn(
+        `[RunnerServer/onFrameInit] handle frame name "${
+          frame.name
+        }", cannot find connection for runner ${shortenString(frame.runnerId)}!`
       );
 
       return;
     }
 
-    if (frame.name === "ready") {
-      const connection = this.connections.get(frame.runnerId);
-
-      if (!connection) {
-        console.warn(
-          `[RunnerServer/onFrame] handle frame name "${
-            frame.name
-          }", cannot find connection for runner ${shortenString(
-            frame.runnerId
-          )}!`
-        );
-
-        return;
-      }
-
-      if (connection.status !== "starting") {
-        console.warn(
-          `[RunnerServer/onFrame] handle frame name "${
-            frame.name
-          }", connection already initialised, with status of ${
-            connection.status
-          }, for runner ${shortenString(frame.runnerId)}!`
-        );
-
-        return;
-      }
-
-      this.connections.set(frame.runnerId, {
-        ...connection,
-        status: "ready",
-        socket,
-      });
-
-      this.emit("runner-ready", frame.runnerId);
+    if (connection.status !== "pending") {
+      console.warn(
+        `[RunnerServer/onFrameInit] handle frame name "${
+          frame.name
+        }", connection already initialised, with status of ${
+          connection.status
+        }, for runner ${shortenString(frame.runnerId)}!`
+      );
 
       return;
     }
 
-    if (frame.name.startsWith("store")) {
-      const connection = this.connections.get(frame.runnerId);
+    this.connections.set(frame.runnerId, {
+      ...connection,
+      status: "starting",
+      socket,
+    });
 
-      if (!connection) {
-        console.warn(
-          `[RunnerServer/onFrame] handle frame name "${
-            frame.name
-          }", cannot find connection for runner ${shortenString(
-            frame.runnerId
-          )}!`
-        );
+    this.emit("runner-starting", frame.runnerId);
 
-        return;
-      }
+    socket.once("close", () => {
+      this.emit("runner-close", frame.runnerId);
+      this.connections.delete(frame.runnerId);
+    });
 
-      if (connection.status === "pending") {
-        console.warn(
-          `[RunnerServer/onFrame] handle frame name "${
-            frame.name
-          }", connection has not started! runner ${shortenString(
-            frame.runnerId
-          )}!`
-        );
+    this.writeFrame(
+      {
+        name: "response",
+        runnerId: frame.runnerId,
+        traceId: frame.traceId,
+        dataType: "buffer",
+      },
+      await readFile(
+        getJobActionArchiveFile(connection.version, connection.action)
+      )
+    );
 
-        return;
-      }
+    return;
+  }
 
-      if (frame.dataType !== "json") {
-        console.warn(
-          `[RunnerServer/onFrame] handle frame name "${
-            frame.name
-          }", received unexpected dataType! runner ${shortenString(
-            frame.runnerId
-          )}!`
-        );
+  private async onFrameReady(
+    socket: TcpFrameSocket,
+    frame: FrameJson,
+    _bodyBuffer: Buffer
+  ) {
+    const connection = this.connections.get(frame.runnerId);
 
-        return;
-      }
+    if (!connection) {
+      console.warn(
+        `[RunnerServer/onFrameReady] handle frame name "${
+          frame.name
+        }", cannot find connection for runner ${shortenString(frame.runnerId)}!`
+      );
 
-      if (frame.name === "store-get") {
+      return;
+    }
+
+    if (connection.status !== "starting") {
+      console.warn(
+        `[RunnerServer/onFrameReady] handle frame name "${
+          frame.name
+        }", connection already initialised, with status of ${
+          connection.status
+        }, for runner ${shortenString(frame.runnerId)}!`
+      );
+
+      return;
+    }
+
+    this.connections.set(frame.runnerId, {
+      ...connection,
+      status: "ready",
+      socket,
+    });
+
+    this.emit("runner-ready", frame.runnerId);
+  }
+
+  private async onFrameStore(
+    _socket: TcpFrameSocket,
+    frame: FrameJson,
+    bodyBuffer: Buffer
+  ) {
+    const connection = this.connections.get(frame.runnerId);
+
+    if (!connection) {
+      console.warn(
+        `[RunnerServer/onFrameStore] handle frame name "${
+          frame.name
+        }", cannot find connection for runner ${shortenString(frame.runnerId)}!`
+      );
+
+      return;
+    }
+
+    if (connection.status === "pending") {
+      console.warn(
+        `[RunnerServer/onFrameStore] handle frame name "${
+          frame.name
+        }", connection has not started! runner ${shortenString(
+          frame.runnerId
+        )}!`
+      );
+
+      return;
+    }
+
+    if (frame.dataType !== "json") {
+      console.warn(
+        `[RunnerServer/onFrameStore] handle frame name "${
+          frame.name
+        }", received unexpected dataType! runner ${shortenString(
+          frame.runnerId
+        )}!`
+      );
+
+      return;
+    }
+
+    switch (frame.name) {
+      case "store-get": {
         const bodyParsed = JSON.parse(bodyBuffer.toString()) as { key: string };
 
         const item = await this.store.getItem(
@@ -497,10 +533,10 @@ export class RunnerServer extends EventEmitter<{
           Buffer.from(JSON.stringify(item))
         );
 
-        return;
+        break;
       }
 
-      if (frame.name === "store-set") {
+      case "store-set": {
         const bodyParsed = JSON.parse(bodyBuffer.toString()) as {
           key: string;
           value: string;
@@ -526,10 +562,10 @@ export class RunnerServer extends EventEmitter<{
           Buffer.from(JSON.stringify(item))
         );
 
-        return;
+        break;
       }
 
-      if (frame.name === "store-delete") {
+      case "store-delete": {
         const bodyParsed = JSON.parse(bodyBuffer.toString()) as {
           key: string;
         };
@@ -549,7 +585,96 @@ export class RunnerServer extends EventEmitter<{
           Buffer.from(JSON.stringify(item))
         );
 
+        break;
+      }
+
+      default: {
+        console.warn(
+          `[RunnerServer/onFrameStore] handle frame name "${
+            frame.name
+          }", received unknown store action! runner ${shortenString(
+            frame.runnerId
+          )}!`
+        );
         return;
+      }
+    }
+  }
+
+  private async onFrameMqtt(
+    _socket: TcpFrameSocket,
+    frame: FrameJson,
+    bodyBuffer: Buffer
+  ) {
+    const connection = this.connections.get(frame.runnerId);
+
+    if (!connection) {
+      console.warn(
+        `[RunnerServer/onFrameMqtt] handle frame name "${
+          frame.name
+        }", cannot find connection for runner ${shortenString(frame.runnerId)}!`
+      );
+
+      return;
+    }
+
+    if (connection.status === "pending") {
+      console.warn(
+        `[RunnerServer/onFrameMqtt] handle frame name "${
+          frame.name
+        }", connection has not started! runner ${shortenString(
+          frame.runnerId
+        )}!`
+      );
+
+      return;
+    }
+
+    if (frame.dataType !== "json") {
+      console.warn(
+        `[RunnerServer/onFrameMqtt] handle frame name "${
+          frame.name
+        }", received unexpected dataType! runner ${shortenString(
+          frame.runnerId
+        )}!`
+      );
+
+      return;
+    }
+
+    if (frame.name === "mqtt-publish") {
+      try {
+        const bodyParsed = JSON.parse(bodyBuffer.toString()) as {
+          topic: string;
+          message: string;
+        };
+
+        const messageDecoded = Buffer.from(bodyParsed.message, "base64");
+
+        this.emit(
+          "mqtt-publish-request",
+          connection.action.jobId,
+          bodyParsed.topic,
+          messageDecoded
+        );
+
+        // presume successful. Fix this later if possible.
+        const success = true;
+
+        await this.writeFrame(
+          {
+            dataType: "json",
+            name: "response",
+            runnerId: frame.runnerId,
+            traceId: frame.traceId,
+          },
+          Buffer.from(JSON.stringify(success))
+        );
+      } catch (err) {
+        console.error(
+          `[RunnerServer/onFrameMqtt] Error handling mqtt-publish frame:`,
+          err
+        );
       }
     }
   }

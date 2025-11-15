@@ -15,10 +15,10 @@ import { jobsTable, JobsTableType } from "~/db/schema/jobs.js";
 import { triggersTable, TriggersTableType } from "~/db/schema/triggers.js";
 import { LoopBase } from "~/loop-base.js";
 import { counterTriggerMqtt, counterTriggerMqttPublish } from "~/metrics.js";
-import { createSha1Hash } from "~/util.js";
+import { createSha1Hash, shortenString } from "~/util.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
 import { RunnerManager } from "../runners/manager.js";
-import { autoInjectable, inject, singleton } from "tsyringe";
+import { inject, singleton } from "tsyringe";
 
 type TriggerMqttItem = {
   trigger: TriggersTableType;
@@ -101,6 +101,32 @@ export class TriggerMqtt extends LoopBase {
       status: "unhealthy",
       message: "Unknown connection status",
     } as const;
+  }
+
+  public async publishMqttMessage(jobId: string, topic: string, body: Buffer) {
+    const trigger = this.getMqttTriggerByJobId(jobId);
+
+    if (!trigger) {
+      console.warn(
+        `[TriggerMqtt/publishMqttMessage] MQTT trigger not found for job ID "${shortenString(
+          jobId
+        )}", cannot publish message to topic "${topic}"`
+      );
+
+      return false;
+    }
+
+    if (!trigger.client.connected) {
+      console.warn(
+        `[TriggerMqtt/publishMqttMessage] MQTT client is not connected, cannot publish message to topic "${topic}"`
+      );
+
+      return false;
+    }
+
+    await trigger.client.publishAsync(topic, body);
+
+    return true;
   }
 
   protected async loopIteration() {
@@ -342,6 +368,10 @@ export class TriggerMqtt extends LoopBase {
             message = `Connection error, see logs. ENOTFOUND.`;
           } else if (code === "EAI_AGAIN") {
             message = `Connection error, see logs. EAI_AGAIN.`;
+          } else if (code === "ETIMEDOUT") {
+            message = `Connection timed out, ETIMEDOUT.`;
+          } else if (code === "ENETUNREACH") {
+            message = `Network unreachable, ENETUNREACH.`;
           }
 
           this.logger.write({
@@ -408,15 +438,16 @@ export class TriggerMqtt extends LoopBase {
       }
 
       if (!handleResponse.mqtt) {
-        console.log(
-          `[TriggerMqtt/onMqttMessage] Did not received MQTT payload on response.`
-        );
-
         return;
       }
 
+      // TODO: Remove this in a later revision, deprecated way of publishing MQTT events.
       for (const publishItem of handleResponse.mqtt.publish) {
         try {
+          console.warn(
+            `[TriggerMqtt/onMqttMessage] Received deprecated publish event for topic "${topic}".`
+          );
+
           if (!triggerItem.client.connected) {
             console.warn(
               `[TriggerMqtt/onMqttMessage] MQTT client is not connected, cannot publish message to topic "${publishItem.topic}"`
@@ -621,5 +652,11 @@ export class TriggerMqtt extends LoopBase {
       config: result,
       configHash: createSha1Hash(JSON.stringify(result)),
     } as const;
+  }
+
+  private getMqttTriggerByJobId(jobId: string) {
+    return Object.values(this.triggers).find(
+      (index) => index.job.id === jobId && index.trigger.context.type === "mqtt"
+    );
   }
 }

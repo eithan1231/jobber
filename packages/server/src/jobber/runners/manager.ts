@@ -628,6 +628,18 @@ export class RunnerManager extends LoopBase {
       }));
   }
 
+  public registerMqttPublishHandler(
+    callback: (jobId: string, topic: string, body: Buffer) => Promise<boolean>
+  ) {
+    this.server.addListener("mqtt-publish-request", callback);
+  }
+
+  public deregisterMqttPublishHandler(
+    callback: (jobId: string, topic: string, body: Buffer) => Promise<boolean>
+  ) {
+    this.server.removeListener("mqtt-publish-request", callback);
+  }
+
   private async createRunner(
     version: JobVersionsTableType,
     action: ActionsTableType,

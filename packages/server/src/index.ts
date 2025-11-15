@@ -364,6 +364,12 @@ async function main() {
   ]);
   console.log(`[main] done.`);
 
+  console.log(`[main] Registering MQTT Publish Handler...`);
+  runnerManager.registerMqttPublishHandler((...args) =>
+    triggerMqtt.publishMqttMessage(...args)
+  );
+  console.log(`[main] done.`);
+
   console.log(`[main] Initialising telemetry...`);
   const telemetry = container.resolve(Telemetry);
   await telemetry.start();

@@ -111,8 +111,32 @@ export class Runner {
     const traceId = `StoreSetTraceId-${randomBytes(24).toString("hex")}`;
 
     return new Promise((resolve, reject) => {
+      let finished = false;
+
+      const timeoutHandle = setTimeout(() => {
+        if (finished) {
+          return;
+        }
+
+        finished = true;
+
+        this.traceResponses.delete(traceId);
+
+        return reject(new Error("Store set request timed out"));
+      }, 10000);
+
       this.traceResponses.set(traceId, (frame, data) => {
         assert(frame.dataType === "json");
+
+        if (finished) {
+          return;
+        }
+
+        finished = true;
+
+        clearTimeout(timeoutHandle);
+
+        this.traceResponses.delete(traceId);
 
         const body = JSON.parse(data.toString()) as StoreItem;
 
@@ -141,8 +165,32 @@ export class Runner {
     const traceId = `StoreGetTraceId-${randomBytes(24).toString("hex")}`;
 
     return new Promise((resolve, reject) => {
+      let finished = false;
+
+      const timeoutHandle = setTimeout(() => {
+        if (finished) {
+          return;
+        }
+
+        finished = true;
+
+        this.traceResponses.delete(traceId);
+
+        return reject(new Error("Store get request timed out"));
+      }, 10000);
+
       this.traceResponses.set(traceId, (frame, data) => {
         assert(frame.dataType === "json");
+
+        if (finished) {
+          return;
+        }
+
+        finished = true;
+
+        clearTimeout(timeoutHandle);
+
+        this.traceResponses.delete(traceId);
 
         const body = JSON.parse(data.toString()) as StoreItem;
 
@@ -169,8 +217,32 @@ export class Runner {
     const traceId = `StoreDeleteTraceId-${randomBytes(24).toString("hex")}`;
 
     return new Promise((resolve, reject) => {
+      let finished = false;
+
+      const timeoutHandle = setTimeout(() => {
+        if (finished) {
+          return;
+        }
+
+        finished = true;
+
+        this.traceResponses.delete(traceId);
+
+        return reject(new Error("Store delete request timed out"));
+      }, 10000);
+
       this.traceResponses.set(traceId, (frame, data) => {
         assert(frame.dataType === "json");
+
+        if (finished) {
+          return;
+        }
+
+        finished = true;
+
+        clearTimeout(timeoutHandle);
+
+        this.traceResponses.delete(traceId);
 
         const body = JSON.parse(data.toString()) as StoreItem;
 
@@ -187,6 +259,59 @@ export class Runner {
         Buffer.from(
           JSON.stringify({
             key,
+          })
+        )
+      );
+    });
+  }
+
+  sendMqttPublish(topic: string, body: Buffer): Promise<boolean> {
+    const traceId = `MqttPublishTraceId-${randomBytes(24).toString("hex")}`;
+
+    return new Promise((resolve, reject) => {
+      let finished = false;
+
+      const timeoutHandle = setTimeout(() => {
+        if (finished) {
+          return;
+        }
+
+        finished = true;
+
+        this.traceResponses.delete(traceId);
+
+        return reject(new Error("MQTT publish request timed out"));
+      }, 10000);
+
+      this.traceResponses.set(traceId, (frame, data) => {
+        assert(frame.dataType === "json");
+
+        if (finished) {
+          return;
+        }
+
+        finished = true;
+
+        clearTimeout(timeoutHandle);
+
+        this.traceResponses.delete(traceId);
+
+        const result = JSON.parse(data.toString()) as boolean;
+
+        return resolve(result);
+      });
+
+      this.writeFrame(
+        {
+          name: "mqtt-publish",
+          runnerId: this.runnerId,
+          dataType: "json",
+          traceId: traceId,
+        },
+        Buffer.from(
+          JSON.stringify({
+            topic,
+            body: body.toString("base64"),
           })
         )
       );
@@ -300,12 +425,13 @@ export class Runner {
       if (jobberRequest.type() === "mqtt") {
         assert(jobberResponse._publish);
 
-        responseData.mqtt = {
-          publish: jobberResponse._publish.map((index) => ({
-            topic: index.topic,
-            body: index.body.toString("base64"),
-          })),
-        };
+        // TODO: Remove this in a later revision, deprecated way of publishing MQTT events.
+        await Promise.all(
+          jobberResponse._publish.map(async (pub) => {
+            console.warn(`@deprecated publish ${pub.topic}`);
+            await this.sendMqttPublish(pub.topic, pub.body);
+          })
+        );
       }
 
       await this.writeFrame(

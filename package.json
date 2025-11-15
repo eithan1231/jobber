@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dx:up": "bash ./dev/docker-start.sh",
+    "dx:down": "bash ./dev/docker-stop.sh"
   },
   "keywords": [],
   "author": "",

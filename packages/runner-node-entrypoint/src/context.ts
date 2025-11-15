@@ -56,4 +56,20 @@ export class JobberHandlerContext {
   public async deleteStoreJson(key: string) {
     await this.runner.sendStoreDelete(key);
   }
+
+  public async publish(topic: string, body: Buffer | string | unknown) {
+    let payload: Buffer;
+
+    if (typeof body === "object" && !Buffer.isBuffer(body)) {
+      payload = Buffer.from(JSON.stringify(body));
+    } else if (typeof body === "string") {
+      payload = Buffer.from(body);
+    } else if (Buffer.isBuffer(body)) {
+      payload = body;
+    } else {
+      throw new Error("Invalid body type for MQTT publish");
+    }
+
+    return this.runner.sendMqttPublish(topic, payload);
+  }
 }

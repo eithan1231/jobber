@@ -1,9 +1,0 @@
-services:
-  prometheus:
-    network_mode: host
-    image: prom/prometheus
-    restart: unless-stopped
-    volumes:
-      - ./prometheus.yaml:/etc/prometheus/prometheus.yml
-    ports:
-      - 9090:9090

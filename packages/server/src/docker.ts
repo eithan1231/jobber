@@ -92,3 +92,51 @@ export const pullDockerImage = (image: string): Promise<boolean> => {
     });
   });
 };
+
+export const pauseDockerContainer = (id: string): Promise<boolean> => {
+  return new Promise((resolve, reject) => {
+    const lines: string[] = [];
+
+    const process = spawn("docker", ["container", "pause", id]);
+
+    process.stdout.on("data", (chunk: Buffer) => {
+      lines.push(chunk.toString());
+    });
+
+    process.once("exit", (code) => {
+      if (code !== 0) {
+        console.error(
+          `[pauseDockerContainer] Failed to pause container ${id}: ${lines.join(
+            ""
+          )}`
+        );
+      }
+
+      return resolve(code === 0);
+    });
+  });
+};
+
+export const unpauseDockerContainer = (id: string): Promise<boolean> => {
+  return new Promise((resolve, reject) => {
+    const lines: string[] = [];
+
+    const process = spawn("docker", ["container", "unpause", id]);
+
+    process.stdout.on("data", (chunk: Buffer) => {
+      lines.push(chunk.toString());
+    });
+
+    process.once("exit", (code) => {
+      if (code !== 0) {
+        console.error(
+          `[unpauseDockerContainer] Failed to unpause container ${id}: ${lines.join(
+            ""
+          )}`
+        );
+      }
+
+      return resolve(code === 0);
+    });
+  });
+};

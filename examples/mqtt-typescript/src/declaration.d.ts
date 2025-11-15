@@ -60,4 +60,8 @@ declare class JobberHandlerContext {
   public async getStoreJson<T = unknown>(key: string): Promise<T | null>;
   public async deleteStore(key: string): Promise<StoreItem | null>;
   public async deleteStoreJson(key: string): Promise<void>;
+  public async publish(
+    topic: string,
+    body: Buffer | string | unknown
+  ): Promise<void>;
 }

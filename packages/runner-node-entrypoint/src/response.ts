@@ -6,6 +6,8 @@ export class JobberHandlerResponse {
   public _status?: number;
   public _headers?: Record<string, string>;
   public _body?: Buffer[];
+
+  // TODO: Remove this in a later revision, deprecated way of publishing MQTT events.
   public _publish?: Array<{ topic: string; body: Buffer }>;
 
   constructor(request: JobberHandlerRequest) {
@@ -120,6 +122,13 @@ export class JobberHandlerResponse {
 
     this.header("Content-Type", "text/plain");
 
+    const removed = this._body.splice(0, this._body.length).length;
+    if (removed > 0) {
+      console.warn(
+        `[JobberHandlerResponse] text() called, but body was not empty. Cleared ${removed} buffers.`
+      );
+    }
+
     this._body.push(Buffer.from(data));
 
     this._status = status;
@@ -140,6 +149,7 @@ export class JobberHandlerResponse {
     return this;
   }
 
+  // TODO: Remove this in a later revision, deprecated way of publishing MQTT events.
   publish(topic: string, body: string | Buffer | any) {
     if (this._request.type() !== "mqtt") {
       throw new Error("Unable to publish to non-mqtt request");
