@@ -114,7 +114,7 @@ export async function createRouteJobMetrics() {
     middlewareValidatePrometheusConfig,
     createMiddlewareAuth(),
     async (c, next) => {
-      const auth = c.get("auth")!;
+      const bouncer = c.get("bouncer")!;
       const jobId = c.req.param("jobId");
       let version = c.req.param("version");
       const metric = c.req.param("metric");
@@ -163,7 +163,7 @@ export async function createRouteJobMetrics() {
         );
       }
 
-      if (!canPerformAction(auth.permissions, `job/${job.id}`, "read")) {
+      if (!bouncer.canReadJob(job)) {
         return c.json(
           { success: false, message: "Insufficient Permissions" },
           403

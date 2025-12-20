@@ -23,7 +23,7 @@ export async function createRouteJobTriggers() {
     "/job/:jobId/triggers:current",
     createMiddlewareAuth(),
     async (c, next) => {
-      const auth = c.get("auth")!;
+      const bouncer = c.get("bouncer")!;
       const jobId = c.req.param("jobId");
 
       const triggers = await getDrizzle()
@@ -91,11 +91,7 @@ export async function createRouteJobTriggers() {
       });
 
       const triggersFiltered = triggersWithStatus.filter((trigger) => {
-        return canPerformAction(
-          auth.permissions,
-          `job/${trigger.jobId}/triggers/${trigger.id}`,
-          "read"
-        );
+        return bouncer.canReadJobTriggers(trigger);
       });
 
       return c.json({
@@ -106,7 +102,7 @@ export async function createRouteJobTriggers() {
   );
 
   app.get("/job/:jobId/triggers", createMiddlewareAuth(), async (c, next) => {
-    const auth = c.get("auth")!;
+    const bouncer = c.get("bouncer")!;
     const jobId = c.req.param("jobId");
 
     const triggers = await getDrizzle()
@@ -163,11 +159,7 @@ export async function createRouteJobTriggers() {
     });
 
     const triggersFiltered = triggersWithStatus.filter((trigger) => {
-      return canPerformAction(
-        auth.permissions,
-        `job/${trigger.jobId}/triggers/${trigger.id}`,
-        "read"
-      );
+      return bouncer.canReadJobTriggers(trigger);
     });
 
     return c.json({
@@ -180,7 +172,7 @@ export async function createRouteJobTriggers() {
     "/job/:jobId/triggers/:triggerId/status",
     createMiddlewareAuth(),
     async (c, next) => {
-      const auth = c.get("auth")!;
+      const bouncer = c.get("bouncer")!;
       const jobId = c.req.param("jobId");
       const triggerId = c.req.param("triggerId");
 
@@ -202,13 +194,7 @@ export async function createRouteJobTriggers() {
         return next();
       }
 
-      if (
-        !canPerformAction(
-          auth.permissions,
-          `job/${trigger.jobId}/triggers/${trigger.id}`,
-          "read"
-        )
-      ) {
+      if (!bouncer.canReadJobTriggers(trigger)) {
         return c.json(
           { success: false, message: "Insufficient Permissions" },
           403

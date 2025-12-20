@@ -13,7 +13,7 @@ export async function createRouteJobStore() {
     "/job/:jobId/store/:storeId",
     createMiddlewareAuth(),
     async (c, next) => {
-      const auth = c.get("auth")!;
+      const bouncer = c.get("bouncer")!;
       const jobId = c.req.param("jobId");
       const storeId = c.req.param("storeId");
 
@@ -23,13 +23,7 @@ export async function createRouteJobStore() {
         return next();
       }
 
-      if (
-        !canPerformAction(
-          auth.permissions,
-          `job/${item.jobId}/store/${item.id}`,
-          "read"
-        )
-      ) {
+      if (!bouncer.canReadJobStoreItem(item)) {
         return c.json(
           { success: false, message: "Insufficient Permissions" },
           403
@@ -44,17 +38,13 @@ export async function createRouteJobStore() {
   );
 
   app.get("/job/:jobId/store/", createMiddlewareAuth(), async (c, next) => {
-    const auth = c.get("auth")!;
+    const bouncer = c.get("bouncer")!;
     const jobId = c.req.param("jobId");
 
     const items = await store.getItemsNoValue(jobId);
 
     const itemsFiltered = items.filter((item) => {
-      return canPerformAction(
-        auth.permissions,
-        `job/${item.jobId}/store/${item.id}`,
-        "read"
-      );
+      return bouncer.canReadJobStoreItem(item);
     });
 
     return c.json({
@@ -67,7 +57,7 @@ export async function createRouteJobStore() {
     "/job/:jobId/store/:storeId",
     createMiddlewareAuth(),
     async (c, next) => {
-      const auth = c.get("auth")!;
+      const bouncer = c.get("bouncer")!;
       const jobId = c.req.param("jobId");
       const storeId = c.req.param("storeId");
 
@@ -77,13 +67,7 @@ export async function createRouteJobStore() {
         return next();
       }
 
-      if (
-        !canPerformAction(
-          auth.permissions,
-          `job/${item.jobId}/store/${item.id}`,
-          "delete"
-        )
-      ) {
+      if (!bouncer.canDeleteJobStoreItem(item)) {
         return c.json(
           { success: false, message: "Insufficient Permissions" },
           403

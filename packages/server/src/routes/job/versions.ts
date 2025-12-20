@@ -10,7 +10,7 @@ export async function createRouteVersions() {
   const app = new Hono<InternalHonoApp>();
 
   app.get("/job/:jobId/versions", createMiddlewareAuth(), async (c, next) => {
-    const auth = c.get("auth")!;
+    const bouncer = c.get("bouncer")!;
     const jobId = c.req.param("jobId");
 
     const versions = await getDrizzle()
@@ -25,11 +25,7 @@ export async function createRouteVersions() {
       .where(eq(jobVersionsTable.jobId, jobId));
 
     const versionsFiltered = versions.filter((version) => {
-      return canPerformAction(
-        auth.permissions,
-        `job/${version.jobId}/versions/${version.id}`,
-        "read"
-      );
+      return bouncer.canReadJobVersion(version);
     });
 
     return c.json({

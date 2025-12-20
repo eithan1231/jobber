@@ -48,8 +48,8 @@ Example resource pattern: `job/*/actions`
 
 #### API Tokens
 
-- `api-tokens` READ/WRITE
-- `api-tokens/:tokenId` READ/WRITE
+- `api-tokens` READ/WRITE/DELETE
+- `api-tokens/:tokenId` READ/WRITE/DELETE
 
 #### System -> Metrics
 

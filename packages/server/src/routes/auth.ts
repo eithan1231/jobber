@@ -6,6 +6,7 @@ import {
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { setCookie } from "hono/cookie";
+import assert from "node:assert";
 import { z } from "zod";
 import { getConfigOption } from "~/config.js";
 import { getDrizzle } from "~/db/index.js";
@@ -182,36 +183,52 @@ export async function createRouteAuth() {
     }
   );
 
-  // app.post("/auth/update-password", async (c, next) => {
-  //   //
-  // });
-
   app.get("/auth", createMiddlewareAuth(), async (c) => {
-    const auth = c.get("auth")!;
+    const bouncer = c.get("bouncer")!;
 
-    if (auth.type === "session") {
+    if (bouncer.type === "anonymous") {
+      assert(bouncer.user);
+
       return c.json({
         success: true,
         data: {
-          permissions: auth.user.permissions,
+          permissions: bouncer.user.permissions,
           user: {
-            id: auth.user.id,
-            username: auth.user.username,
-          },
-          session: {
-            expires: auth.session.expires.toString(),
+            id: bouncer.user.id,
+            username: bouncer.user.username,
           },
         },
       });
     }
 
-    if (auth.type === "token") {
+    if (bouncer.type === "session") {
+      assert(bouncer.user);
+      assert(bouncer.session);
+
       return c.json({
         success: true,
         data: {
-          permissions: auth.token.permissions,
+          permissions: bouncer.user.permissions,
+          user: {
+            id: bouncer.user.id,
+            username: bouncer.user.username,
+          },
+          session: {
+            expires: bouncer.session.expires.toString(),
+          },
+        },
+      });
+    }
+
+    if (bouncer.type === "token") {
+      assert(bouncer.token);
+
+      return c.json({
+        success: true,
+        data: {
+          permissions: bouncer.token.permissions,
           token: {
-            expires: auth.token.expires.toString(),
+            expires: bouncer.token.expires.toString(),
           },
         },
       });

@@ -64,3 +64,13 @@ export const updateApiToken = async (
 
   return result.json();
 };
+
+export const deleteApiToken = async (
+  tokenId: string
+): Promise<JobberGenericResponse<{}>> => {
+  const result = await fetch(`/api/api-tokens/${tokenId}`, {
+    method: "DELETE",
+  });
+
+  return result.json();
+};

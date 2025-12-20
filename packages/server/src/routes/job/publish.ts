@@ -34,12 +34,12 @@ export async function createRouteJobPublish() {
   });
 
   app.post("/job/publish/", createMiddlewareAuth(), async (c, _next) => {
-    const auth = c.get("auth")!;
+    const bouncer = c.get("bouncer")!;
     const benchmark = createBenchmark();
 
     console.log(`[/publish/] ${benchmark()}ms - Starting job publish`);
 
-    if (!canPerformAction(auth.permissions, "job/-/publish", "write")) {
+    if (!bouncer.canJobPublish()) {
       console.log("[/publish/] User does not have permission to publish jobs");
       return c.json(
         { success: false, message: "Insufficient Permissions" },

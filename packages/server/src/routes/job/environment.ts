@@ -1,4 +1,3 @@
-import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { getDrizzle } from "~/db/index.js";
@@ -10,8 +9,13 @@ import { getUnixTimestamp } from "~/util.js";
 import { jobEnvironmentNameSchema } from "./schemas-common.js";
 import { InternalHonoApp } from "~/index.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
-import { canPerformAction } from "~/permissions.js";
 import { withLock } from "~/lock.js";
+import { environmentModel } from "~/db/environment.js";
+import { jobModel } from "~/db/job.js";
+
+type EnvironmentGetResponseData = {
+  [key: string]: { type: "text"; value: string } | { type: "secret" };
+};
 
 export async function createRouteJobEnvironment() {
   const app = new Hono<InternalHonoApp>();
@@ -21,17 +25,9 @@ export async function createRouteJobEnvironment() {
     createMiddlewareAuth(),
     async (c, _next) => {
       const jobId = c.req.param("jobId");
-      const auth = c.get("auth")!;
+      const bouncer = c.get("bouncer")!;
 
-      const environment = await getDrizzle()
-        .select({
-          context: environmentsTable.context,
-          jobId: environmentsTable.jobId,
-        })
-        .from(environmentsTable)
-        .where(eq(environmentsTable.jobId, jobId))
-        .limit(1)
-        .then((res) => res.at(0));
+      const environment = await environmentModel.byJobId(jobId);
 
       if (!environment) {
         return c.json({
@@ -40,19 +36,10 @@ export async function createRouteJobEnvironment() {
         });
       }
 
-      const env: Record<
-        string,
-        { type: "text"; value: string } | { type: "secret" }
-      > = {};
+      const env: EnvironmentGetResponseData = {};
 
       for (const [name, data] of Object.entries(environment.context)) {
-        if (
-          !canPerformAction(
-            auth.permissions,
-            `job/${environment.jobId}/environment/${name}`,
-            "read"
-          )
-        ) {
+        if (!bouncer.canReadJobEnvironment(environment, name)) {
           continue;
         }
 
@@ -81,11 +68,7 @@ export async function createRouteJobEnvironment() {
     "/job/:jobId/environment/:name",
     createMiddlewareAuth(),
     async (c, _next) => {
-      // TODO: This is vulnerable to race conditions, but but sadly drizzle doesnt
-      // support a safe way way to delete an jsonb property... to my knowledge.
-      // You will need to write a raw SQL query, which is not on my bucket-list.
-
-      const auth = c.get("auth")!;
+      const bouncer = c.get("bouncer")!;
 
       const schema = z.object({
         type: z.enum(["secret", "text"]),
@@ -96,38 +79,28 @@ export async function createRouteJobEnvironment() {
 
       const name = await jobEnvironmentNameSchema.parseAsync(
         c.req.param("name"),
-        {
-          path: ["request", "param"],
-        }
+        { path: ["request", "param"] }
       );
 
       const body = await schema.parseAsync(await c.req.parseBody(), {
         path: ["request", "body"],
       });
 
-      // TODO: Update to fetch from database, to compare jobId against the database record, not user input.
-      if (
-        !canPerformAction(
-          auth.permissions,
-          `job/${jobId.toLowerCase()}/environment/${name}`,
-          "write"
-        )
-      ) {
+      const job = await jobModel.byId(jobId);
+
+      if (!job) {
+        return c.json({ success: false, message: "Job not found" }, 404);
+      }
+
+      if (!bouncer.canWriteJobEnvironment({ jobId: job.id }, name)) {
         return c.json(
           { success: false, message: "Insufficient Permissions" },
           403
         );
       }
 
-      return await withLock("environment", jobId, async () => {
-        const environment = await getDrizzle()
-          .select({
-            context: environmentsTable.context,
-          })
-          .from(environmentsTable)
-          .where(eq(environmentsTable.jobId, jobId))
-          .limit(1)
-          .then((res) => res.at(0));
+      return await withLock("environment", job.id, async () => {
+        const environment = await environmentModel.byJobId(jobId);
 
         const modified = getUnixTimestamp();
 
@@ -166,27 +139,21 @@ export async function createRouteJobEnvironment() {
     "/job/:jobId/environment/:name",
     createMiddlewareAuth(),
     async (c, _next) => {
-      // TODO: This is vulnerable to race conditions, but but sadly drizzle doesnt
-      // support a safe way way to delete an jsonb property... to my knowledge.
-      // You will need to write a raw SQL query, which is not on my bucket-list.
-      const auth = c.get("auth")!;
-
-      const nameSchema = z.string().min(1).max(128);
-
+      const bouncer = c.get("bouncer")!;
       const jobId = c.req.param("jobId");
 
-      const name = await nameSchema.parseAsync(c.req.param("name"), {
-        path: ["request", "param"],
-      });
+      const name = await jobEnvironmentNameSchema.parseAsync(
+        c.req.param("name"),
+        { path: ["request", "param"] }
+      );
 
-      // TODO: Update to fetch from database, to compare jobId against the database record, not user input.
-      if (
-        !canPerformAction(
-          auth.permissions,
-          `job/${jobId.toLowerCase()}/environment/${name}`,
-          "delete"
-        )
-      ) {
+      const job = await jobModel.byId(jobId);
+
+      if (!job) {
+        return c.json({ success: false, message: "Job not found" }, 404);
+      }
+
+      if (!bouncer.canDeleteJobEnvironment({ jobId: job.id }, name)) {
         return c.json(
           { success: false, message: "Insufficient Permissions" },
           403
@@ -194,14 +161,7 @@ export async function createRouteJobEnvironment() {
       }
 
       return await withLock("environment", jobId, async () => {
-        const environment = await getDrizzle()
-          .select({
-            context: environmentsTable.context,
-          })
-          .from(environmentsTable)
-          .where(eq(environmentsTable.jobId, jobId))
-          .limit(1)
-          .then((res) => res.at(0));
+        const environment = await environmentModel.byJobId(jobId);
 
         const modified = getUnixTimestamp();
 

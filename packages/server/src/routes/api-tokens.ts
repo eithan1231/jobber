@@ -13,9 +13,9 @@ export async function createRouteApiTokens() {
   const app = new Hono<InternalHonoApp>();
 
   app.get("/api-tokens/", createMiddlewareAuth(), async (c) => {
-    const auth = c.get("auth")!;
+    const bouncer = c.get("bouncer")!;
 
-    if (!canPerformAction(auth.permissions, "api-tokens", "read")) {
+    if (!bouncer.canReadApiTokenGenerally()) {
       return c.json({ success: false, message: "Unauthorized" }, 403);
     }
 
@@ -32,7 +32,7 @@ export async function createRouteApiTokens() {
       .from(apiTokensTable);
 
     const tokensFiltered = tokens.filter((token) =>
-      canPerformAction(auth.permissions, `api-tokens/${token.id}`, "read")
+      bouncer.canReadApiToken(token)
     );
 
     return c.json({
@@ -43,10 +43,10 @@ export async function createRouteApiTokens() {
   });
 
   app.get("/api-tokens/:tokenId", createMiddlewareAuth(), async (c) => {
-    const auth = c.get("auth")!;
+    const bouncer = c.get("bouncer")!;
     const tokenId = c.req.param("tokenId");
 
-    if (!canPerformAction(auth.permissions, "api-tokens", "read")) {
+    if (!bouncer.canReadApiTokenGenerally()) {
       return c.json({ success: false, message: "Unauthorized" }, 403);
     }
 
@@ -63,9 +63,13 @@ export async function createRouteApiTokens() {
       .from(apiTokensTable)
       .where(eq(apiTokensTable.id, tokenId))
       .limit(1)
-      .then((res) => res[0]);
+      .then((res) => res.at(0));
 
-    if (!canPerformAction(auth.permissions, `api-tokens/${token.id}`, "read")) {
+    if (!token) {
+      return c.json({ success: false, message: "API token not found" }, 404);
+    }
+
+    if (!bouncer.canReadApiToken(token)) {
       return c.json({ success: false, message: "Unauthorized" }, 403);
     }
 
@@ -77,9 +81,9 @@ export async function createRouteApiTokens() {
   });
 
   app.post("/api-tokens/", createMiddlewareAuth(), async (c) => {
-    const auth = c.get("auth")!;
+    const bouncer = c.get("bouncer")!;
 
-    if (!canPerformAction(auth.permissions, "api-tokens", "write")) {
+    if (!bouncer.canWriteApiTokenGenerally()) {
       return c.json({ success: false, message: "Unauthorized" }, 403);
     }
 
@@ -102,7 +106,7 @@ export async function createRouteApiTokens() {
     }
 
     const { permissions } = body.data;
-    const userId = auth.type === "token" ? auth.token.userId : auth.user.id;
+    const userId = bouncer.userId;
     const expires = new Date(Date.now() + body.data.ttl * 1000);
     const description = body.data.description;
 
@@ -115,7 +119,7 @@ export async function createRouteApiTokens() {
         expires: expires,
       })
       .returning()
-      .then((res) => res[0]);
+      .then((res) => res.at(0));
     //
 
     assert(token, "Token creation failed");
@@ -137,10 +141,10 @@ export async function createRouteApiTokens() {
   });
 
   app.put("/api-tokens/:tokenId", createMiddlewareAuth(), async (c) => {
-    const auth = c.get("auth")!;
+    const bouncer = c.get("bouncer")!;
     const tokenId = c.req.param("tokenId");
 
-    if (!canPerformAction(auth.permissions, "api-tokens", "write")) {
+    if (!bouncer.canWriteApiTokenGenerally()) {
       return c.json({ success: false, message: "Unauthorized" }, 403);
     }
 
@@ -149,15 +153,13 @@ export async function createRouteApiTokens() {
       .from(apiTokensTable)
       .where(eq(apiTokensTable.id, tokenId))
       .limit(1)
-      .then((res) => res[0]);
+      .then((res) => res.at(0));
 
     if (!token) {
       return c.json({ success: false, message: "API token not found" }, 404);
     }
 
-    if (
-      !canPerformAction(auth.permissions, `api-tokens/${token.id}`, "write")
-    ) {
+    if (!bouncer.canWriteApiToken(token)) {
       return c.json({ success: false, message: "Unauthorized" }, 403);
     }
 
@@ -211,6 +213,42 @@ export async function createRouteApiTokens() {
           created: token.created,
           expires: token.expires,
         },
+      });
+    });
+  });
+
+  app.delete("/api-tokens/:tokenId", createMiddlewareAuth(), async (c) => {
+    const bouncer = c.get("bouncer")!;
+    const tokenId = c.req.param("tokenId");
+
+    if (!bouncer.canDeleteApiTokenGenerally()) {
+      return c.json({ success: false, message: "Unauthorized" }, 403);
+    }
+
+    const token = await getDrizzle()
+      .select()
+      .from(apiTokensTable)
+      .where(eq(apiTokensTable.id, tokenId))
+      .limit(1)
+      .then((res) => res.at(0));
+
+    if (!token) {
+      return c.json({ success: false, message: "API token not found" }, 404);
+    }
+
+    if (!bouncer.canDeleteApiToken(token)) {
+      return c.json({ success: false, message: "Unauthorized" }, 403);
+    }
+
+    return await withLock("api-tokens", token.id, async () => {
+      await getDrizzle()
+        .delete(apiTokensTable)
+        .where(eq(apiTokensTable.id, tokenId));
+
+      return c.json({
+        success: true,
+        message: "Ok",
+        data: {},
       });
     });
   });

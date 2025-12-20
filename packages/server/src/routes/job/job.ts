@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { rm } from "node:fs/promises";
 import { z } from "zod";
 import { getDrizzle } from "~/db/index.js";
+import { jobModel } from "~/db/job.js";
 import { actionsTable } from "~/db/schema/actions.js";
 import { jobVersionsTable } from "~/db/schema/job-versions.js";
 import { jobsTable } from "~/db/schema/jobs.js";
@@ -16,8 +17,8 @@ export async function createRouteJob() {
   const app = new Hono<InternalHonoApp>();
 
   app.get("/job/:jobId", createMiddlewareAuth(), async (c, next) => {
+    const bouncer = c.get("bouncer")!;
     const jobId = c.req.param("jobId");
-    const auth = c.get("auth")!;
 
     const job = await getDrizzle()
       .select({
@@ -42,13 +43,12 @@ export async function createRouteJob() {
       .where(eq(jobsTable.id, jobId))
       .limit(1)
       .then((res) => res.at(0));
-    //
 
     if (!job) {
       return next();
     }
 
-    if (!canPerformAction(auth.permissions, `job/${job.id}`, "read")) {
+    if (!bouncer.canReadJob(job)) {
       return c.text("Insufficient Permissions", 403);
     }
 
@@ -59,7 +59,7 @@ export async function createRouteJob() {
   });
 
   app.get("/job/", createMiddlewareAuth(), async (c, _next) => {
-    const auth = c.get("auth")!;
+    const bouncer = c.get("bouncer")!;
 
     const jobs = await getDrizzle()
       .select({
@@ -84,7 +84,7 @@ export async function createRouteJob() {
       .orderBy(desc(jobVersionsTable.created));
 
     const jobsFiltered = jobs.filter((job) => {
-      return canPerformAction(auth.permissions, `job/${job.id}`, "read");
+      return bouncer.canReadJob(job);
     });
 
     return c.json({
@@ -94,13 +94,16 @@ export async function createRouteJob() {
   });
 
   app.put("/job/:jobId", createMiddlewareAuth(), async (c, _next) => {
+    const bouncer = c.get("bouncer")!;
     const jobId = c.req.param("jobId");
-    const auth = c.get("auth")!;
 
-    // TODO: Update to fetch from database, to compare jobId against the database record, not user input.
-    if (
-      !canPerformAction(auth.permissions, `job/${jobId.toLowerCase()}`, "write")
-    ) {
+    const job = await jobModel.byId(jobId);
+
+    if (!job) {
+      return c.json({ success: false, message: "Job not found" }, 404);
+    }
+
+    if (!bouncer.canWriteJob(job)) {
       return c.text("Insufficient Permissions", 403);
     }
 
@@ -127,20 +130,15 @@ export async function createRouteJob() {
 
   app.delete("/job/:jobId", createMiddlewareAuth(), async (c, _next) => {
     const jobId = c.req.param("jobId");
-    const auth = c.get("auth")!;
+    const bouncer = c.get("bouncer")!;
 
-    const job = await getDrizzle()
-      .select()
-      .from(jobsTable)
-      .where(eq(jobsTable.id, jobId))
-      .limit(1)
-      .then((res) => res.at(0) ?? null);
+    const job = await jobModel.byId(jobId);
 
     if (!job) {
       return c.json({ success: false, message: "Job not found" }, 404);
     }
 
-    if (!canPerformAction(auth.permissions, `job/${job.id}`, "delete")) {
+    if (!bouncer.canDeleteJob(job)) {
       return c.text("Insufficient Permissions", 403);
     }
 

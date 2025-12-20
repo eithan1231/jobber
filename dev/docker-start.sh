@@ -7,7 +7,7 @@ if [ "$1" != "--no-build" ]; then
   sudo docker build -f docker/node-20.Dockerfile -t jobber-runner:20-latest .
   sudo docker build -f docker/node-22.Dockerfile -t jobber-runner:22-latest .
   sudo docker build -f docker/node-24.Dockerfile -t jobber-runner:24-latest .
-else
+fi
 
 
 # Check that ./server/.env exists

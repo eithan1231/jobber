@@ -16,25 +16,20 @@ export async function createRouteMetrics() {
   const app = new Hono<InternalHonoApp>();
 
   app.get("/metrics", createMiddlewareAuth(), async (c) => {
-    const auth = c.get("auth")!;
+    const bouncer = c.get("bouncer")!;
 
-    if (
-      !canPerformAction(auth.permissions, `system/metrics/prometheus`, "read")
-    ) {
+    if (!bouncer.canReadSystemMetricsPrometheus()) {
       return c.text("Insufficient Permissions", 403);
     }
 
     c.header("Content-Type", register.contentType);
-
     return c.text(await register.metrics(), 200);
   });
 
   app.get("/metrics/overview", createMiddlewareAuth(), async (c) => {
-    const auth = c.get("auth")!;
+    const bouncer = c.get("bouncer")!;
 
-    if (
-      !canPerformAction(auth.permissions, `system/metrics/overview`, "read")
-    ) {
+    if (!bouncer.canReadSystemMetricsOverview()) {
       return c.text("Insufficient Permissions", 403);
     }
 

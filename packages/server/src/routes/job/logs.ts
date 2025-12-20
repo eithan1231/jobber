@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import { container } from "tsyringe";
+import { jobModel } from "~/db/job.js";
 import { InternalHonoApp } from "~/index.js";
 import { LogDriverBase } from "~/jobber/log-drivers/abstract.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
-import { canPerformAction } from "~/permissions.js";
 
 export async function createRouteJobLogs() {
   const logger = container.resolve<LogDriverBase>("LogDriverBase");
@@ -12,11 +12,15 @@ export async function createRouteJobLogs() {
 
   app.get("/job/:jobId/logs", createMiddlewareAuth(), async (c, next) => {
     const jobId = c.req.param("jobId");
-    const auth = c.get("auth")!;
+    const bouncer = c.get("bouncer")!;
 
-    if (
-      !canPerformAction(auth.permissions, `job/${jobId.toLowerCase()}`, "read")
-    ) {
+    const job = await jobModel.byId(jobId);
+
+    if (!job) {
+      return c.json({ success: false, message: "Job not found" }, 404);
+    }
+
+    if (!bouncer.canReadJob(job)) {
       return c.json(
         { success: false, message: "Insufficient Permissions" },
         403

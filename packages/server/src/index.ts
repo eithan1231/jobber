@@ -15,7 +15,7 @@ import { genSalt as bcryptGenSalt, hash as bcryptHash } from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { StatusCode } from "hono/utils/http-status";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { container } from "tsyringe";
 import { ZodError } from "zod";
 
@@ -51,26 +51,16 @@ import { createRouteMetrics } from "./routes/metrics.js";
 import { createRouteUser } from "./routes/user.js";
 import { USERNAME_ANONYMOUS } from "./constants.js";
 import { PgBackup } from "./pg-backup.js";
+import { Bouncer } from "./bouncer.js";
+import { JobsTableType } from "./db/schema/jobs.js";
 
 export type InternalHonoApp = {
   Variables: {
-    auth?:
-      | {
-          type: "anonymous";
-          user: UsersTableType;
-          permissions: JobberPermissions;
-        }
-      | {
-          type: "session";
-          user: UsersTableType;
-          session: SessionsTableType;
-          permissions: JobberPermissions;
-        }
-      | {
-          type: "token";
-          token: ApiTokensTableType;
-          permissions: JobberPermissions;
-        };
+    resourceLoader: {
+      job: JobsTableType;
+    };
+
+    bouncer: Bouncer;
   };
 };
 
@@ -181,18 +171,38 @@ async function createGatewayHono() {
       headers,
     });
 
-    if (!response) {
-      return await next();
-    }
+    if (!response || !response.success || !response.http) {
+      const acceptHeader = c.req.header("accept") || "";
 
-    if (!response.success) {
-      return c.json(
-        {
-          success: false,
-          message: `Jobber: Gateway error!`,
-        },
-        502
-      );
+      if (acceptHeader.includes("text/html")) {
+        const badGatewayPage = await readFile(
+          "./src/static-templates/bad-gateway.html"
+        );
+
+        return c.html(badGatewayPage.toString(), 502);
+      }
+
+      if (acceptHeader.includes("application/json")) {
+        return c.json(
+          {
+            success: false,
+            message: `Jobber: Gateway error!`,
+          },
+          502
+        );
+      }
+
+      if (acceptHeader.includes("application/xml")) {
+        return c.body(
+          `<response><success>false</success><message>Jobber: Gateway error!</message></response>`,
+          502,
+          {
+            "Content-Type": "application/xml",
+          }
+        );
+      }
+
+      return c.text(`Jobber: Gateway error!`, 502);
     }
 
     if (!response.http) {
@@ -205,8 +215,10 @@ async function createGatewayHono() {
       );
     }
 
+    // TODO: In the future we should migrate to a streaming response for larger bodies. Previously
+    // it was implicitly converted to a string, which is nonideal.
     return c.body(
-      response.http.body,
+      response.http.body.toString(),
       response.http.status as StatusCode,
       response.http.headers
     );

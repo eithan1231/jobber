@@ -22,9 +22,9 @@ export async function createRouteUser() {
   const app = new Hono<InternalHonoApp>();
 
   app.get("/users/", createMiddlewareAuth(), async (c) => {
-    const auth = c.get("auth")!;
+    const bouncer = c.get("bouncer")!;
 
-    if (!canPerformAction(auth.permissions, "users", "read")) {
+    if (!bouncer.canReadUserGenerally()) {
       return c.json({ success: false, message: "Unauthorized" }, 403);
     }
 
@@ -37,9 +37,7 @@ export async function createRouteUser() {
       })
       .from(usersTable);
 
-    const usersFiltered = users.filter((user) =>
-      canPerformAction(auth.permissions, `users/${user.id}`, "read")
-    );
+    const usersFiltered = users.filter((user) => bouncer.canReadUser(user));
 
     return c.json({
       success: true,
@@ -49,7 +47,7 @@ export async function createRouteUser() {
   });
 
   app.get("/users/:id", createMiddlewareAuth(), async (c) => {
-    const auth = c.get("auth")!;
+    const bouncer = c.get("bouncer")!;
     const userId = c.req.param("id");
 
     const user = await getDrizzle()
@@ -68,7 +66,7 @@ export async function createRouteUser() {
       return c.json({ success: false, message: "User not found" }, 404);
     }
 
-    if (!canPerformAction(auth.permissions, `users/${user.id}`, "read")) {
+    if (!bouncer.canReadUser(user)) {
       return c.json({ success: false, message: "Unauthorized" }, 403);
     }
 
@@ -80,9 +78,9 @@ export async function createRouteUser() {
   });
 
   app.post("/users/", createMiddlewareAuth(), async (c) => {
-    const auth = c.get("auth")!;
+    const bouncer = c.get("bouncer")!;
 
-    if (!canPerformAction(auth.permissions, "users", "write")) {
+    if (!bouncer.canWriteUserGenerally()) {
       return c.json({ success: false, message: "Unauthorized" }, 403);
     }
 
@@ -144,7 +142,7 @@ export async function createRouteUser() {
   });
 
   app.put("/users/:id", createMiddlewareAuth(), async (c) => {
-    const auth = c.get("auth")!;
+    const bouncer = c.get("bouncer")!;
     const userId = c.req.param("id");
 
     const schema = z.object({
@@ -170,7 +168,7 @@ export async function createRouteUser() {
       return c.json({ success: false, message: "User not found" }, 404);
     }
 
-    if (!canPerformAction(auth.permissions, `users/${user.id}`, "write")) {
+    if (!bouncer.canWriteUser(user)) {
       return c.json({ success: false, message: "Unauthorized" }, 403);
     }
 
@@ -182,13 +180,7 @@ export async function createRouteUser() {
       }> = {};
 
       if (body.data.username) {
-        if (
-          !canPerformAction(
-            auth.permissions,
-            `users/${user.id}/username`,
-            "write"
-          )
-        ) {
+        if (!bouncer.canWriteUserUsername(user)) {
           return c.json(
             { success: false, message: "Unauthorized to change username" },
             403
@@ -199,13 +191,7 @@ export async function createRouteUser() {
       }
 
       if (body.data.password) {
-        if (
-          !canPerformAction(
-            auth.permissions,
-            `users/${user.id}/password`,
-            "write"
-          )
-        ) {
+        if (!bouncer.canWriteUserPassword(user)) {
           return c.json(
             { success: false, message: "Unauthorized to change password" },
             403
@@ -217,13 +203,7 @@ export async function createRouteUser() {
       }
 
       if (body.data.permissions) {
-        if (
-          !canPerformAction(
-            auth.permissions,
-            `users/${user.id}/permissions`,
-            "write"
-          )
-        ) {
+        if (!bouncer.canWriteUserPermissions(user)) {
           return c.json(
             { success: false, message: "Unauthorized to change permissions" },
             403

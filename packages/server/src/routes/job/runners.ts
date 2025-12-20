@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { container } from "tsyringe";
 import { getDrizzle } from "~/db/index.js";
+import { jobModel } from "~/db/job.js";
 import { jobsTable } from "~/db/schema/jobs.js";
 import { InternalHonoApp } from "~/index.js";
 import { RunnerManager } from "~/jobber/runners/manager.js";
@@ -15,20 +16,15 @@ export async function createRouteJobRunners() {
 
   app.get("/job/:jobId/runners", createMiddlewareAuth(), async (c, next) => {
     const jobId = c.req.param("jobId");
-    const auth = c.get("auth")!;
+    const bouncer = c.get("bouncer")!;
 
-    const job = await getDrizzle()
-      .select()
-      .from(jobsTable)
-      .where(eq(jobsTable.id, jobId))
-      .limit(1)
-      .then((res) => res.at(0));
+    const job = await jobModel.byId(jobId);
 
     if (!job) {
       return next();
     }
 
-    if (!canPerformAction(auth.permissions, `job/${job.id}/runners`, "read")) {
+    if (!bouncer.canReadJobRunners(job)) {
       return c.json(
         { success: false, message: "Insufficient Permissions" },
         403
@@ -47,26 +43,19 @@ export async function createRouteJobRunners() {
     "/job/:jobId/runners/:runnerId",
     createMiddlewareAuth(),
     async (c, next) => {
-      const auth = c.get("auth")!;
+      const bouncer = c.get("bouncer")!;
 
       const jobId = c.req.param("jobId");
       const runnerId = c.req.param("runnerId");
       const queryShutdownForcefully = c.req.query("forceful") === "true";
 
-      const job = await getDrizzle()
-        .select()
-        .from(jobsTable)
-        .where(eq(jobsTable.id, jobId))
-        .limit(1)
-        .then((res) => res.at(0));
+      const job = await jobModel.byId(jobId);
 
       if (!job) {
         return next();
       }
 
-      if (
-        !canPerformAction(auth.permissions, `job/${job.id}/runners`, "write")
-      ) {
+      if (!bouncer.canWriteJobRunners(job)) {
         return c.json(
           { success: false, message: "Insufficient Permissions" },
           403

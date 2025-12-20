@@ -48,6 +48,9 @@ This document describes all environment variables used to configure Jobber.
 
 ## Runner Configuration
 
+- `RUNNER_IMAGE_NODE24_URL` - Docker image URL for Node.js 24 runners  
+  **Default:** eithan1231/runner-node-24:latest
+
 - `RUNNER_IMAGE_NODE22_URL` - Docker image URL for Node.js 22 runners  
   **Default:** eithan1231/runner-node-22:latest
 

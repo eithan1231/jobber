@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { Context, Next } from "hono";
 import { getCookie } from "hono/cookie";
+import { Bouncer } from "~/bouncer.js";
 import { USERNAME_ANONYMOUS } from "~/constants.js";
 import { getDrizzle } from "~/db/index.js";
 import { apiTokensTable } from "~/db/schema/api-tokens.js";
@@ -75,12 +76,15 @@ export const createMiddlewareAuth = () => {
         );
       }
 
-      c.set("auth", {
-        type: "session",
-        user: users,
-        session: sessions,
-        permissions: users.permissions,
-      });
+      c.set(
+        "bouncer",
+        new Bouncer({
+          type: "session",
+          user: users,
+          session: sessions,
+          permissions: users.permissions,
+        })
+      );
 
       return await next();
     }
@@ -116,11 +120,14 @@ export const createMiddlewareAuth = () => {
         );
       }
 
-      c.set("auth", {
-        type: "token",
-        token: apiToken,
-        permissions: apiToken.permissions,
-      });
+      c.set(
+        "bouncer",
+        new Bouncer({
+          type: "token",
+          token: apiToken,
+          permissions: apiToken.permissions,
+        })
+      );
 
       return await next();
     }
@@ -160,11 +167,14 @@ export const createMiddlewareAuth = () => {
       );
     }
 
-    c.set("auth", {
-      type: "anonymous",
-      user: anonymousUser,
-      permissions: anonymousUser.permissions,
-    });
+    c.set(
+      "bouncer",
+      new Bouncer({
+        type: "anonymous",
+        user: anonymousUser,
+        permissions: anonymousUser.permissions,
+      })
+    );
 
     return await next();
   };
