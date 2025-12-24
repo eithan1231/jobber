@@ -8,7 +8,6 @@ import { JobVersionsTableType } from "~/db/schema/job-versions.js";
 import { getJobActionArchiveFile } from "~/paths.js";
 import { awaitTruthy, createToken, shortenString } from "~/util.js";
 import { Store } from "../store.js";
-import { container } from "tsyringe";
 
 export type HandleRequestSchedule = {
   type: "schedule";
@@ -88,7 +87,7 @@ export class RunnerServer extends EventEmitter<{
   "runner-closing": [runnerId: string];
   "runner-starting": [runnerId: string];
   "runner-ready": [runnerId: string];
-  "mqtt-publish-request": [jobId: string, topic: string, message: Buffer];
+  "mqtt-publish-request": [jobId: string, topic: string, body: Buffer];
 }> {
   private connections = new Map<string, RunnerServerItem>();
 
@@ -646,16 +645,24 @@ export class RunnerServer extends EventEmitter<{
       try {
         const bodyParsed = JSON.parse(bodyBuffer.toString()) as {
           topic: string;
-          message: string;
+          body: string;
         };
 
-        const messageDecoded = Buffer.from(bodyParsed.message, "base64");
+        // TODO: Introduce some zod validation here, introduce zod validation for all frame bodies.
+        if (
+          typeof bodyParsed.topic !== "string" ||
+          typeof bodyParsed.body !== "string"
+        ) {
+          throw new Error(`Invalid mqtt-publish frame body structure`);
+        }
+
+        const bodyDecoded = Buffer.from(bodyParsed.body, "base64");
 
         this.emit(
           "mqtt-publish-request",
           connection.action.jobId,
           bodyParsed.topic,
-          messageDecoded
+          bodyDecoded
         );
 
         // presume successful. Fix this later if possible.
