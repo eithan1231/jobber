@@ -1,6 +1,5 @@
 import { useContext, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { JobberEnvironment } from "../../../../api/environment";
 import { updateJob } from "../../../../api/jobs";
 import { deleteJobRunner } from "../../../../api/runners";
 import { JobberVersion } from "../../../../api/versions";
@@ -233,493 +232,460 @@ export const Component = () => {
   return (
     <PermissionGuardComponent resource={`job/${jobId}`} action="read">
       <JobPageComponent job={job}>
-        <div className="container mx-auto px-4 py-6 max-w-[900px]">
+        <div className="container mx-auto px-4 py-6 max-w-6xl">
+          {/* Job Details Card */}
           {overviewItems.length > 0 && (
-            <div className="border rounded shadow-md p-4 pb-5 m-2 bg-white">
-              <h2 className="text-xl font-semibold mb-2">Job Details</h2>
-
-              <dl className="text-sm mt-4">
-                {overviewItems.map((item, index) => (
-                  <div
-                    key={item.name}
-                    className={`flex justify-between py-2 ${
-                      index <= overviewItems.length - 1 ? "border-b" : ""
-                    }`}
-                  >
-                    <dt className="font-medium text-gray-700">{item.name}</dt>
-                    <dd className="text-gray-700">{item.value}</dd>
-                  </div>
-                ))}
-              </dl>
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-6">
+              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Configuration
+                </h2>
+              </div>
+              <div className="p-6">
+                <dl className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+                  {overviewItems.map((item) => (
+                    <div key={item.name}>
+                      <dt className="text-sm font-medium text-gray-500 mb-1">
+                        {item.name}
+                      </dt>
+                      <dd className="text-sm text-gray-900 font-mono">
+                        {item.value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
             </div>
           )}
 
+          {/* Versions Card */}
           {latestVersions && latestVersions.length > 0 && (
             <PermissionGuardComponent
               resource={`job/${jobId}/versions`}
               action="read"
             >
-              <div className="border rounded shadow-md p-4 pb-5 m-2 bg-white">
-                <h2 className="text-xl font-semibold mb-2">Versions</h2>
-
-                <table className="min-w-full bg-white">
-                  <thead>
-                    <tr>
-                      <th className="px-4 py-2 text-left">Version</th>
-                      <th className="px-4 py-2 text-left">Date</th>
-                      <th className="px-4 py-2 text-left">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {latestVersions.map((version, index) => (
-                      <tr
-                        key={`${version.jobId}-${version.id}`}
-                        className="border-t"
-                      >
-                        <td className="px-4 py-2 text-gray-700">
-                          {version.version}
-                          {index === 0 && (
-                            <span className="mx-2 bg-blue-100 text-blue-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full">
-                              Latest
-                            </span>
-                          )}
-                          {version.id === job.jobVersionId && (
-                            <span className="mx-2 bg-green-100 text-green-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full">
-                              Active
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2 text-gray-700">
-                          <TimeSinceComponent timestamp={version.created} />
-                        </td>
-
-                        <td className="px-4 py-2 text-gray-700">
-                          <PermissionGuardComponent
-                            resource={`job/${jobId}/versions/${version.id}`}
-                            action="write"
-                          >
-                            {index === 0 && version.id !== job.jobVersionId && (
-                              <ConfirmButtonComponent
-                                buttonClassName="bg-blue-500 hover:bg-blue-600 text-white font-medium py-1 px-3 rounded-md text-xs shadow-sm"
-                                confirmTitle="Confirm Activation"
-                                confirmDescription="Are you sure you want to activate this version? This will make it the active version for the job."
-                                buttonText="Activate"
-                                onConfirm={() => {
-                                  handleSetActiveVersion(version.id);
-                                }}
-                              />
-                            )}
-
-                            {version.id === job.jobVersionId && (
-                              <ConfirmButtonComponent
-                                buttonClassName="bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded-md text-xs shadow-sm"
-                                confirmTitle="Confirm Deactivation"
-                                confirmDescription="Are you sure you want to deactivate this version? This will stop all running instances of this version."
-                                buttonText="Deactivate"
-                                onConfirm={() => {
-                                  handleSetActiveVersion(null);
-                                }}
-                              />
-                            )}
-
-                            {index !== 0 && version.id !== job.jobVersionId && (
-                              <ConfirmButtonComponent
-                                buttonClassName="bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded-md text-xs shadow-sm"
-                                confirmTitle="Confirm Activation"
-                                confirmDescription="Are you sure you want to activate this version? It will downgrade the current version."
-                                buttonText="Activate"
-                                onConfirm={() => {
-                                  handleSetActiveVersion(version.id);
-                                }}
-                              />
-                            )}
-                          </PermissionGuardComponent>
-                        </td>
+              <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-6">
+                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Recent Versions
+                  </h2>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Version
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Created
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </PermissionGuardComponent>
-          )}
-
-          {(triggers.length >= 0 || triggersError) && (
-            <PermissionGuardComponent
-              resource={`job/${jobId}/triggers`}
-              action="read"
-            >
-              <div className="border rounded shadow-md p-4 pb-5 m-2 bg-white">
-                <h2 className="text-xl font-semibold mb-6">Triggers</h2>
-
-                {triggersError && (
-                  <p className="text-red-500">
-                    Failed to load triggers: {triggersError}
-                  </p>
-                )}
-
-                <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
-                  {/*  */}
-                  {triggers.map((trigger) => (
-                    <div
-                      key={trigger.id}
-                      className="border rounded shadow-sm p-4 bg-gray-50"
-                    >
-                      <h3 className="text-md font-semibold mb-2">
-                        {trigger.context.type === "http" &&
-                          "HTTP Trigger Context"}
-                        {trigger.context.type === "mqtt" &&
-                          "MQTT Trigger Context"}
-                        {trigger.context.type === "schedule" &&
-                          "Schedule Trigger Context"}
-                      </h3>
-
-                      <div
-                        className={`text-xs mb-2 ${
-                          trigger.status.status === "unhealthy"
-                            ? "text-red-500"
-                            : "text-gray-600"
-                        }`}
-                      >
-                        {trigger.status.message}
-                      </div>
-
-                      <dl className="text-sm mt-4">
-                        {trigger.context.type === "schedule" && (
-                          <>
-                            {trigger.context.name && (
-                              <div className="flex justify-between py-1 border-b">
-                                <dt className="font-medium text-gray-700">
-                                  Name
-                                </dt>
-                                <dd className="text-gray-700">
-                                  {trigger.context.name}
-                                </dd>
-                              </div>
-                            )}
-
-                            <div className="flex justify-between py-1 border-b">
-                              <dt className="font-medium text-gray-700">
-                                Cron
-                              </dt>
-                              <dd className="text-gray-700">
-                                {trigger.context.cron}
-                              </dd>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {latestVersions.map((version, index) => (
+                        <tr
+                          key={`${version.jobId}-${version.id}`}
+                          className="hover:bg-gray-50"
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-900">
+                                {version.version}
+                              </span>
+                              {index === 0 && (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  Latest
+                                </span>
+                              )}
+                              {version.id === job.jobVersionId && (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  Active
+                                </span>
+                              )}
                             </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            <TimeSinceComponent timestamp={version.created} />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                            <PermissionGuardComponent
+                              resource={`job/${jobId}/versions/${version.id}`}
+                              action="write"
+                            >
+                              {index === 0 &&
+                                version.id !== job.jobVersionId && (
+                                  <ConfirmButtonComponent
+                                    buttonClassName="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                    confirmTitle="Confirm Activation"
+                                    confirmDescription="Are you sure you want to activate this version? This will make it the active version for the job."
+                                    buttonText="Activate"
+                                    onConfirm={() => {
+                                      handleSetActiveVersion(version.id);
+                                    }}
+                                  />
+                                )}
 
-                            {trigger.context.timezone && (
-                              <div className="flex justify-between py-1 border-b">
-                                <dt className="font-medium text-gray-700">
-                                  Timezone
-                                </dt>
-                                <dd className="text-gray-700">
-                                  {trigger.context.timezone}
-                                </dd>
-                              </div>
-                            )}
-                          </>
-                        )}
-
-                        {trigger.context.type === "http" && (
-                          <>
-                            {trigger.context.name && (
-                              <div className="flex justify-between py-1 border-b">
-                                <dt className="font-medium text-gray-700">
-                                  Name
-                                </dt>
-                                <dd className="text-gray-700">
-                                  {trigger.context.name}
-                                </dd>
-                              </div>
-                            )}
-
-                            {trigger.context.hostname && (
-                              <div className="flex justify-between py-1 border-b">
-                                <dt className="font-medium text-gray-700">
-                                  Host
-                                </dt>
-                                <dd className="text-gray-700">
-                                  {trigger.context.hostname}
-                                </dd>
-                              </div>
-                            )}
-
-                            {trigger.context.path && (
-                              <div className="flex justify-between py-1 border-b">
-                                <dt className="font-medium text-gray-700">
-                                  Path
-                                </dt>
-                                <dd className="text-gray-700">
-                                  {trigger.context.path}
-                                </dd>
-                              </div>
-                            )}
-
-                            {trigger.context.method && (
-                              <div className="flex justify-between py-1 border-b">
-                                <dt className="font-medium text-gray-700">
-                                  Method
-                                </dt>
-                                <dd className="text-gray-700">
-                                  {trigger.context.method}
-                                </dd>
-                              </div>
-                            )}
-                          </>
-                        )}
-
-                        {trigger.context.type === "mqtt" && (
-                          <>
-                            {trigger.context.name && (
-                              <div className="flex justify-between py-1 border-b">
-                                <dt className="font-medium text-gray-700">
-                                  Name
-                                </dt>
-                                <dd className="text-gray-700">
-                                  {trigger.context.name}
-                                </dd>
-                              </div>
-                            )}
-
-                            {trigger.context.topics.map((topic, index) => (
-                              <div
-                                key={topic}
-                                className="flex justify-between py-1 border-b"
-                              >
-                                <dt className="font-medium text-gray-700">
-                                  Topic #{index + 1}
-                                </dt>
-                                <dd className="text-gray-700">{topic}</dd>
-                              </div>
-                            ))}
-
-                            {environment && (
-                              <>
-                                <TriggerConnectionPartComponent
-                                  environment={environment}
-                                  displayName="Protocol"
-                                  variableFallbackValue={
-                                    trigger.context.connection.protocol
-                                  }
-                                  variableName={
-                                    trigger.context.connection.protocolVariable
-                                  }
+                              {version.id === job.jobVersionId && (
+                                <ConfirmButtonComponent
+                                  buttonClassName="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                  confirmTitle="Confirm Deactivation"
+                                  confirmDescription="Are you sure you want to deactivate this version? This will stop all running instances of this version."
+                                  buttonText="Deactivate"
+                                  onConfirm={() => {
+                                    handleSetActiveVersion(null);
+                                  }}
                                 />
-                                <TriggerConnectionPartComponent
-                                  environment={environment}
-                                  displayName="Username"
-                                  variableFallbackValue={
-                                    trigger.context.connection.username
-                                  }
-                                  variableName={
-                                    trigger.context.connection.usernameVariable
-                                  }
-                                />
-                                <TriggerConnectionPartComponent
-                                  environment={environment}
-                                  displayName="Password"
-                                  variableFallbackValue={
-                                    trigger.context.connection.password
-                                  }
-                                  variableName={
-                                    trigger.context.connection.passwordVariable
-                                  }
-                                />
-                                <TriggerConnectionPartComponent
-                                  environment={environment}
-                                  displayName="Host"
-                                  variableFallbackValue={
-                                    trigger.context.connection.host
-                                  }
-                                  variableName={
-                                    trigger.context.connection.hostVariable
-                                  }
-                                />
-                                <TriggerConnectionPartComponent
-                                  environment={environment}
-                                  displayName="Port"
-                                  variableFallbackValue={
-                                    trigger.context.connection.port
-                                  }
-                                  variableName={
-                                    trigger.context.connection.portVariable
-                                  }
-                                />
-                                <TriggerConnectionPartComponent
-                                  environment={environment}
-                                  displayName="Client ID"
-                                  variableFallbackValue={
-                                    trigger.context.connection.clientId
-                                  }
-                                  variableName={
-                                    trigger.context.connection.clientIdVariable
-                                  }
-                                />
-                              </>
-                            )}
-                          </>
-                        )}
-                      </dl>
-                    </div>
-                  ))}
+                              )}
+
+                              {index !== 0 &&
+                                version.id !== job.jobVersionId && (
+                                  <ConfirmButtonComponent
+                                    buttonClassName="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                                    confirmTitle="Confirm Activation"
+                                    confirmDescription="Are you sure you want to activate this version? It will downgrade the current version."
+                                    buttonText="Activate"
+                                    onConfirm={() => {
+                                      handleSetActiveVersion(version.id);
+                                    }}
+                                  />
+                                )}
+                            </PermissionGuardComponent>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </PermissionGuardComponent>
           )}
 
+          {/* Triggers Card */}
+          {(triggers.length >= 0 || triggersError) && (
+            <PermissionGuardComponent
+              resource={`job/${jobId}/triggers`}
+              action="read"
+            >
+              <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-6">
+                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Triggers
+                  </h2>
+                </div>
+
+                {triggersError && (
+                  <div className="p-6">
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <p className="text-red-600 text-sm font-medium">
+                        Failed to load triggers: {triggersError}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {!triggersError && triggers.length === 0 && (
+                  <div className="p-6 text-center">
+                    <p className="text-gray-500 text-sm">
+                      No triggers configured
+                    </p>
+                  </div>
+                )}
+
+                {!triggersError && triggers.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Type
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Configuration
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {triggers.map((trigger) => (
+                          <tr key={trigger.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-900">
+                                  {trigger.context.type === "http" && "HTTP"}
+                                  {trigger.context.type === "mqtt" && "MQTT"}
+                                  {trigger.context.type === "schedule" &&
+                                    "Schedule"}
+                                </span>
+                              </div>
+                              {trigger.context.name && (
+                                <div className="text-xs text-gray-500 mt-0.5">
+                                  {trigger.context.name}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                  trigger.status.status === "unhealthy"
+                                    ? "bg-red-100 text-red-800"
+                                    : "bg-green-100 text-green-800"
+                                }`}
+                              >
+                                {trigger.status.status === "unhealthy"
+                                  ? "Unhealthy"
+                                  : "Healthy"}
+                              </span>
+                              {trigger.status.message && (
+                                <div className="text-xs text-gray-500 mt-1 max-w-xs">
+                                  {trigger.status.message}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              {/* Schedule Trigger */}
+                              {trigger.context.type === "schedule" && (
+                                <div className="space-y-1 text-sm text-gray-900">
+                                  <div>
+                                    <span className="font-mono">
+                                      {trigger.context.cron}
+                                    </span>
+                                  </div>
+                                  {trigger.context.timezone && (
+                                    <div className="text-xs text-gray-600">
+                                      {trigger.context.timezone}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* HTTP Trigger */}
+                              {trigger.context.type === "http" && (
+                                <div className="space-y-1 text-sm">
+                                  <div className="flex items-center gap-2">
+                                    {trigger.context.method && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                        {trigger.context.method}
+                                      </span>
+                                    )}
+                                    <div className="font-mono text-gray-900">
+                                      {trigger.context.hostname || ""}
+                                      {trigger.context.path || ""}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* MQTT Trigger */}
+                              {trigger.context.type === "mqtt" && (
+                                <div className="space-y-2 text-sm">
+                                  {environment && (
+                                    <div>
+                                      <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">
+                                        Connection
+                                      </div>
+                                      <div className="space-y-0.5 text-xs">
+                                        {trigger.context.connection
+                                          .protocol && (
+                                          <div className="text-gray-900">
+                                            <span className="font-mono">
+                                              {
+                                                trigger.context.connection
+                                                  .protocol
+                                              }
+                                              ://
+                                            </span>
+                                            <span className="font-mono">
+                                              {trigger.context.connection.host}
+                                            </span>
+                                            {trigger.context.connection
+                                              .port && (
+                                              <span className="font-mono">
+                                                :
+                                                {
+                                                  trigger.context.connection
+                                                    .port
+                                                }
+                                              </span>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  <div>
+                                    <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">
+                                      Topics
+                                    </div>
+                                    <div className="space-y-0.5">
+                                      {trigger.context.topics.map((topic) => (
+                                        <div
+                                          key={topic}
+                                          className="font-mono text-gray-900 text-xs"
+                                        >
+                                          {topic}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </PermissionGuardComponent>
+          )}
+
+          {/* Runners Card */}
           {(runners.length >= 0 || runnersError) && (
-            <div className="max-w-full border rounded shadow-md p-4 pb-5 m-2 bg-white">
-              <h2 className="text-xl font-semibold mb-6">Runners</h2>
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-6">
+              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Active Runners
+                </h2>
+              </div>
 
               {runnersError && (
-                <p className="text-red-500">
-                  Failed to load runners: {runnersError}
-                </p>
+                <div className="p-6">
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <p className="text-red-600 text-sm font-medium">
+                      Failed to load runners: {runnersError}
+                    </p>
+                  </div>
+                </div>
               )}
 
-              <table className="w-full bg-white">
-                <thead>
-                  <tr>
-                    <th className="px-4 py-2 text-left">Status</th>
-                    <th className="px-4 py-2 text-left">Created</th>
-                    <th className="px-4 py-2 text-left">Requests</th>
-                    <th className="px-4 py-2 text-left">Id</th>
-                    <th className="px-4 py-2 text-left">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {runners.map((runner) => {
-                    let createdSubText: React.ReactElement | null = null;
+              {!runnersError && runners.length === 0 && (
+                <div className="p-6 text-center">
+                  <p className="text-gray-500 text-sm">No active runners</p>
+                </div>
+              )}
 
-                    if (runner.closedAt) {
-                      createdSubText = (
-                        <>
-                          Closed:{" "}
-                          <TimeSinceComponent timestamp={runner.closedAt} />
-                        </>
-                      );
-                    } else if (runner.closingAt) {
-                      createdSubText = (
-                        <>
-                          Closing:{" "}
-                          <TimeSinceComponent timestamp={runner.closingAt} />
-                        </>
-                      );
-                    } else if (runner.readyAt) {
-                      createdSubText = (
-                        <>
-                          Ready:{" "}
-                          <TimeSinceComponent timestamp={runner.readyAt} />
-                        </>
-                      );
-                    }
-
-                    return (
-                      <tr key={runner.id} className="border-t text-sm">
-                        <td
-                          className={`px-4 py-2 text-gray-700
-                          ${runner.status === "starting" ? "text-blue-600" : ""}
-                          ${runner.status === "ready" ? "text-green-600" : ""}
-                          ${runner.status === "closing" ? "text-red-600" : ""}
-                          ${runner.status === "closed" ? "text-red-600" : ""}
-                        `}
-                        >
-                          {runner.status}
-                        </td>
-                        <td className="px-4 py-2 text-gray-700">
-                          <TimeSinceComponent timestamp={runner.createdAt} />
-
-                          {createdSubText && (
-                            <span className="text-xs text-gray-500">
-                              {" "}
-                              ({createdSubText})
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="px-4 py-2 text-gray-700">
-                          {runner.requestsProcessing}
-                        </td>
-
-                        <td className="px-4 py-2 text-gray-700 overflow-hidden text-ellipsis whitespace-nowrap max-w-[200px]">
-                          {runner.id}
-                        </td>
-
-                        <td className="px-4 py-2 text-gray-700">
-                          <PermissionGuardComponent
-                            resource={`job/${jobId}/runners/${runner.id}`}
-                            action="delete"
-                          >
-                            <ConfirmButtonComponent
-                              buttonClassName="bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded-md text-xs shadow-sm"
-                              confirmTitle="Confirm runner shutdown"
-                              confirmDescription="Are you sure you want to shutdown this runner? Its execution will stop."
-                              buttonText="Kill"
-                              onConfirm={() => {
-                                handleKillRunner(runner.id);
-                              }}
-                            />
-                          </PermissionGuardComponent>
-                        </td>
+              {!runnersError && runners.length > 0 && (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Created
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Requests
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Runner ID
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {runners.map((runner) => {
+                        let createdSubText: React.ReactElement | null = null;
+
+                        if (runner.closedAt) {
+                          createdSubText = (
+                            <>
+                              Closed:{" "}
+                              <TimeSinceComponent timestamp={runner.closedAt} />
+                            </>
+                          );
+                        } else if (runner.closingAt) {
+                          createdSubText = (
+                            <>
+                              Closing:{" "}
+                              <TimeSinceComponent
+                                timestamp={runner.closingAt}
+                              />
+                            </>
+                          );
+                        } else if (runner.readyAt) {
+                          createdSubText = (
+                            <>
+                              Ready:{" "}
+                              <TimeSinceComponent timestamp={runner.readyAt} />
+                            </>
+                          );
+                        }
+
+                        return (
+                          <tr key={runner.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  runner.status === "starting"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : runner.status === "ready"
+                                    ? "bg-green-100 text-green-800"
+                                    : runner.status === "closing" ||
+                                      runner.status === "closed"
+                                    ? "bg-red-100 text-red-800"
+                                    : "bg-gray-100 text-gray-800"
+                                }`}
+                              >
+                                {runner.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                              <TimeSinceComponent
+                                timestamp={runner.createdAt}
+                              />
+                              {createdSubText && (
+                                <div className="text-xs text-gray-500 mt-0.5">
+                                  {createdSubText}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {runner.requestsProcessing}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600 font-mono max-w-xs truncate">
+                              {runner.id}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                              <PermissionGuardComponent
+                                resource={`job/${jobId}/runners/${runner.id}`}
+                                action="delete"
+                              >
+                                <ConfirmButtonComponent
+                                  buttonClassName="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                  confirmTitle="Confirm runner shutdown"
+                                  confirmDescription="Are you sure you want to shutdown this runner? Its execution will stop."
+                                  buttonText="Kill"
+                                  onConfirm={() => {
+                                    handleKillRunner(runner.id);
+                                  }}
+                                />
+                              </PermissionGuardComponent>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>
       </JobPageComponent>
     </PermissionGuardComponent>
   );
-};
-
-const TriggerConnectionPartComponent = (params: {
-  environment: JobberEnvironment;
-  displayName: string;
-  variableName?: string;
-  variableFallbackValue?: string;
-}) => {
-  if (params.variableFallbackValue) {
-    return (
-      <div className="flex justify-between py-1 border-b">
-        <dt className="font-medium text-gray-700">{params.displayName}:</dt>
-        <dd className="text-gray-700">{params.variableFallbackValue}</dd>
-      </div>
-    );
-  }
-
-  if (!params.environment || !params.variableName) {
-    return null;
-  }
-
-  if (!params.environment[params.variableName]) {
-    return (
-      <div className="flex justify-between py-1 border-b">
-        <dt className="font-medium text-gray-700">{params.displayName}:</dt>
-        <dd className="text-red-700">{params.variableFallbackValue}</dd>
-      </div>
-    );
-  }
-
-  const variable = params.environment[params.variableName];
-
-  if (variable.type === "secret") {
-    return (
-      <div className="flex justify-between py-1 border-b">
-        <dt className="font-medium text-gray-700">{params.displayName}:</dt>
-        <dd className="text-gray-700">******</dd>
-      </div>
-    );
-  }
-
-  if (variable.type === "text") {
-    return (
-      <div className="flex justify-between py-1 border-b">
-        <dt className="font-medium text-gray-700">{params.displayName}:</dt>
-        <dd className="text-gray-700">{variable.value}</dd>
-      </div>
-    );
-  }
 };
 
 export default Component;

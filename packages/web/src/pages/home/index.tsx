@@ -37,6 +37,16 @@ const Component = () => {
   const { jobs, reloadJobs } = useJobs();
   const { config } = useConfig();
 
+  // Sort jobs: enabled first, then disabled
+  const sortedJobs = useMemo(() => {
+    if (!jobs) return [];
+    return [...jobs].sort((a, b) => {
+      if (a.status === "enabled" && b.status === "disabled") return -1;
+      if (a.status === "disabled" && b.status === "enabled") return 1;
+      return a.jobName.localeCompare(b.jobName);
+    });
+  }, [jobs]);
+
   const sessionExpiryUnixTimestamp = useMemo(() => {
     if (auth?.session?.expires) {
       const expires = new Date(auth.session.expires).getTime();
@@ -80,114 +90,168 @@ const Component = () => {
   return (
     <>
       <div className="flex h-screen">
-        <aside className="flex-col w-96 h-screen bg-gray-800 text-white">
+        <aside className="flex-col w-80 h-screen bg-gray-900 text-white border-r border-gray-700">
           {/* A small sidebar containing all of the jobs, and other navigations */}
 
           {/*  */}
-          <div className="p-4 h-screen overflow-y-auto">
-            <h2 className="text-lg font-bold mb-2">
-              {config?.jobberName ?? "Jobber"}
-            </h2>
+          <div className="flex flex-col h-screen">
+            <div className="p-6 border-b border-gray-700">
+              <h2 className="text-xl font-bold text-white">
+                {config?.jobberName ?? "Jobber"}
+              </h2>
+            </div>
 
-            {sessionExpiryUnixTimestamp && isExpirySoon && (
-              <div className="mb-4 p-3 bg-yellow-600 border border-yellow-500 rounded">
-                <div className="flex items-center">
-                  <svg
-                    className="w-4 h-4 mr-2"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <span className="text-sm font-medium">Session Expiring</span>
+            <div className="flex-1 overflow-y-auto p-4">
+              {sessionExpiryUnixTimestamp && isExpirySoon && (
+                <div className="mb-4 p-3 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
+                  <div className="flex items-center">
+                    <svg
+                      className="w-4 h-4 mr-2 text-yellow-400"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <span className="text-sm font-medium text-yellow-300">
+                      Session Expiring
+                    </span>
+                  </div>
+                  <p className="text-xs mt-1 text-yellow-200/90">
+                    <TimeSinceComponent
+                      timestamp={sessionExpiryUnixTimestamp}
+                    />{" "}
+                    your session expires.
+                  </p>
                 </div>
-                <p className="text-xs mt-1">
-                  <TimeSinceComponent timestamp={sessionExpiryUnixTimestamp} />{" "}
-                  your session expires.
-                </p>
-              </div>
-            )}
+              )}
 
-            <ul className="space-y-1">
-              <li>
+              <nav className="space-y-1">
                 <Link
                   to="/home/"
-                  className={`block px-4 py-2 rounded hover:bg-gray-700 ${
-                    pathname === "/home/" ? "bg-gray-700" : ""
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    pathname === "/home/"
+                      ? "bg-blue-600 text-white"
+                      : "text-gray-300 hover:bg-gray-800 hover:text-white"
                   }`}
                 >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                    />
+                  </svg>
                   Home
                 </Link>
-              </li>
 
-              <PermissionGuardComponent resource={`user`} action="read">
-                <li>
+                <PermissionGuardComponent resource={`user`} action="read">
                   <Link
                     to="/home/users"
-                    className={`block px-4 py-2 rounded hover:bg-gray-700 ${
-                      pathname === "/home/users" ? "bg-gray-700" : ""
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      pathname === "/home/users"
+                        ? "bg-blue-600 text-white"
+                        : "text-gray-300 hover:bg-gray-800 hover:text-white"
                     }`}
                   >
-                    User Management
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+                      />
+                    </svg>
+                    Users
                   </Link>
-                </li>
-              </PermissionGuardComponent>
+                </PermissionGuardComponent>
 
-              <PermissionGuardComponent resource={`api-tokens`} action="read">
-                <li>
+                <PermissionGuardComponent resource={`api-tokens`} action="read">
                   <Link
                     to="/home/api-tokens/"
-                    className={`block px-4 py-2 rounded hover:bg-gray-700 ${
-                      pathname === "/home/api-tokens/" ? "bg-gray-700" : ""
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      pathname === "/home/api-tokens/"
+                        ? "bg-blue-600 text-white"
+                        : "text-gray-300 hover:bg-gray-800 hover:text-white"
                     }`}
                   >
-                    API Tokens Management
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+                      />
+                    </svg>
+                    API Tokens
                   </Link>
-                </li>
-              </PermissionGuardComponent>
-            </ul>
+                </PermissionGuardComponent>
+              </nav>
 
-            {jobs && (
-              <>
-                <h2 className="text-lg font-bold mt-6 mb-2">Jobs</h2>
-                <ul className="space-y-2">
-                  {jobs &&
-                    jobs.map((job) => (
-                      <li key={job.id}>
-                        <Link
-                          to={`/home/job/${job.id}/`}
-                          className={`block px-4 py-2 rounded hover:bg-gray-700 ${
-                            pathname.startsWith(`/home/job/${job.id}/`)
-                              ? "bg-gray-700"
-                              : ""
-                          }`}
-                        >
-                          <div title={job.jobName}>
+              {sortedJobs && sortedJobs.length > 0 && (
+                <>
+                  <div className="mt-6 mb-3 px-3">
+                    <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                      Jobs ({sortedJobs.length})
+                    </h3>
+                  </div>
+                  <nav className="space-y-1">
+                    {sortedJobs.map((job) => (
+                      <Link
+                        key={job.id}
+                        to={`/home/job/${job.id}/`}
+                        className={`block px-3 py-2 rounded-lg text-sm transition-colors ${
+                          pathname.startsWith(`/home/job/${job.id}/`)
+                            ? "bg-gray-800 text-white"
+                            : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span
+                            className="font-medium truncate"
+                            title={job.jobName}
+                          >
                             {job.jobName}
-                            {/*  */}
-                            {job.status === "disabled" && (
-                              <span className="mx-2 bg-red-300 text-red-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full">
-                                Disabled
-                              </span>
-                            )}
-                          </div>
-
+                          </span>
+                          {job.status === "disabled" && (
+                            <span className="flex-shrink-0 px-2 py-0.5 text-xs font-medium bg-gray-700 text-gray-400 rounded">
+                              Disabled
+                            </span>
+                          )}
+                        </div>
+                        {job.description && (
                           <div
-                            className="text-sm text-gray-400 truncate"
+                            className="text-xs text-gray-500 truncate"
                             title={job.description}
                           >
                             {job.description}
                           </div>
-                        </Link>
-                      </li>
+                        )}
+                      </Link>
                     ))}
-                </ul>
-              </>
-            )}
+                  </nav>
+                </>
+              )}
+            </div>
           </div>
         </aside>
 
