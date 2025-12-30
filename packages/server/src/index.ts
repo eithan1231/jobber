@@ -218,7 +218,7 @@ async function createGatewayHono() {
     // TODO: In the future we should migrate to a streaming response for larger bodies. Previously
     // it was implicitly converted to a string, which is nonideal.
     return c.body(
-      response.http.body.toString(),
+      Uint8Array.from(response.http.body).buffer,
       response.http.status as StatusCode,
       response.http.headers
     );
