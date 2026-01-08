@@ -8,13 +8,12 @@ import {
 } from "~/db/schema/job-versions.js";
 import { jobsTable, JobsTableType } from "~/db/schema/jobs.js";
 import { triggersTable, TriggersTableType } from "~/db/schema/triggers.js";
-import { LoopBase } from "~/loop-base.js";
+import { LoopBase } from "@jobber/common";
 import { counterTriggerHttp } from "~/metrics.js";
-import { getUnixTimestamp } from "~/util.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
 import { RunnerManager } from "../runners/manager.js";
 import { HandleRequest, HandleRequestHttp } from "../runners/server.js";
-import { autoInjectable, inject, singleton } from "tsyringe";
+import { inject, singleton } from "tsyringe";
 
 type TriggerHttpItem = {
   trigger: Omit<TriggersTableType, "context"> & {

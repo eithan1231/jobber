@@ -1,4 +1,3 @@
-import assert from "node:assert";
 import { ApiTokensTableType } from "./db/schema/api-tokens.js";
 import { SessionsTableType } from "./db/schema/sessions.js";
 import { UsersTableType } from "./db/schema/users.js";
@@ -8,7 +7,6 @@ import {
   JobberPermissions,
 } from "./permissions.js";
 import { HTTPException } from "hono/http-exception";
-import { JobsTableType } from "./db/schema/jobs.js";
 
 type BouncerOptions =
   | {

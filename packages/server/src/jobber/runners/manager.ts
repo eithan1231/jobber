@@ -21,7 +21,7 @@ import {
   pullDockerImage,
   stopDockerContainer,
 } from "~/docker.js";
-import { LoopBase } from "~/loop-base.js";
+import { LoopBase, awaitTruthy, timeout } from "@jobber/common";
 import {
   counterRunnerRequests,
   gaugeActiveRunners,
@@ -31,13 +31,11 @@ import {
   histogramRunnerStartupDuration,
 } from "~/metrics.js";
 import {
-  awaitTruthy,
   createBenchmark,
   createToken,
   getUnixTimestamp,
   sanitiseSafeCharacters,
   shortenString,
-  timeout,
 } from "~/util.js";
 import { getImage, getImages } from "../images.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";

@@ -1,7 +1,7 @@
 import { eq, lt, sql } from "drizzle-orm";
 import { getDrizzle } from "./db/index.js";
 import { lockTable } from "./db/schema/lock.js";
-import { timeout } from "./util.js";
+import { timeout } from "@jobber/common";
 
 export const acquireLock = async (
   table: string,

@@ -1,4 +1,4 @@
-import { LoopBase } from "~/loop-base.js";
+import { LoopBase } from "@jobber/common";
 
 export type LogDriverBaseItem = {
   actionId: string;

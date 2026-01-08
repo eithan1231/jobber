@@ -13,7 +13,7 @@ import {
 } from "~/db/schema/job-versions.js";
 import { jobsTable, JobsTableType } from "~/db/schema/jobs.js";
 import { triggersTable, TriggersTableType } from "~/db/schema/triggers.js";
-import { LoopBase } from "~/loop-base.js";
+import { LoopBase } from "@jobber/common";
 import { counterTriggerMqtt, counterTriggerMqttPublish } from "~/metrics.js";
 import { createSha1Hash, shortenString } from "~/util.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";

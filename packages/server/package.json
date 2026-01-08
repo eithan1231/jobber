@@ -16,8 +16,10 @@
   "author": "Eithan Hersey-Tuit",
   "license": "MIT",
   "dependencies": {
-    "@hono/node-server": "^1.13.7",
     "@jobber/tcp-frame-socket": "workspace:*",
+    "@jobber/common": "workspace:*",
+    "@jobber/grpc": "workspace:*",
+    "@hono/node-server": "^1.13.7",
     "bcryptjs": "^3.0.2",
     "cron": "^3.2.1",
     "drizzle-orm": "^0.38.2",
@@ -28,7 +30,12 @@
     "reflect-metadata": "^0.2.2",
     "semver": "^7.6.3",
     "tsyringe": "^4.10.0",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "@grpc/grpc-js": "^1.14.3",
+    "@grpc/proto-loader": "^0.8.0",
+    "long": "^5.3.2",
+    "nice-grpc": "^2.1.14",
+    "protobufjs": "^8.0.0"
   },
   "devDependencies": {
     "@tsconfig/node20": "^20.1.4",
@@ -39,6 +46,8 @@
     "rimraf": "^5.0.10",
     "tsc-alias": "^1.8.10",
     "typescript": "^5.6.3",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "grpc-tools": "^1.13.1",
+    "ts-proto": "^2.10.1"
   }
 }

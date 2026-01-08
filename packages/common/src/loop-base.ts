@@ -1,5 +1,6 @@
 import assert from "node:assert";
-import { awaitTruthy, timeout } from "./util.js";
+import { awaitTruthy } from "./await-truthy.js";
+import { timeout } from "./timeout.js";
 
 /**
  * Lifecycle:
@@ -60,7 +61,11 @@ export abstract class LoopBase {
     this.isLoopRunning = true;
 
     while (this.status === "starting" || this.status === "started") {
-      await this.loopIteration();
+      try {
+        await this.loopIteration();
+      } catch (err) {
+        console.error(err);
+      }
 
       await timeout(this.loopDuration);
     }

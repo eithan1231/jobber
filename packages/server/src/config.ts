@@ -38,6 +38,9 @@ export const ConfigurationOptionsSchema = z.object({
   MANAGER_PORT: z.coerce.number().default(5211),
   MANAGER_HOST: z.string().default(hostname()),
 
+  MANAGER_GRPC_PORT: z.coerce.number().default(5212),
+  MANAGER_GRPC_BIND_ADDRESS: z.string().default("0.0.0.0"),
+
   RUNNER_IMAGE_NODE24_URL: z
     .string()
     .default("eithan1231/runner-node-24:latest"),
