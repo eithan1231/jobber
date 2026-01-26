@@ -218,6 +218,10 @@ export class Bouncer {
     return this.can(`users/${user.id}/permissions`, "write");
   }
 
+  public canWriteGrpcRunnerJwt(): boolean {
+    return this.can(`grpc/runner-jwt`, "write");
+  }
+
   public get type() {
     return this.options.type;
   }

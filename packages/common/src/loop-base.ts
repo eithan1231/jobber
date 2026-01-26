@@ -1,6 +1,7 @@
 import assert from "node:assert";
 import { awaitTruthy } from "./await-truthy.js";
 import { timeout } from "./timeout.js";
+import EventEmitter from "node:events";
 
 /**
  * Lifecycle:
@@ -12,55 +13,68 @@ import { timeout } from "./timeout.js";
  */
 export type StatusLifecycle = "neutral" | "starting" | "started" | "stopping";
 
-export abstract class LoopBase {
-  private isLoopRunning = false;
+type EventEmitterEvents = {
+  neutral: [];
+  starting: [];
+  started: [];
+  stopping: [];
+};
 
+export abstract class LoopBase {
   protected status: StatusLifecycle = "neutral";
 
   protected abstract loopDuration: number;
 
-  public async start() {
-    assert(this.status === "neutral");
+  private events = new EventEmitter<EventEmitterEvents>();
 
-    this.status = "starting";
+  public start() {
+    return new Promise<void>(async (resolve) => {
+      assert(this.status === "neutral");
 
-    if (this.loopStarting) {
-      await this.loopStarting();
-    }
+      this.events.once("started", () => {
+        resolve();
+      });
 
-    this.loop();
+      this.status = "starting";
 
-    await awaitTruthy(() => Promise.resolve(this.isLoopRunning));
+      if (this.loopStarting) {
+        await this.loopStarting();
+      }
 
+      this.events.emit("starting");
+
+      this.loop();
+    });
+  }
+
+  public stop() {
+    return new Promise<void>(async (resolve) => {
+      assert(this.status === "started");
+
+      this.events.once("neutral", () => {
+        resolve();
+      });
+
+      this.status = "stopping";
+
+      if (this.loopClosing) {
+        await this.loopClosing();
+      }
+
+      this.events.emit("stopping");
+    });
+  }
+
+  private async loop() {
     this.status = "started";
 
     if (this.loopStarted) {
       await this.loopStarted();
     }
-  }
 
-  public async stop() {
-    assert(this.status === "started");
+    this.events.emit("started");
 
-    this.status = "stopping";
-
-    if (this.loopClosing) {
-      await this.loopClosing();
-    }
-
-    await awaitTruthy(() => Promise.resolve(!this.isLoopRunning));
-
-    this.status = "neutral";
-
-    if (this.loopClosed) {
-      await this.loopClosed();
-    }
-  }
-
-  private async loop() {
-    this.isLoopRunning = true;
-
-    while (this.status === "starting" || this.status === "started") {
+    while (this.status === "started") {
       try {
         await this.loopIteration();
       } catch (err) {
@@ -70,7 +84,13 @@ export abstract class LoopBase {
       await timeout(this.loopDuration);
     }
 
-    this.isLoopRunning = false;
+    this.status = "neutral";
+
+    if (this.loopClosed) {
+      await this.loopClosed();
+    }
+
+    this.events.emit("neutral");
   }
 
   protected abstract loopIteration(): Promise<void>;

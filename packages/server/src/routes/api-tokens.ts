@@ -7,7 +7,7 @@ import { apiTokensTable, ApiTokensTableType } from "~/db/schema/api-tokens.js";
 import { InternalHonoApp } from "~/index.js";
 import { withLock } from "~/lock.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
-import { canPerformAction, JobberPermissionsSchema } from "~/permissions.js";
+import { JobberPermissionsSchema } from "~/permissions.js";
 
 export async function createRouteApiTokens() {
   const app = new Hono<InternalHonoApp>();

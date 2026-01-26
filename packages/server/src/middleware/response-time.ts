@@ -1,5 +1,5 @@
 import { Context, Next } from "hono";
-import { timeout } from "~/util.js";
+import { timeout } from "@jobber/common";
 
 export function createMiddlewareResponseTime(duration: number) {
   return async (c: Context, next: Next) => {

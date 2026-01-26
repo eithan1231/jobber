@@ -219,12 +219,75 @@ export interface PublicKeysResponse {
   publicKeys: string[];
 }
 
-export interface JwtRequest {
-  token: string;
-  scopes: string[];
+export interface CreateRunnerJwtRequest {
+  runnerId: string;
+  scopes: CreateRunnerJwtRequest_Scope[];
 }
 
-export interface JwtResponse {
+export const CreateRunnerJwtRequest_Scope = {
+  RUNNER_EVENT_HTTP: "RUNNER_EVENT_HTTP",
+  RUNNER_EVENT_MQTT: "RUNNER_EVENT_MQTT",
+  RUNNER_EVENT_SCHEDULE: "RUNNER_EVENT_SCHEDULE",
+  UNRECOGNIZED: "UNRECOGNIZED",
+} as const;
+
+export type CreateRunnerJwtRequest_Scope =
+  typeof CreateRunnerJwtRequest_Scope[keyof typeof CreateRunnerJwtRequest_Scope];
+
+export namespace CreateRunnerJwtRequest_Scope {
+  export type RUNNER_EVENT_HTTP = typeof CreateRunnerJwtRequest_Scope.RUNNER_EVENT_HTTP;
+  export type RUNNER_EVENT_MQTT = typeof CreateRunnerJwtRequest_Scope.RUNNER_EVENT_MQTT;
+  export type RUNNER_EVENT_SCHEDULE = typeof CreateRunnerJwtRequest_Scope.RUNNER_EVENT_SCHEDULE;
+  export type UNRECOGNIZED = typeof CreateRunnerJwtRequest_Scope.UNRECOGNIZED;
+}
+
+export function createRunnerJwtRequest_ScopeFromJSON(object: any): CreateRunnerJwtRequest_Scope {
+  switch (object) {
+    case 0:
+    case "RUNNER_EVENT_HTTP":
+      return CreateRunnerJwtRequest_Scope.RUNNER_EVENT_HTTP;
+    case 1:
+    case "RUNNER_EVENT_MQTT":
+      return CreateRunnerJwtRequest_Scope.RUNNER_EVENT_MQTT;
+    case 2:
+    case "RUNNER_EVENT_SCHEDULE":
+      return CreateRunnerJwtRequest_Scope.RUNNER_EVENT_SCHEDULE;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return CreateRunnerJwtRequest_Scope.UNRECOGNIZED;
+  }
+}
+
+export function createRunnerJwtRequest_ScopeToJSON(object: CreateRunnerJwtRequest_Scope): string {
+  switch (object) {
+    case CreateRunnerJwtRequest_Scope.RUNNER_EVENT_HTTP:
+      return "RUNNER_EVENT_HTTP";
+    case CreateRunnerJwtRequest_Scope.RUNNER_EVENT_MQTT:
+      return "RUNNER_EVENT_MQTT";
+    case CreateRunnerJwtRequest_Scope.RUNNER_EVENT_SCHEDULE:
+      return "RUNNER_EVENT_SCHEDULE";
+    case CreateRunnerJwtRequest_Scope.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
+export function createRunnerJwtRequest_ScopeToNumber(object: CreateRunnerJwtRequest_Scope): number {
+  switch (object) {
+    case CreateRunnerJwtRequest_Scope.RUNNER_EVENT_HTTP:
+      return 0;
+    case CreateRunnerJwtRequest_Scope.RUNNER_EVENT_MQTT:
+      return 1;
+    case CreateRunnerJwtRequest_Scope.RUNNER_EVENT_SCHEDULE:
+      return 2;
+    case CreateRunnerJwtRequest_Scope.UNRECOGNIZED:
+    default:
+      return -1;
+  }
+}
+
+export interface CreateRunnerJwtResponse {
   jwt: string;
 }
 
@@ -1003,25 +1066,27 @@ export const PublicKeysResponse: MessageFns<PublicKeysResponse> = {
   },
 };
 
-function createBaseJwtRequest(): JwtRequest {
-  return { token: "", scopes: [] };
+function createBaseCreateRunnerJwtRequest(): CreateRunnerJwtRequest {
+  return { runnerId: "", scopes: [] };
 }
 
-export const JwtRequest: MessageFns<JwtRequest> = {
-  encode(message: JwtRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.token !== "") {
-      writer.uint32(10).string(message.token);
+export const CreateRunnerJwtRequest: MessageFns<CreateRunnerJwtRequest> = {
+  encode(message: CreateRunnerJwtRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.runnerId !== "") {
+      writer.uint32(10).string(message.runnerId);
     }
+    writer.uint32(18).fork();
     for (const v of message.scopes) {
-      writer.uint32(18).string(v!);
+      writer.int32(createRunnerJwtRequest_ScopeToNumber(v));
     }
+    writer.join();
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): JwtRequest {
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateRunnerJwtRequest {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseJwtRequest();
+    const message = createBaseCreateRunnerJwtRequest();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -1030,16 +1095,26 @@ export const JwtRequest: MessageFns<JwtRequest> = {
             break;
           }
 
-          message.token = reader.string();
+          message.runnerId = reader.string();
           continue;
         }
         case 2: {
-          if (tag !== 18) {
-            break;
+          if (tag === 16) {
+            message.scopes.push(createRunnerJwtRequest_ScopeFromJSON(reader.int32()));
+
+            continue;
           }
 
-          message.scopes.push(reader.string());
-          continue;
+          if (tag === 18) {
+            const end2 = reader.uint32() + reader.pos;
+            while (reader.pos < end2) {
+              message.scopes.push(createRunnerJwtRequest_ScopeFromJSON(reader.int32()));
+            }
+
+            continue;
+          }
+
+          break;
         }
       }
       if ((tag & 7) === 4 || tag === 0) {
@@ -1050,51 +1125,53 @@ export const JwtRequest: MessageFns<JwtRequest> = {
     return message;
   },
 
-  fromJSON(object: any): JwtRequest {
+  fromJSON(object: any): CreateRunnerJwtRequest {
     return {
-      token: isSet(object.token) ? globalThis.String(object.token) : "",
-      scopes: globalThis.Array.isArray(object?.scopes) ? object.scopes.map((e: any) => globalThis.String(e)) : [],
+      runnerId: isSet(object.runnerId) ? globalThis.String(object.runnerId) : "",
+      scopes: globalThis.Array.isArray(object?.scopes)
+        ? object.scopes.map((e: any) => createRunnerJwtRequest_ScopeFromJSON(e))
+        : [],
     };
   },
 
-  toJSON(message: JwtRequest): unknown {
+  toJSON(message: CreateRunnerJwtRequest): unknown {
     const obj: any = {};
-    if (message.token !== "") {
-      obj.token = message.token;
+    if (message.runnerId !== "") {
+      obj.runnerId = message.runnerId;
     }
     if (message.scopes?.length) {
-      obj.scopes = message.scopes;
+      obj.scopes = message.scopes.map((e) => createRunnerJwtRequest_ScopeToJSON(e));
     }
     return obj;
   },
 
-  create(base?: DeepPartial<JwtRequest>): JwtRequest {
-    return JwtRequest.fromPartial(base ?? {});
+  create(base?: DeepPartial<CreateRunnerJwtRequest>): CreateRunnerJwtRequest {
+    return CreateRunnerJwtRequest.fromPartial(base ?? {});
   },
-  fromPartial(object: DeepPartial<JwtRequest>): JwtRequest {
-    const message = createBaseJwtRequest();
-    message.token = object.token ?? "";
+  fromPartial(object: DeepPartial<CreateRunnerJwtRequest>): CreateRunnerJwtRequest {
+    const message = createBaseCreateRunnerJwtRequest();
+    message.runnerId = object.runnerId ?? "";
     message.scopes = object.scopes?.map((e) => e) || [];
     return message;
   },
 };
 
-function createBaseJwtResponse(): JwtResponse {
+function createBaseCreateRunnerJwtResponse(): CreateRunnerJwtResponse {
   return { jwt: "" };
 }
 
-export const JwtResponse: MessageFns<JwtResponse> = {
-  encode(message: JwtResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const CreateRunnerJwtResponse: MessageFns<CreateRunnerJwtResponse> = {
+  encode(message: CreateRunnerJwtResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.jwt !== "") {
       writer.uint32(10).string(message.jwt);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): JwtResponse {
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateRunnerJwtResponse {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseJwtResponse();
+    const message = createBaseCreateRunnerJwtResponse();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -1115,11 +1192,11 @@ export const JwtResponse: MessageFns<JwtResponse> = {
     return message;
   },
 
-  fromJSON(object: any): JwtResponse {
+  fromJSON(object: any): CreateRunnerJwtResponse {
     return { jwt: isSet(object.jwt) ? globalThis.String(object.jwt) : "" };
   },
 
-  toJSON(message: JwtResponse): unknown {
+  toJSON(message: CreateRunnerJwtResponse): unknown {
     const obj: any = {};
     if (message.jwt !== "") {
       obj.jwt = message.jwt;
@@ -1127,11 +1204,11 @@ export const JwtResponse: MessageFns<JwtResponse> = {
     return obj;
   },
 
-  create(base?: DeepPartial<JwtResponse>): JwtResponse {
-    return JwtResponse.fromPartial(base ?? {});
+  create(base?: DeepPartial<CreateRunnerJwtResponse>): CreateRunnerJwtResponse {
+    return CreateRunnerJwtResponse.fromPartial(base ?? {});
   },
-  fromPartial(object: DeepPartial<JwtResponse>): JwtResponse {
-    const message = createBaseJwtResponse();
+  fromPartial(object: DeepPartial<CreateRunnerJwtResponse>): CreateRunnerJwtResponse {
+    const message = createBaseCreateRunnerJwtResponse();
     message.jwt = object.jwt ?? "";
     return message;
   },
@@ -3032,11 +3109,11 @@ export const GeneralManagementDefinition = {
       responseStream: false,
       options: {},
     },
-    createJwt: {
-      name: "createJwt",
-      requestType: JwtRequest,
+    createRunnerJwt: {
+      name: "createRunnerJwt",
+      requestType: CreateRunnerJwtRequest,
       requestStream: false,
-      responseType: JwtResponse,
+      responseType: CreateRunnerJwtResponse,
       responseStream: false,
       options: {},
     },
@@ -3083,7 +3160,10 @@ export interface GeneralManagementServiceImplementation<CallContextExt = {}> {
   ): ServerStreamingMethodResult<DeepPartial<RunnerItem>>;
   /** Authentication related */
   getPublicKeys(request: Empty, context: CallContext & CallContextExt): Promise<DeepPartial<PublicKeysResponse>>;
-  createJwt(request: JwtRequest, context: CallContext & CallContextExt): Promise<DeepPartial<JwtResponse>>;
+  createRunnerJwt(
+    request: CreateRunnerJwtRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<CreateRunnerJwtResponse>>;
   /** Gateway Specific */
   createRunner(request: CreateRunnerRequest, context: CallContext & CallContextExt): Promise<DeepPartial<RunnerItem>>;
   getGatewayConfig(
@@ -3115,7 +3195,10 @@ export interface GeneralManagementClient<CallOptionsExt = {}> {
   ): AsyncIterable<RunnerItem>;
   /** Authentication related */
   getPublicKeys(request: DeepPartial<Empty>, options?: CallOptions & CallOptionsExt): Promise<PublicKeysResponse>;
-  createJwt(request: DeepPartial<JwtRequest>, options?: CallOptions & CallOptionsExt): Promise<JwtResponse>;
+  createRunnerJwt(
+    request: DeepPartial<CreateRunnerJwtRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<CreateRunnerJwtResponse>;
   /** Gateway Specific */
   createRunner(request: DeepPartial<CreateRunnerRequest>, options?: CallOptions & CallOptionsExt): Promise<RunnerItem>;
   getGatewayConfig(

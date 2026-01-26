@@ -626,6 +626,10 @@ export class RunnerManager extends LoopBase {
       }));
   }
 
+  public async fundRunnerById(runnerId: string) {
+    return this.runners[runnerId] ?? null;
+  }
+
   public registerMqttPublishHandler(
     callback: (jobId: string, topic: string, body: Buffer) => Promise<boolean>
   ) {

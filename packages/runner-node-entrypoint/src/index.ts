@@ -25,7 +25,7 @@ const main = async () => {
     jobControllerHost,
     jobControllerPort,
     jobRunnerIdentifier,
-    jobDebug
+    jobDebug,
   );
 
   await jobber.connect();

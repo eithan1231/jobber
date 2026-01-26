@@ -20,7 +20,7 @@ import { container } from "tsyringe";
 import { ZodError } from "zod";
 
 import { getDrizzle, getPool, runDrizzleMigration } from "./db/index.js";
-import { ApiTokensTableType } from "./db/schema/api-tokens.js";
+import { apiTokensTable, ApiTokensTableType } from "./db/schema/api-tokens.js";
 import { SessionsTableType } from "./db/schema/sessions.js";
 import {
   UserPasswordSchema,
@@ -53,6 +53,7 @@ import { USERNAME_ANONYMOUS } from "./constants.js";
 import { PgBackup } from "./pg-backup.js";
 import { Bouncer } from "./bouncer.js";
 import { JobsTableType } from "./db/schema/jobs.js";
+import { userModel } from "./db/user.js";
 
 export type InternalHonoApp = {
   Variables: {
@@ -299,6 +300,99 @@ async function createAnonymousAccount() {
     });
 }
 
+// async function createApiTokenInternal() {
+//   // API token created for internal services, used for easy setup. Can be omitted for manual setup.
+
+//   const tokenValue = getConfigOption("API_TOKEN_INTERNAL");
+//   const tokenFlag = getConfigOption("API_TOKEN_INTERNAL_FLAG");
+
+//   if (tokenValue === null) {
+//     return;
+//   }
+
+//   const permissions: JobberPermissions = [];
+
+//   if (tokenFlag === "gateway-permissions") {
+//     // Allow gateway access to create JWTs for runners
+//     permissions.push({
+//       effect: "allow",
+//       resource: "grpc/runner-jwt",
+//       actions: ["read", "write", "delete"],
+//     });
+
+//     // Allow full job access
+//     permissions.push({
+//       effect: "allow",
+//       resource: "job",
+//       actions: ["read", "write", "delete"],
+//     });
+
+//     // Prevent from accessing job environment variables
+//     permissions.push({
+//       effect: "deny",
+//       resource: "job/*/environment",
+//       actions: ["read", "write", "delete"],
+//     });
+
+//     // Prevent from accessing job store
+//     permissions.push({
+//       effect: "deny",
+//       resource: "job/*/store",
+//       actions: ["read", "write", "delete"],
+//     });
+
+//     // Prevent publishing jobs
+//     permissions.push({
+//       effect: "deny",
+//       resource: "job/-/publish",
+//       actions: ["read", "write", "delete"],
+//     });
+
+//     // Prevent all API tokens management
+//     permissions.push({
+//       effect: "deny",
+//       resource: "api-tokens",
+//       actions: ["read", "write", "delete"],
+//     });
+
+//     // Prevent all user management
+//     permissions.push({
+//       effect: "deny",
+//       resource: "users",
+//       actions: ["read", "write", "delete"],
+//     });
+
+//     //
+//   }
+
+//   const anonymousUser = await userModel.byUsername(USERNAME_ANONYMOUS);
+
+//   if (!anonymousUser) {
+//     throw new Error("Anonymous user does not exist.");
+//   }
+
+//   await getDrizzle()
+//     .insert(apiTokensTable)
+//     .values({
+//       token: tokenValue,
+//       description: "Internal API Token",
+//       permissions,
+//       status: "enabled",
+//       expires: new Date("2099-12-31T23:59:59Z"),
+//       userId: anonymousUser.id,
+//     })
+//     .onConflictDoUpdate({
+//       target: apiTokensTable.token,
+//       set: {
+//         description: "Internal API Token",
+//         permissions,
+//         status: "enabled",
+//         expires: new Date("2099-12-31T23:59:59Z"),
+//         userId: anonymousUser.id,
+//       },
+//     });
+// }
+
 async function main() {
   console.log(
     "WARNING: This is an experimental runtime, and issues ARE expected! Report any issue, or raise a PR with a fix. Issues WILL be investigated and fixed."
@@ -343,6 +437,10 @@ async function main() {
   console.log(`[main] Creating anonymous account...`);
   await createAnonymousAccount();
   console.log(`[main] done.`);
+
+  // console.log(`[main] Creating internal API token...`);
+  // await createApiTokenInternal();
+  // console.log(`[main] done.`);
 
   console.log("[main] Starting pg backup service...");
   const pgBackup = container.resolve(PgBackup);

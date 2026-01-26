@@ -22,9 +22,10 @@ service GeneralManagement {
   rpc getScheduleTriggers (GetTriggerRequest) returns (stream TriggerScheduleItem);
   rpc getRunners (GetRunnersRequest) returns (stream RunnerItem);
 
+
   // Authentication related
   rpc getPublicKeys(Empty) returns (PublicKeysResponse);
-  rpc createJwt (JwtRequest) returns (JwtResponse);
+  rpc createRunnerJwt (CreateRunnerJwtRequest) returns (CreateRunnerJwtResponse);
 
 
   // Gateway Specific 
@@ -63,12 +64,18 @@ message PublicKeysResponse {
   repeated string publicKeys = 1;
 }
 
-message JwtRequest {
-  string token = 1;
-  repeated string scopes = 2;
+message CreateRunnerJwtRequest {
+  enum Scope {
+    RUNNER_EVENT_HTTP = 0;
+    RUNNER_EVENT_MQTT = 1;
+    RUNNER_EVENT_SCHEDULE = 2;
+  }
+
+  string runnerId = 1;
+  repeated Scope scopes = 2;
 }
 
-message JwtResponse {
+message CreateRunnerJwtResponse {
   string jwt = 1;
 }
 

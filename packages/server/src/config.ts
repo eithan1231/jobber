@@ -1,5 +1,6 @@
 import { hostname } from "os";
 import { z } from "zod";
+import { apiTokensTable } from "./db/schema/api-tokens.js";
 
 export const ConfigurationOptionsSchema = z.object({
   DATABASE_URL: z.string(),
@@ -11,6 +12,14 @@ export const ConfigurationOptionsSchema = z.object({
 
   STARTUP_USERNAME: z.string().optional().default("admin"),
   STARTUP_PASSWORD: z.string().optional().default("Password1!"),
+
+  // API_TOKEN_INTERNAL: z
+  //   .string()
+  //   .length(apiTokensTable.token._.length)
+  //   .optional(),
+  // API_TOKEN_INTERNAL_FLAG: z
+  //   .enum(["gateway-permissions", "none"])
+  //   .default("none"),
 
   AUTH_PUBLIC_REGISTRATION_ENABLED: z
     .string()
