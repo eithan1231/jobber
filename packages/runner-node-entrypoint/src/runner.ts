@@ -6,6 +6,7 @@ import { getTmpFile, shortenString, timeout, unzip } from "./util.js";
 import { JobberHandlerRequest } from "./request.js";
 import { JobberHandlerResponse } from "./response.js";
 import { JobberHandlerContext } from "./context.js";
+import { JobberContextGlobal } from "./context-global.js";
 
 type FrameJson = {
   runnerId: string;
@@ -42,7 +43,7 @@ export class Runner {
     hostname: string,
     port: number,
     runnerId: string,
-    debug: boolean
+    debug: boolean,
   ) {
     this.hostname = hostname;
     this.port = port;
@@ -58,6 +59,10 @@ export class Runner {
     this.socket.on("close", () => {
       this.debugLog("[Runner] Received close events!");
     });
+  }
+
+  public getContextGlobal(): JobberContextGlobal {
+    return new JobberContextGlobal(this);
   }
 
   async connect() {
@@ -84,7 +89,7 @@ export class Runner {
           traceId: `ready-${randomBytes(16).toString("hex")}`,
           dataType: "buffer",
         },
-        Buffer.alloc(0)
+        Buffer.alloc(0),
       );
 
       return;
@@ -97,14 +102,14 @@ export class Runner {
         runnerId: this.runnerId,
         dataType: "buffer",
       },
-      Buffer.alloc(0)
+      Buffer.alloc(0),
     );
   }
 
   sendStoreSet(
     key: string,
     value: string,
-    option?: { ttl?: number }
+    option?: { ttl?: number },
   ): Promise<StoreItem> {
     const ttl = option?.ttl ?? null;
 
@@ -155,8 +160,8 @@ export class Runner {
             key,
             value,
             ttl,
-          })
-        )
+          }),
+        ),
       );
     });
   }
@@ -207,8 +212,8 @@ export class Runner {
         Buffer.from(
           JSON.stringify({
             key,
-          })
-        )
+          }),
+        ),
       );
     });
   }
@@ -259,8 +264,8 @@ export class Runner {
         Buffer.from(
           JSON.stringify({
             key,
-          })
-        )
+          }),
+        ),
       );
     });
   }
@@ -312,8 +317,8 @@ export class Runner {
           JSON.stringify({
             topic,
             body: body.toString("base64"),
-          })
-        )
+          }),
+        ),
       );
     });
   }
@@ -353,7 +358,7 @@ export class Runner {
     if (frame.name === "handle") {
       if (this.isShuttingDown) {
         console.warn(
-          `[Runner/onFrame] ${frame.name} event received while shutting down`
+          `[Runner/onFrame] ${frame.name} event received while shutting down`,
         );
 
         return;
@@ -383,7 +388,7 @@ export class Runner {
     this.handleRequestsProcessing++;
 
     this.debugLog(
-      `[Runner/onFrameHandle] Starting, traceId ${shortenString(frame.traceId)}`
+      `[Runner/onFrameHandle] Starting, traceId ${shortenString(frame.traceId)}`,
     );
 
     try {
@@ -391,7 +396,7 @@ export class Runner {
 
       if (typeof packageJson.main !== "string") {
         throw new Error(
-          "Failed to load package.json, property 'main' is not present or not a string"
+          "Failed to load package.json, property 'main' is not present or not a string",
         );
       }
 
@@ -402,7 +407,7 @@ export class Runner {
       const jobberContext = new JobberHandlerContext(
         this,
         jobberRequest,
-        jobberResponse
+        jobberResponse,
       );
 
       await clientModule.handler(jobberRequest, jobberResponse, jobberContext);
@@ -430,7 +435,7 @@ export class Runner {
           jobberResponse._publish.map(async (pub) => {
             console.warn(`@deprecated publish ${pub.topic}`);
             await this.sendMqttPublish(pub.topic, pub.body);
-          })
+          }),
         );
       }
 
@@ -441,12 +446,12 @@ export class Runner {
           traceId: frame.traceId,
           dataType: "json",
         },
-        Buffer.from(JSON.stringify(responseData))
+        Buffer.from(JSON.stringify(responseData)),
       );
 
       this.debugLog(
         "[Runner/onFrameHandle] Delivered response, traceId",
-        shortenString(frame.traceId)
+        shortenString(frame.traceId),
       );
     } catch (err) {
       if (!(err instanceof Error)) {
@@ -456,7 +461,7 @@ export class Runner {
 
       this.debugLog(
         "[Runner/onFrameHandle] Failed due to error, traceId",
-        shortenString(frame.traceId)
+        shortenString(frame.traceId),
       );
 
       console.error(err);
@@ -473,8 +478,8 @@ export class Runner {
             success: false,
             duration: performance.now() - start,
             error: err.toString(),
-          })
-        )
+          }),
+        ),
       );
     } finally {
       this.handleRequestsProcessing--;

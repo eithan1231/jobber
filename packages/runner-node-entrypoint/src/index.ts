@@ -1,7 +1,9 @@
-import { randomBytes } from "crypto";
-import { getArgument } from "./util.js";
-import { Runner } from "./runner.js";
 import assert from "assert";
+import { randomBytes } from "crypto";
+
+import { JobberContextGlobal } from "./context-global.js";
+import { Runner } from "./runner.js";
+import { getArgument } from "./util.js";
 
 const main = async () => {
   const jobRunnerIdentifier = getArgument("job-runner-identifier");
@@ -25,8 +27,12 @@ const main = async () => {
     jobControllerHost,
     jobControllerPort,
     jobRunnerIdentifier,
-    jobDebug
+    jobDebug,
   );
+
+  // Not pleasant, but it'll suffice
+  (globalThis as unknown as { jobber: JobberContextGlobal }).jobber =
+    jobber.getContextGlobal();
 
   await jobber.connect();
 
