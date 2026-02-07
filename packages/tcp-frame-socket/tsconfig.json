@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "experimentalDecorators": true,
     "inlineSourceMap": true,
     "target": "ES2022",
     "module": "NodeNext",
@@ -8,16 +9,14 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "declaration": true,
+    "declaration": false,
     "types": ["node"],
+    "rootDir": "./src",
     "outDir": "./dist",
     "paths":{
       "~/*": ["./src/*"]
     }
   },
-  "include": [
-    "./src"
-  ],
   "$schema": "https://json.schemastore.org/tsconfig",
   "display": "Recommended"
 }

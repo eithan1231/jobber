@@ -6,6 +6,18 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
+      "/oauth": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+        secure: false,
+        followRedirects: true,
+      },
+      "/.well-known": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+        secure: false,
+        followRedirects: true,
+      },
       "/api": {
         target: "http://localhost:3000",
         changeOrigin: true,

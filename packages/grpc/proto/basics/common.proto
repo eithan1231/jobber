@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package Common;
+
+message Permission {
+  enum Effect {
+    ALLOW = 0;
+    DENY = 1;
+  }
+
+  enum Action {
+    READ = 0;
+    WRITE = 1;
+    DELETE = 2;
+  }
+
+  Effect effect = 1;
+  string resource = 2;
+  repeated Action actions = 3;
+}

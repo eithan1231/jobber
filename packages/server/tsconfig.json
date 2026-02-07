@@ -12,12 +12,13 @@
     "declaration": false,
     "types": ["node"],
     "outDir": "./dist",
+    "rootDir": "./src",
     "paths":{
       "~/*": ["./src/*"]
     }
   },
   "include": [
-    "./src"
+    "src/**/*"
   ],
   "$schema": "https://json.schemastore.org/tsconfig",
   "display": "Recommended"

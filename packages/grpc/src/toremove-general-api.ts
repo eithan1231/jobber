@@ -2,11 +2,12 @@
 // versions:
 //   protoc-gen-ts_proto  v2.10.1
 //   protoc               v3.21.12
-// source: server.proto
+// source: toremove-general-api.proto
 
 /* eslint-disable */
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
 import type { CallContext, CallOptions } from "nice-grpc-common";
+import { Empty, ExportChunk } from "./base.js";
 
 export const protobufPackage = "Server";
 
@@ -177,15 +178,6 @@ export function runnerStatusToNumber(object: RunnerStatus): number {
     default:
       return -1;
   }
-}
-
-export interface Empty {
-}
-
-export interface ExportChunk {
-  id: string;
-  sequence: number;
-  data: Uint8Array;
 }
 
 export interface GetJobRequest {
@@ -458,141 +450,6 @@ export function initResponse_StatusToNumber(object: InitResponse_Status): number
       return -1;
   }
 }
-
-function createBaseEmpty(): Empty {
-  return {};
-}
-
-export const Empty: MessageFns<Empty> = {
-  encode(_: Empty, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): Empty {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseEmpty();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(_: any): Empty {
-    return {};
-  },
-
-  toJSON(_: Empty): unknown {
-    const obj: any = {};
-    return obj;
-  },
-
-  create(base?: DeepPartial<Empty>): Empty {
-    return Empty.fromPartial(base ?? {});
-  },
-  fromPartial(_: DeepPartial<Empty>): Empty {
-    const message = createBaseEmpty();
-    return message;
-  },
-};
-
-function createBaseExportChunk(): ExportChunk {
-  return { id: "", sequence: 0, data: new Uint8Array(0) };
-}
-
-export const ExportChunk: MessageFns<ExportChunk> = {
-  encode(message: ExportChunk, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.id !== "") {
-      writer.uint32(10).string(message.id);
-    }
-    if (message.sequence !== 0) {
-      writer.uint32(16).int64(message.sequence);
-    }
-    if (message.data.length !== 0) {
-      writer.uint32(26).bytes(message.data);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): ExportChunk {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseExportChunk();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.id = reader.string();
-          continue;
-        }
-        case 2: {
-          if (tag !== 16) {
-            break;
-          }
-
-          message.sequence = longToNumber(reader.int64());
-          continue;
-        }
-        case 3: {
-          if (tag !== 26) {
-            break;
-          }
-
-          message.data = reader.bytes();
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): ExportChunk {
-    return {
-      id: isSet(object.id) ? globalThis.String(object.id) : "",
-      sequence: isSet(object.sequence) ? globalThis.Number(object.sequence) : 0,
-      data: isSet(object.data) ? bytesFromBase64(object.data) : new Uint8Array(0),
-    };
-  },
-
-  toJSON(message: ExportChunk): unknown {
-    const obj: any = {};
-    if (message.id !== "") {
-      obj.id = message.id;
-    }
-    if (message.sequence !== 0) {
-      obj.sequence = Math.round(message.sequence);
-    }
-    if (message.data.length !== 0) {
-      obj.data = base64FromBytes(message.data);
-    }
-    return obj;
-  },
-
-  create(base?: DeepPartial<ExportChunk>): ExportChunk {
-    return ExportChunk.fromPartial(base ?? {});
-  },
-  fromPartial(object: DeepPartial<ExportChunk>): ExportChunk {
-    const message = createBaseExportChunk();
-    message.id = object.id ?? "";
-    message.sequence = object.sequence ?? 0;
-    message.data = object.data ?? new Uint8Array(0);
-    return message;
-  },
-};
 
 function createBaseGetJobRequest(): GetJobRequest {
   return { id: "" };
@@ -3038,10 +2895,10 @@ export const InitResponse: MessageFns<InitResponse> = {
   },
 };
 
-export type GeneralManagementDefinition = typeof GeneralManagementDefinition;
-export const GeneralManagementDefinition = {
-  name: "GeneralManagement",
-  fullName: "Server.GeneralManagement",
+export type GeneralAPIDefinition = typeof GeneralAPIDefinition;
+export const GeneralAPIDefinition = {
+  name: "GeneralAPI",
+  fullName: "Server.GeneralAPI",
   methods: {
     /** General */
     getJobs: {
@@ -3137,7 +2994,7 @@ export const GeneralManagementDefinition = {
   },
 } as const;
 
-export interface GeneralManagementServiceImplementation<CallContextExt = {}> {
+export interface GeneralAPIServiceImplementation<CallContextExt = {}> {
   /** General */
   getJobs(request: Empty, context: CallContext & CallContextExt): ServerStreamingMethodResult<DeepPartial<JobItem>>;
   getJob(request: GetJobRequest, context: CallContext & CallContextExt): Promise<DeepPartial<JobItem>>;
@@ -3172,7 +3029,7 @@ export interface GeneralManagementServiceImplementation<CallContextExt = {}> {
   ): Promise<DeepPartial<GetGatewayConfigResponse>>;
 }
 
-export interface GeneralManagementClient<CallOptionsExt = {}> {
+export interface GeneralAPIClient<CallOptionsExt = {}> {
   /** General */
   getJobs(request: DeepPartial<Empty>, options?: CallOptions & CallOptionsExt): AsyncIterable<JobItem>;
   getJob(request: DeepPartial<GetJobRequest>, options?: CallOptions & CallOptionsExt): Promise<JobItem>;

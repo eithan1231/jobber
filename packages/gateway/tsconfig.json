@@ -11,14 +11,12 @@
     "forceConsistentCasingInFileNames": true,
     "declaration": false,
     "types": ["node"],
+    "rootDir": "./src",
     "outDir": "./dist",
     "paths":{
       "~/*": ["./src/*"]
     }
   },
-  "include": [
-    "./src"
-  ],
   "$schema": "https://json.schemastore.org/tsconfig",
   "display": "Recommended"
 }

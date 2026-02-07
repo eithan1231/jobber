@@ -23,6 +23,8 @@ type EventEmitterEvents = {
 export abstract class LoopBase {
   protected status: StatusLifecycle = "neutral";
 
+  private signal: AbortController | null = null;
+
   protected abstract loopDuration: number;
 
   private events = new EventEmitter<EventEmitterEvents>();
@@ -30,6 +32,8 @@ export abstract class LoopBase {
   public start() {
     return new Promise<void>(async (resolve) => {
       assert(this.status === "neutral");
+
+      this.signal = new AbortController();
 
       this.events.once("started", () => {
         resolve();
@@ -57,6 +61,8 @@ export abstract class LoopBase {
 
       this.status = "stopping";
 
+      this.signal?.abort();
+
       if (this.loopClosing) {
         await this.loopClosing();
       }
@@ -81,10 +87,11 @@ export abstract class LoopBase {
         console.error(err);
       }
 
-      await timeout(this.loopDuration);
+      await timeout(this.loopDuration, this.signal?.signal);
     }
 
     this.status = "neutral";
+    this.signal = null;
 
     if (this.loopClosed) {
       await this.loopClosed();

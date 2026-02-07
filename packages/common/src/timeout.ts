@@ -3,5 +3,25 @@
  * @param ms Time to wait in milliseconds
  * @returns
  */
-export const timeout = (ms: number) =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+export const timeout = (ms: number, signal?: AbortSignal) => {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      return resolve();
+    }
+
+    const resolver = () => {
+      clearTimeout(timeoutId);
+      signal?.removeEventListener("abort", resolver);
+
+      resolve();
+    };
+
+    const timeoutId = setTimeout(() => {
+      resolver();
+    }, ms);
+
+    signal?.addEventListener("abort", () => {
+      resolver();
+    });
+  });
+};

@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+import "basics/common.proto";
+
+package JobVersion;
+
+message Item {
+  string id = 1;
+  string jobId = 2;
+  string version = 3;
+  string modified = 4;
+  string created = 5;
+}

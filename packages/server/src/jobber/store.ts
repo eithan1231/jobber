@@ -95,7 +95,7 @@ export class Store extends LoopBase {
 
   public async getItemById(
     jobId: string,
-    id: string
+    id: string,
   ): Promise<StoreItem | null> {
     const result = (
       await getDrizzle()
@@ -126,7 +126,7 @@ export class Store extends LoopBase {
     options: {
       value: string;
       ttl?: number;
-    }
+    },
   ): Promise<StoreItem | null> {
     const expiry = options.ttl ? getUnixTimestamp() + options.ttl : null;
 
@@ -169,7 +169,7 @@ export class Store extends LoopBase {
 
   public async deleteItem(
     jobId: string,
-    key: string
+    key: string,
   ): Promise<StoreItem | null> {
     const result = (
       await getDrizzle()
@@ -195,7 +195,7 @@ export class Store extends LoopBase {
 
   public async deleteItemById(
     jobId: string,
-    id: string
+    id: string,
   ): Promise<StoreItem | null> {
     const result = (
       await getDrizzle()

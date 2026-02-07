@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+import "basics/common.proto";
+
+package ApiToken;
+
+message Item {
+  enum Status {
+    ENABLED = 0;
+    DISABLED = 1;
+  }
+
+  string id = 1;
+  string token = 2;
+  string userId = 3;
+  string description = 4;
+  Status status = 5;
+
+  repeated Common.Permission permissions = 6;
+
+  string expires = 7;
+  string created = 8;
+}

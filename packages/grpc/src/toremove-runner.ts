@@ -2,7 +2,7 @@
 // versions:
 //   protoc-gen-ts_proto  v2.10.1
 //   protoc               v3.21.12
-// source: runner.proto
+// source: toremove-runner.proto
 
 /* eslint-disable */
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";

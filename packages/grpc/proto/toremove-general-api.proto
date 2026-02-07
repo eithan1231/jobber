@@ -1,18 +1,12 @@
 syntax = "proto3";
 
+import "base.proto";
+
 package Server;
 
-message Empty {}
-
-message ExportChunk {
-  string id = 1;
-  int64 sequence = 2;
-  bytes data = 3;
-}
-
-service GeneralManagement {
+service GeneralAPI {
   // General
-  rpc getJobs (Empty) returns (stream JobItem);
+  rpc getJobs (Base.Empty) returns (stream JobItem);
   rpc getJob (GetJobRequest) returns (JobItem);
 
   rpc getAction (GetActionRequest) returns (ActionItem);
@@ -24,13 +18,13 @@ service GeneralManagement {
 
 
   // Authentication related
-  rpc getPublicKeys(Empty) returns (PublicKeysResponse);
+  rpc getPublicKeys(Base.Empty) returns (PublicKeysResponse);
   rpc createRunnerJwt (CreateRunnerJwtRequest) returns (CreateRunnerJwtResponse);
 
 
   // Gateway Specific 
   rpc createRunner(CreateRunnerRequest) returns (RunnerItem);
-  rpc getGatewayConfig(Empty) returns (GetGatewayConfigResponse);
+  rpc getGatewayConfig(Base.Empty) returns (GetGatewayConfigResponse);
 }
 
 message GetJobRequest {
@@ -201,11 +195,11 @@ service RunnerManagement {
   rpc storeGet (StoreGetRequest) returns (StoreItem);
   rpc storeSet (StoreSetRequest) returns (StoreItem);
   rpc storeDelete (StoreDeleteRequest) returns (StoreItem);
-  rpc mqttPublish (MqttPublishRequest) returns (Empty);
+  rpc mqttPublish (MqttPublishRequest) returns (Base.Empty);
 
   // Backend management methods
   rpc init(InitRequest) returns (InitResponse);
-  rpc archive(Empty) returns (stream ExportChunk);
+  rpc archive(Base.Empty) returns (stream Base.ExportChunk);
 }
 
 message StoreGetRequest {

@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package Job;
+
+message Item {
+  message Link {
+    string name = 1;
+    string url = 2;
+  }
+
+  enum Status {
+    ENABLED = 0;
+    DISABLED = 1;
+  }
+
+  string id = 1;
+  string jobName = 2;
+  Status status = 3;
+  optional string description = 4;
+  optional string versionId = 5;
+  repeated Link links = 6;
+}

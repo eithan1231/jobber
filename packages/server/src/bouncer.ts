@@ -75,21 +75,21 @@ export class Bouncer {
 
   public canReadJobEnvironment(
     environment: { jobId: string },
-    name: string
+    name: string,
   ): boolean {
     return this.can(`job/${environment.jobId}/environment/${name}`, "read");
   }
 
   public canWriteJobEnvironment(
     environment: { jobId: string },
-    name: string
+    name: string,
   ): boolean {
     return this.can(`job/${environment.jobId}/environment/${name}`, "write");
   }
 
   public canDeleteJobEnvironment(
     environment: { jobId: string },
-    name: string
+    name: string,
   ): boolean {
     return this.can(`job/${environment.jobId}/environment/${name}`, "delete");
   }
@@ -220,6 +220,46 @@ export class Bouncer {
 
   public canWriteGrpcRunnerJwt(): boolean {
     return this.can(`grpc/runner-jwt`, "write");
+  }
+
+  public canReadOauthServiceClientGenerally(): boolean {
+    return this.can(`oauth/service-client`, "read");
+  }
+
+  public canWriteOauthServiceClientGenerally(): boolean {
+    return this.can(`oauth/service-client`, "read");
+  }
+
+  public canReadOauthServiceClient(serviceClient: { id: string }): boolean {
+    return this.can(`oauth/service-client/${serviceClient.id}`, "read");
+  }
+
+  public canWriteOauthServiceClient(serviceClient: { id: string }): boolean {
+    return this.can(`oauth/service-client/${serviceClient.id}`, "write");
+  }
+
+  public canDeleteOauthServiceClient(serviceClient: { id: string }): boolean {
+    return this.can(`oauth/service-client/${serviceClient.id}`, "delete");
+  }
+
+  public canReadOauthSigningKeyGenerally(): boolean {
+    return this.can(`oauth/signing-key`, "read");
+  }
+
+  public canWriteOauthSigningKeyGenerally(): boolean {
+    return this.can(`oauth/signing-key`, "write");
+  }
+
+  public canReadOauthSigningKey(signingKey: { id: string }): boolean {
+    return this.can(`oauth/signing-key/${signingKey.id}`, "read");
+  }
+
+  public canWriteOauthSigningKey(signingKey: { id: string }): boolean {
+    return this.can(`oauth/signing-key/${signingKey.id}`, "write");
+  }
+
+  public canDeleteOauthSigningKey(signingKey: { id: string }): boolean {
+    return this.can(`oauth/signing-key/${signingKey.id}`, "delete");
   }
 
   public get type() {
