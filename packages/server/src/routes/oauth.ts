@@ -11,9 +11,11 @@ import { oauthSigningKeyModel } from "~/db/oauth-signing-key.js";
 import { InternalHonoApp } from "~/index.js";
 import { createMiddlewareResponseTime } from "~/middleware/response-time.js";
 import { RateLimit } from "~/rate-limit.js";
+import { OAuthSigningKeys } from "~/signing-keys.js";
 
 export async function createRouteOAuth() {
   const rateLimit = container.resolve(RateLimit);
+  const oauthSigningKeys = container.resolve(OAuthSigningKeys);
 
   const app = new Hono<InternalHonoApp>();
 
@@ -27,25 +29,7 @@ export async function createRouteOAuth() {
   });
 
   app.get("/.well-known/jwks.json", async (c) => {
-    const signedKeys = await oauthSigningKeyModel.getValidKeys();
-
-    const keys = await Promise.all(
-      signedKeys.map(async (key) => {
-        const publicKeyObject = await importSPKI(key.publicKey, key.alg);
-
-        const jwk = await exportJWK(publicKeyObject);
-
-        jwk.kid = key.id;
-        jwk.use = key.use;
-        jwk.alg = key.alg;
-
-        return jwk;
-      }),
-    );
-
-    return c.json({
-      keys: keys,
-    });
+    return c.json(await oauthSigningKeys.createJwksSet());
   });
 
   app.post("/oauth/token", createMiddlewareResponseTime(2000), async (c) => {
@@ -149,8 +133,13 @@ export async function createRouteOAuth() {
       return c.json({ error: "invalid_client" }, 401);
     }
 
-    const isSecretValid = bcrypt.compare(
+    const clientSecretDecoded = Buffer.from(
       body.client_secret,
+      "base64",
+    ).toString("ascii");
+
+    const isSecretValid = await bcrypt.compare(
+      clientSecretDecoded,
       serviceClient.metadata.clientSecretHashed,
     );
 
@@ -196,7 +185,7 @@ export async function createRouteOAuth() {
       passphrase: getConfigOption("SECRET_PASSPHRASE"),
     });
 
-    const jwt = new SignJWT({
+    const jwt = await new SignJWT({
       sub: serviceClient.id,
       kid: validKey.id,
       typ: "JWT",

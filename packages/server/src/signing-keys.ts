@@ -5,6 +5,7 @@ import { OauthSigningKeyTableInsertType } from "./db/schema/oauth-signing-key.js
 import { generateKeyPair } from "node:crypto";
 import { promisify } from "node:util";
 import { getConfigOption } from "./config.js";
+import { exportJWK, importSPKI } from "jose";
 
 const generateKeyPairPromised = promisify(generateKeyPair);
 
@@ -133,5 +134,27 @@ export class OAuthSigningKeys extends LoopBase {
               1000,
         ),
     });
+  }
+
+  public async createJwksSet() {
+    const signedKeys = await oauthSigningKeyModel.getValidKeys();
+
+    const keys = await Promise.all(
+      signedKeys.map(async (key) => {
+        const publicKeyObject = await importSPKI(key.publicKey, key.alg);
+
+        const jwk = await exportJWK(publicKeyObject);
+
+        jwk.kid = key.id;
+        jwk.use = key.use;
+        jwk.alg = key.alg;
+
+        return jwk;
+      }),
+    );
+
+    return {
+      keys: keys,
+    };
   }
 }

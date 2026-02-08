@@ -126,7 +126,7 @@ export async function createRouteOAuthAdmin() {
       expiresAt: z.string().datetime().nullable().optional(),
     });
 
-    const body = await schema.parseAsync(await c.req.parseBody(), {
+    const body = await schema.parseAsync(await c.req.json(), {
       path: ["request", "body"],
     });
 
@@ -160,7 +160,7 @@ export async function createRouteOAuthAdmin() {
       parentId: z.string().optional(),
     });
 
-    const body = await schema.parseAsync(await c.req.parseBody(), {
+    const body = await schema.parseAsync(await c.req.json(), {
       path: ["request", "body"],
     });
 
@@ -250,13 +250,13 @@ export async function createRouteOAuthAdmin() {
       name: z.string(),
       description: z.string().optional(),
 
-      allowedAudiences: z.array(z.string()),
-      allowedScopes: z.array(z.string()),
+      allowedAudiences: z.array(z.string()).default([]),
+      allowedScopes: z.array(z.string()).default([]),
 
       expiresAt: z.string().datetime().optional(),
     });
 
-    const body = await schema.parseAsync(await c.req.parseBody(), {
+    const body = await schema.parseAsync(await c.req.json(), {
       path: ["request", "body"],
     });
 

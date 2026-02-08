@@ -60,4 +60,16 @@ export class OAuthServiceClients extends LoopBase {
       secret: secretKeyEncoded,
     };
   }
+
+  public getAudienceGeneralApi() {
+    return `jobber-api`;
+  }
+
+  public getAudienceRunnerApi(runnerId: string) {
+    return `jobber-runner:${runnerId}`;
+  }
+
+  public getAudienceGatewayApi() {
+    return `jobber-gateway`;
+  }
 }

@@ -21,7 +21,7 @@ const Component = () => {
                 authentication
               </p>
             </div>
-            {/* <PermissionGuardComponent
+            <PermissionGuardComponent
               resource="oauth/service-client"
               action="write"
             >
@@ -44,7 +44,7 @@ const Component = () => {
                 </svg>
                 Create New Client
               </Link>
-            </PermissionGuardComponent> */}
+            </PermissionGuardComponent>
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">

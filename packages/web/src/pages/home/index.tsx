@@ -20,6 +20,7 @@ import SigningKeysComponent from "./oauth/signing-keys/landing";
 import SigningKeyViewComponent from "./oauth/signing-keys/[signingKeyId]/view";
 import ServiceClientsComponent from "./oauth/service-clients/landing";
 import ServiceClientViewComponent from "./oauth/service-clients/[serviceClientId]/view";
+import ServiceClientNewComponent from "./oauth/service-clients/new";
 import JobIdEnvironmentComponent from "./jobs/[jobId]/environment";
 import JobIdLandingComponent from "./jobs/[jobId]/landing";
 import JobIdLogsComponent from "./jobs/[jobId]/logs";
@@ -381,6 +382,10 @@ export default {
     {
       path: "oauth/service-clients/",
       Component: ServiceClientsComponent,
+    },
+    {
+      path: "oauth/service-clients/new",
+      Component: ServiceClientNewComponent,
     },
     {
       path: "oauth/service-clients/:serviceClientId/",

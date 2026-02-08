@@ -115,7 +115,9 @@ export const createOAuthServiceClient = async (payload: {
   allowedScopes: string[];
 
   expiresAt?: string | null;
-}): Promise<JobberGenericResponse<JobberOAuthServiceClient>> => {
+}): Promise<
+  JobberGenericResponse<{ client: JobberOAuthServiceClient; secret: string }>
+> => {
   const result = await fetch(`/api/oauth/service-client/`, {
     method: "POST",
     headers: {

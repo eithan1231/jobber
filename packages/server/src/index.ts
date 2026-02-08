@@ -58,6 +58,7 @@ import { RateLimit } from "./rate-limit.js";
 import { createRouteOAuth } from "./routes/oauth.js";
 import { createRouteOAuthAdmin } from "./routes/oauth-admin.js";
 import { OAuthSigningKeys } from "./signing-keys.js";
+import { GrpcServer } from "./grpc/index.js";
 
 export type InternalHonoApp = {
   Variables: {
@@ -506,6 +507,11 @@ async function main() {
   await telemetry.start();
   console.log(`[main] done.`);
 
+  console.log("[main] Initialising gRPC server...");
+  const grpcServer = container.resolve(GrpcServer);
+  await grpcServer.start();
+  console.log("[main] done.");
+
   console.log(`[main] Initialising APIs (API Internal, API Gateway)...`);
   const appInternal = await createInternalHono();
   const appGateway = await createGatewayHono();
@@ -556,6 +562,10 @@ async function main() {
     console.log(`[signalRoutine] Stopping runner manager.`);
     await runnerManager.stop();
     console.log(`[signalRoutine] done.`);
+
+    console.log("[signalRoutine] Stopping gRPC server.");
+    await grpcServer.stop();
+    console.log("[signalRoutine] done.");
 
     console.log(`[signalRoutine] Stopping pg backup service.`);
     await pgBackup.stop();
