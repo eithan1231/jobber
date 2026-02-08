@@ -1,5 +1,9 @@
 import { MouseEvent, useState } from "react";
 import { Link } from "react-router-dom";
+import {
+  JobberPermissions,
+  PERMISSION_NONE,
+} from "@jobber/common/permissions.js";
 import { createOAuthServiceClient } from "../../../../api/oauth-admin";
 import { HomePageComponent } from "../../../../components/home-page-component";
 import { PermissionGuardComponent } from "../../../../components/permission-guard";
@@ -18,6 +22,9 @@ const Component = () => {
   const [payloadAudiences, setPayloadAudiences] = useState("");
   const [payloadScopes, setPayloadScopes] = useState("");
   const [payloadTtl, setPayloadTtl] = useState(TTL_OPTIONS[0].value);
+  const [payloadPermissions, setPayloadPermissions] = useState(
+    JSON.stringify(PERMISSION_NONE, null, 2),
+  );
 
   const [_loading, setLoading] = useState(false);
   const [result, setResult] = useState<{
@@ -54,6 +61,20 @@ const Component = () => {
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
 
+    // Parse permissions
+    let parsedPermissions: JobberPermissions;
+    try {
+      parsedPermissions = JSON.parse(payloadPermissions);
+    } catch (error) {
+      setResult({
+        success: false,
+        message:
+          "Invalid permissions format. Please provide a valid JSON array.",
+      });
+      setLoading(false);
+      return;
+    }
+
     const expiresAt =
       payloadTtl > 0
         ? new Date(Date.now() + payloadTtl * 1000).toISOString()
@@ -64,6 +85,7 @@ const Component = () => {
       description: payloadDescription.trim() || undefined,
       allowedAudiences: audiences,
       allowedScopes: scopes,
+      permissions: parsedPermissions,
       expiresAt,
     });
 
@@ -180,7 +202,7 @@ const Component = () => {
                         <button
                           onClick={() =>
                             navigator.clipboard.writeText(
-                              result.clientSecret || ""
+                              result.clientSecret || "",
                             )
                           }
                           className="text-xs text-green-700 hover:text-green-900 font-medium flex items-center gap-1"
@@ -313,6 +335,31 @@ const Component = () => {
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     The scopes that this client is allowed to request
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Permissions (JSON)
+                    <a
+                      href="https://github.com/eithan1231/jobber/blob/main/docs/permissions.md"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-2 text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      View documentation →
+                    </a>
+                  </label>
+                  <textarea
+                    rows={12}
+                    value={payloadPermissions}
+                    onChange={(e) => setPayloadPermissions(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 font-mono text-sm"
+                    placeholder='[\n  {\n    "effect": "allow",\n    "actions": ["read"],\n    "resource": "*"\n  }\n]'
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Define what resources and actions this service client can
+                    access
                   </p>
                 </div>
 

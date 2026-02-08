@@ -28,6 +28,7 @@ export class OAuthServiceClients extends LoopBase {
       | "enabled"
       | "expiresAt"
       | "isSystemManaged"
+      | "permissions"
     >,
   ) {
     const secretKey = secureRandomBytes(56);

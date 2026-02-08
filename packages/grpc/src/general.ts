@@ -117,6 +117,50 @@ export interface RunnersResponse {
   runners: Item4[];
 }
 
+/** getStoreItem * */
+export interface StoreItemRequest {
+  jobId: string;
+  key: string;
+}
+
+export interface StoreItemResponse {
+  key: string;
+  value: string;
+}
+
+/** setStoreItem * */
+export interface SetStoreItemRequest {
+  jobId: string;
+  key: string;
+  value: string;
+  ttl?: number | undefined;
+}
+
+export interface SetStoreItemResponse {
+  key: string;
+  value: string;
+}
+
+/** deleteStoreItem * */
+export interface DeleteStoreItemRequest {
+  jobId: string;
+  key: string;
+}
+
+export interface DeleteStoreItemResponse {
+  key: string;
+}
+
+/** publishMqttMessage * */
+export interface PublishMqttMessageRequest {
+  jobId: string;
+  topic: string;
+  payload: string;
+}
+
+export interface PublishMqttMessageResponse {
+}
+
 function createBaseJobRequest(): JobRequest {
   return { jobId: "" };
 }
@@ -1402,6 +1446,611 @@ export const RunnersResponse: MessageFns<RunnersResponse> = {
   },
 };
 
+function createBaseStoreItemRequest(): StoreItemRequest {
+  return { jobId: "", key: "" };
+}
+
+export const StoreItemRequest: MessageFns<StoreItemRequest> = {
+  encode(message: StoreItemRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.jobId !== "") {
+      writer.uint32(10).string(message.jobId);
+    }
+    if (message.key !== "") {
+      writer.uint32(18).string(message.key);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): StoreItemRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseStoreItemRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.jobId = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.key = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): StoreItemRequest {
+    return {
+      jobId: isSet(object.jobId) ? globalThis.String(object.jobId) : "",
+      key: isSet(object.key) ? globalThis.String(object.key) : "",
+    };
+  },
+
+  toJSON(message: StoreItemRequest): unknown {
+    const obj: any = {};
+    if (message.jobId !== "") {
+      obj.jobId = message.jobId;
+    }
+    if (message.key !== "") {
+      obj.key = message.key;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<StoreItemRequest>): StoreItemRequest {
+    return StoreItemRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<StoreItemRequest>): StoreItemRequest {
+    const message = createBaseStoreItemRequest();
+    message.jobId = object.jobId ?? "";
+    message.key = object.key ?? "";
+    return message;
+  },
+};
+
+function createBaseStoreItemResponse(): StoreItemResponse {
+  return { key: "", value: "" };
+}
+
+export const StoreItemResponse: MessageFns<StoreItemResponse> = {
+  encode(message: StoreItemResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.key !== "") {
+      writer.uint32(10).string(message.key);
+    }
+    if (message.value !== "") {
+      writer.uint32(18).string(message.value);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): StoreItemResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseStoreItemResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.key = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.value = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): StoreItemResponse {
+    return {
+      key: isSet(object.key) ? globalThis.String(object.key) : "",
+      value: isSet(object.value) ? globalThis.String(object.value) : "",
+    };
+  },
+
+  toJSON(message: StoreItemResponse): unknown {
+    const obj: any = {};
+    if (message.key !== "") {
+      obj.key = message.key;
+    }
+    if (message.value !== "") {
+      obj.value = message.value;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<StoreItemResponse>): StoreItemResponse {
+    return StoreItemResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<StoreItemResponse>): StoreItemResponse {
+    const message = createBaseStoreItemResponse();
+    message.key = object.key ?? "";
+    message.value = object.value ?? "";
+    return message;
+  },
+};
+
+function createBaseSetStoreItemRequest(): SetStoreItemRequest {
+  return { jobId: "", key: "", value: "", ttl: undefined };
+}
+
+export const SetStoreItemRequest: MessageFns<SetStoreItemRequest> = {
+  encode(message: SetStoreItemRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.jobId !== "") {
+      writer.uint32(10).string(message.jobId);
+    }
+    if (message.key !== "") {
+      writer.uint32(18).string(message.key);
+    }
+    if (message.value !== "") {
+      writer.uint32(26).string(message.value);
+    }
+    if (message.ttl !== undefined) {
+      writer.uint32(32).uint32(message.ttl);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): SetStoreItemRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseSetStoreItemRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.jobId = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.key = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.value = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 32) {
+            break;
+          }
+
+          message.ttl = reader.uint32();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): SetStoreItemRequest {
+    return {
+      jobId: isSet(object.jobId) ? globalThis.String(object.jobId) : "",
+      key: isSet(object.key) ? globalThis.String(object.key) : "",
+      value: isSet(object.value) ? globalThis.String(object.value) : "",
+      ttl: isSet(object.ttl) ? globalThis.Number(object.ttl) : undefined,
+    };
+  },
+
+  toJSON(message: SetStoreItemRequest): unknown {
+    const obj: any = {};
+    if (message.jobId !== "") {
+      obj.jobId = message.jobId;
+    }
+    if (message.key !== "") {
+      obj.key = message.key;
+    }
+    if (message.value !== "") {
+      obj.value = message.value;
+    }
+    if (message.ttl !== undefined) {
+      obj.ttl = Math.round(message.ttl);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<SetStoreItemRequest>): SetStoreItemRequest {
+    return SetStoreItemRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<SetStoreItemRequest>): SetStoreItemRequest {
+    const message = createBaseSetStoreItemRequest();
+    message.jobId = object.jobId ?? "";
+    message.key = object.key ?? "";
+    message.value = object.value ?? "";
+    message.ttl = object.ttl ?? undefined;
+    return message;
+  },
+};
+
+function createBaseSetStoreItemResponse(): SetStoreItemResponse {
+  return { key: "", value: "" };
+}
+
+export const SetStoreItemResponse: MessageFns<SetStoreItemResponse> = {
+  encode(message: SetStoreItemResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.key !== "") {
+      writer.uint32(10).string(message.key);
+    }
+    if (message.value !== "") {
+      writer.uint32(18).string(message.value);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): SetStoreItemResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseSetStoreItemResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.key = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.value = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): SetStoreItemResponse {
+    return {
+      key: isSet(object.key) ? globalThis.String(object.key) : "",
+      value: isSet(object.value) ? globalThis.String(object.value) : "",
+    };
+  },
+
+  toJSON(message: SetStoreItemResponse): unknown {
+    const obj: any = {};
+    if (message.key !== "") {
+      obj.key = message.key;
+    }
+    if (message.value !== "") {
+      obj.value = message.value;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<SetStoreItemResponse>): SetStoreItemResponse {
+    return SetStoreItemResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<SetStoreItemResponse>): SetStoreItemResponse {
+    const message = createBaseSetStoreItemResponse();
+    message.key = object.key ?? "";
+    message.value = object.value ?? "";
+    return message;
+  },
+};
+
+function createBaseDeleteStoreItemRequest(): DeleteStoreItemRequest {
+  return { jobId: "", key: "" };
+}
+
+export const DeleteStoreItemRequest: MessageFns<DeleteStoreItemRequest> = {
+  encode(message: DeleteStoreItemRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.jobId !== "") {
+      writer.uint32(10).string(message.jobId);
+    }
+    if (message.key !== "") {
+      writer.uint32(18).string(message.key);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): DeleteStoreItemRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseDeleteStoreItemRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.jobId = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.key = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): DeleteStoreItemRequest {
+    return {
+      jobId: isSet(object.jobId) ? globalThis.String(object.jobId) : "",
+      key: isSet(object.key) ? globalThis.String(object.key) : "",
+    };
+  },
+
+  toJSON(message: DeleteStoreItemRequest): unknown {
+    const obj: any = {};
+    if (message.jobId !== "") {
+      obj.jobId = message.jobId;
+    }
+    if (message.key !== "") {
+      obj.key = message.key;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<DeleteStoreItemRequest>): DeleteStoreItemRequest {
+    return DeleteStoreItemRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<DeleteStoreItemRequest>): DeleteStoreItemRequest {
+    const message = createBaseDeleteStoreItemRequest();
+    message.jobId = object.jobId ?? "";
+    message.key = object.key ?? "";
+    return message;
+  },
+};
+
+function createBaseDeleteStoreItemResponse(): DeleteStoreItemResponse {
+  return { key: "" };
+}
+
+export const DeleteStoreItemResponse: MessageFns<DeleteStoreItemResponse> = {
+  encode(message: DeleteStoreItemResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.key !== "") {
+      writer.uint32(10).string(message.key);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): DeleteStoreItemResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseDeleteStoreItemResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.key = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): DeleteStoreItemResponse {
+    return { key: isSet(object.key) ? globalThis.String(object.key) : "" };
+  },
+
+  toJSON(message: DeleteStoreItemResponse): unknown {
+    const obj: any = {};
+    if (message.key !== "") {
+      obj.key = message.key;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<DeleteStoreItemResponse>): DeleteStoreItemResponse {
+    return DeleteStoreItemResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<DeleteStoreItemResponse>): DeleteStoreItemResponse {
+    const message = createBaseDeleteStoreItemResponse();
+    message.key = object.key ?? "";
+    return message;
+  },
+};
+
+function createBasePublishMqttMessageRequest(): PublishMqttMessageRequest {
+  return { jobId: "", topic: "", payload: "" };
+}
+
+export const PublishMqttMessageRequest: MessageFns<PublishMqttMessageRequest> = {
+  encode(message: PublishMqttMessageRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.jobId !== "") {
+      writer.uint32(10).string(message.jobId);
+    }
+    if (message.topic !== "") {
+      writer.uint32(18).string(message.topic);
+    }
+    if (message.payload !== "") {
+      writer.uint32(26).string(message.payload);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): PublishMqttMessageRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBasePublishMqttMessageRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.jobId = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.topic = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.payload = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): PublishMqttMessageRequest {
+    return {
+      jobId: isSet(object.jobId) ? globalThis.String(object.jobId) : "",
+      topic: isSet(object.topic) ? globalThis.String(object.topic) : "",
+      payload: isSet(object.payload) ? globalThis.String(object.payload) : "",
+    };
+  },
+
+  toJSON(message: PublishMqttMessageRequest): unknown {
+    const obj: any = {};
+    if (message.jobId !== "") {
+      obj.jobId = message.jobId;
+    }
+    if (message.topic !== "") {
+      obj.topic = message.topic;
+    }
+    if (message.payload !== "") {
+      obj.payload = message.payload;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<PublishMqttMessageRequest>): PublishMqttMessageRequest {
+    return PublishMqttMessageRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<PublishMqttMessageRequest>): PublishMqttMessageRequest {
+    const message = createBasePublishMqttMessageRequest();
+    message.jobId = object.jobId ?? "";
+    message.topic = object.topic ?? "";
+    message.payload = object.payload ?? "";
+    return message;
+  },
+};
+
+function createBasePublishMqttMessageResponse(): PublishMqttMessageResponse {
+  return {};
+}
+
+export const PublishMqttMessageResponse: MessageFns<PublishMqttMessageResponse> = {
+  encode(_: PublishMqttMessageResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): PublishMqttMessageResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBasePublishMqttMessageResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): PublishMqttMessageResponse {
+    return {};
+  },
+
+  toJSON(_: PublishMqttMessageResponse): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<PublishMqttMessageResponse>): PublishMqttMessageResponse {
+    return PublishMqttMessageResponse.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<PublishMqttMessageResponse>): PublishMqttMessageResponse {
+    const message = createBasePublishMqttMessageResponse();
+    return message;
+  },
+};
+
 export type GeneralAPIDefinition = typeof GeneralAPIDefinition;
 export const GeneralAPIDefinition = {
   name: "GeneralAPI",
@@ -1487,6 +2136,39 @@ export const GeneralAPIDefinition = {
       responseStream: false,
       options: {},
     },
+    getStoreItem: {
+      name: "getStoreItem",
+      requestType: StoreItemRequest,
+      requestStream: false,
+      responseType: StoreItemResponse,
+      responseStream: false,
+      options: {},
+    },
+    setStoreItem: {
+      name: "setStoreItem",
+      requestType: SetStoreItemRequest,
+      requestStream: false,
+      responseType: SetStoreItemResponse,
+      responseStream: false,
+      options: {},
+    },
+    deleteStoreItem: {
+      name: "deleteStoreItem",
+      requestType: DeleteStoreItemRequest,
+      requestStream: false,
+      responseType: DeleteStoreItemResponse,
+      responseStream: false,
+      options: {},
+    },
+    /** This will likely be migrated to its own service similar to the GatewayAPI */
+    publishMqttMessage: {
+      name: "publishMqttMessage",
+      requestType: PublishMqttMessageRequest,
+      requestStream: false,
+      responseType: PublishMqttMessageResponse,
+      responseStream: false,
+      options: {},
+    },
   },
 } as const;
 
@@ -1519,6 +2201,23 @@ export interface GeneralAPIServiceImplementation<CallContextExt = {}> {
   ): Promise<DeepPartial<JobTriggersResponse>>;
   getRunner(request: RunnerRequest, context: CallContext & CallContextExt): Promise<DeepPartial<RunnerResponse>>;
   getRunners(request: RunnersRequest, context: CallContext & CallContextExt): Promise<DeepPartial<RunnersResponse>>;
+  getStoreItem(
+    request: StoreItemRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<StoreItemResponse>>;
+  setStoreItem(
+    request: SetStoreItemRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<SetStoreItemResponse>>;
+  deleteStoreItem(
+    request: DeleteStoreItemRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<DeleteStoreItemResponse>>;
+  /** This will likely be migrated to its own service similar to the GatewayAPI */
+  publishMqttMessage(
+    request: PublishMqttMessageRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<PublishMqttMessageResponse>>;
 }
 
 export interface GeneralAPIClient<CallOptionsExt = {}> {
@@ -1550,6 +2249,23 @@ export interface GeneralAPIClient<CallOptionsExt = {}> {
   ): Promise<JobTriggersResponse>;
   getRunner(request: DeepPartial<RunnerRequest>, options?: CallOptions & CallOptionsExt): Promise<RunnerResponse>;
   getRunners(request: DeepPartial<RunnersRequest>, options?: CallOptions & CallOptionsExt): Promise<RunnersResponse>;
+  getStoreItem(
+    request: DeepPartial<StoreItemRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<StoreItemResponse>;
+  setStoreItem(
+    request: DeepPartial<SetStoreItemRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<SetStoreItemResponse>;
+  deleteStoreItem(
+    request: DeepPartial<DeleteStoreItemRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<DeleteStoreItemResponse>;
+  /** This will likely be migrated to its own service similar to the GatewayAPI */
+  publishMqttMessage(
+    request: DeepPartial<PublishMqttMessageRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<PublishMqttMessageResponse>;
 }
 
 type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;

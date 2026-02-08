@@ -10,7 +10,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import { z } from "zod";
-import { JobberPermissions } from "~/permissions.js";
+import { JobberPermissions } from "@jobber/common/permissions.js";
 
 export const UserUsernameSchema = z.string().min(3).max(32);
 export const UserPasswordSchema = z.string().min(7);
@@ -31,7 +31,7 @@ export const usersTable = pgTable(
   },
   (table) => [
     uniqueIndex("usernameUniqueIndex").on(sql`lower(${table.username})`),
-  ]
+  ],
 );
 
 export type UsersTableType = typeof usersTable.$inferSelect;

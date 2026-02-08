@@ -29,6 +29,7 @@
     "vite": "^6.0.3"
   },
   "dependencies": {
+    "@jobber/common": "workspace:*",
     "chart.js": "^4.4.9",
     "react-chartjs-2": "^5.3.0"
   }

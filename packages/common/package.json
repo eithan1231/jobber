@@ -4,6 +4,18 @@
   "description": "Common utilities for Jobber Services",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    "./*": {
+      "types": "./dist/*",
+      "import": "./dist/*",
+      "require": "./dist/*"
+    },
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
   "type": "module",
   "scripts": {
     "build": "rimraf ./dist/* && tsc && tsc-alias -p tsconfig.json"
@@ -12,7 +24,8 @@
   "author": "Eithan Hersey-Tuit",
   "license": "MIT",
   "dependencies": {
-    "@jobber/tcp-frame-socket": "workspace:*"
+    "@jobber/tcp-frame-socket": "workspace:*",
+    "zod": "3.23.8"
   },
   "devDependencies": {
     "@tsconfig/node20": "^20.1.4",

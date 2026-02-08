@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import { Hono } from "hono";
-import { exportJWK, importSPKI, SignJWT } from "jose";
+import { SignJWT } from "jose";
 import { createPrivateKey } from "node:crypto";
 import { container } from "tsyringe";
 import { z } from "zod";
@@ -188,6 +188,7 @@ export async function createRouteOAuth() {
     const jwt = await new SignJWT({
       sub: serviceClient.id,
       kid: validKey.id,
+      permissions: serviceClient.permissions,
       typ: "JWT",
     })
       .setProtectedHeader({

@@ -26,7 +26,8 @@ export const storeTable = pgTable(
     modified: integer().notNull(),
     created: integer().notNull(),
   },
-  (table) => [unique().on(table.jobId, table.storeKey)]
+  (table) => [unique().on(table.jobId, table.storeKey)],
 );
 
 export type StoreTableType = typeof storeTable.$inferSelect;
+export type StoreTableInsertType = typeof storeTable.$inferInsert;

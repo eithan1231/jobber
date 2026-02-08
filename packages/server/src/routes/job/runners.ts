@@ -7,7 +7,7 @@ import { jobsTable } from "~/db/schema/jobs.js";
 import { InternalHonoApp } from "~/index.js";
 import { RunnerManager } from "~/jobber/runners/manager.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
-import { canPerformAction } from "~/permissions.js";
+import { canPerformAction } from "@jobber/common/permissions.js";
 
 export async function createRouteJobRunners() {
   const runnerManager = container.resolve(RunnerManager);
@@ -27,7 +27,7 @@ export async function createRouteJobRunners() {
     if (!bouncer.canReadJobRunners(job)) {
       return c.json(
         { success: false, message: "Insufficient Permissions" },
-        403
+        403,
       );
     }
 
@@ -58,7 +58,7 @@ export async function createRouteJobRunners() {
       if (!bouncer.canWriteJobRunners(job)) {
         return c.json(
           { success: false, message: "Insufficient Permissions" },
-          403
+          403,
         );
       }
 
@@ -75,9 +75,9 @@ export async function createRouteJobRunners() {
           success: result.success,
           message: result.message,
         },
-        result.success ? 200 : 400
+        result.success ? 200 : 400,
       );
-    }
+    },
   );
 
   return app;

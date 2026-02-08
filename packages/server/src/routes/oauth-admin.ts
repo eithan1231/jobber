@@ -1,3 +1,4 @@
+import { JobberPermissionsSchema } from "@jobber/common/permissions.js";
 import { Hono } from "hono";
 import { container } from "tsyringe";
 import { z } from "zod";
@@ -43,6 +44,8 @@ function censorServiceClient(client: OauthServiceClientTableType) {
 
     allowedAudiences: client.allowedAudiences,
     allowedScopes: client.allowedScopes,
+
+    permissions: client.permissions,
 
     enabled: client.enabled,
 
@@ -253,6 +256,8 @@ export async function createRouteOAuthAdmin() {
       allowedAudiences: z.array(z.string()).default([]),
       allowedScopes: z.array(z.string()).default([]),
 
+      permissions: z.lazy(() => JobberPermissionsSchema),
+
       expiresAt: z.string().datetime().optional(),
     });
 
@@ -266,6 +271,8 @@ export async function createRouteOAuthAdmin() {
 
       allowedAudiences: body.allowedAudiences,
       allowedScopes: body.allowedScopes,
+
+      permissions: body.permissions,
 
       expiresAt: body.expiresAt ? new Date(body.expiresAt) : undefined,
     });

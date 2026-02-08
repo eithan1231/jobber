@@ -1,4 +1,5 @@
-import { JobberGenericResponse, JobberPermissions } from "./common";
+import { JobberPermissions } from "@jobber/common/permissions.js";
+import { JobberGenericResponse } from "./common";
 
 export type JobberOAuthSigningKey = {
   id: string;
@@ -30,6 +31,8 @@ export type JobberOAuthServiceClient = {
 
   allowedAudiences: string[];
   allowedScopes: string[];
+
+  permissions: JobberPermissions;
 
   enabled: boolean;
 
@@ -113,6 +116,8 @@ export const createOAuthServiceClient = async (payload: {
 
   allowedAudiences: string[];
   allowedScopes: string[];
+
+  permissions: JobberPermissions;
 
   expiresAt?: string | null;
 }): Promise<

@@ -167,10 +167,7 @@ export const Component = () => {
                       </td>
 
                       <td className="border p-2">
-                        {canPerformAction(
-                          `job/${job.id}/store/${item.id}`,
-                          "read"
-                        ) ? (
+                        {canPerformAction(`job/${job.id}/store`, "read") ? (
                           <button
                             className="text-blue-500 hover:underline"
                             onClick={() => {
@@ -197,7 +194,7 @@ export const Component = () => {
 
                       <td className="border p-1">
                         <PermissionGuardComponent
-                          resource={`job/${job.id}/store/${item.id}`}
+                          resource={`job/${job.id}/store`}
                           action="delete"
                         >
                           <button

@@ -184,7 +184,7 @@ const Component = () => {
             </div>
 
             {/* Allowed Scopes */}
-            <div className="px-6 py-6">
+            <div className="px-6 py-6 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
                 Allowed Scopes
               </h2>
@@ -202,6 +202,33 @@ const Component = () => {
               ) : (
                 <p className="text-sm text-gray-500 italic">
                   No scopes configured
+                </p>
+              )}
+            </div>
+
+            {/* Permissions */}
+            <div className="px-6 py-6">
+              <div className="flex items-center mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Permissions
+                </h2>
+                <a
+                  href="https://github.com/eithan1231/jobber/blob/main/docs/permissions.md"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-2 text-xs text-blue-600 hover:text-blue-800"
+                >
+                  View documentation →
+                </a>
+              </div>
+              {serviceClient.permissions &&
+              serviceClient.permissions.length > 0 ? (
+                <pre className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm font-mono text-gray-800 overflow-x-auto">
+                  {JSON.stringify(serviceClient.permissions, null, 2)}
+                </pre>
+              ) : (
+                <p className="text-sm text-gray-500 italic">
+                  No permissions configured
                 </p>
               )}
             </div>

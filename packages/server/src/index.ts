@@ -1,7 +1,7 @@
 import "reflect-metadata";
 
-import "./jobber/log-drivers/index.js";
 import { LogDriverBase } from "./jobber/log-drivers/abstract.js";
+import "./jobber/log-drivers/index.js";
 import { RunnerManager } from "./jobber/runners/manager.js";
 import { Store } from "./jobber/store.js";
 import { Telemetry } from "./jobber/telemetry.js";
@@ -20,20 +20,23 @@ import { container } from "tsyringe";
 import { ZodError } from "zod";
 
 import { getDrizzle, getPool, runDrizzleMigration } from "./db/index.js";
-import { apiTokensTable, ApiTokensTableType } from "./db/schema/api-tokens.js";
-import { SessionsTableType } from "./db/schema/sessions.js";
 import {
   UserPasswordSchema,
   usersTable,
-  UsersTableType,
   UserUsernameSchema,
 } from "./db/schema/users.js";
 
+import { PERMISSION_SUPER } from "@jobber/common/permissions.js";
 import { getConfigOption } from "./config.js";
 import { cleanupLocks } from "./lock.js";
 import { getJobActionArchiveDirectory, getPgDumpDirectory } from "./paths.js";
-import { JobberPermissions, PERMISSION_SUPER } from "./permissions.js";
 
+import { Bouncer } from "./bouncer.js";
+import { USERNAME_ANONYMOUS } from "./constants.js";
+import { JobsTableType } from "./db/schema/jobs.js";
+import { GrpcServer } from "./grpc/index.js";
+import { PgBackup } from "./pg-backup.js";
+import { RateLimit } from "./rate-limit.js";
 import { createRouteApiTokens } from "./routes/api-tokens.js";
 import { createRouteAuth } from "./routes/auth.js";
 import { createRouteConfig } from "./routes/config.js";
@@ -48,17 +51,10 @@ import { createRouteJobStore } from "./routes/job/store.js";
 import { createRouteJobTriggers } from "./routes/job/triggers.js";
 import { createRouteVersions } from "./routes/job/versions.js";
 import { createRouteMetrics } from "./routes/metrics.js";
-import { createRouteUser } from "./routes/user.js";
-import { USERNAME_ANONYMOUS } from "./constants.js";
-import { PgBackup } from "./pg-backup.js";
-import { Bouncer } from "./bouncer.js";
-import { JobsTableType } from "./db/schema/jobs.js";
-import { userModel } from "./db/user.js";
-import { RateLimit } from "./rate-limit.js";
-import { createRouteOAuth } from "./routes/oauth.js";
 import { createRouteOAuthAdmin } from "./routes/oauth-admin.js";
+import { createRouteOAuth } from "./routes/oauth.js";
+import { createRouteUser } from "./routes/user.js";
 import { OAuthSigningKeys } from "./signing-keys.js";
-import { GrpcServer } from "./grpc/index.js";
 
 export type InternalHonoApp = {
   Variables: {

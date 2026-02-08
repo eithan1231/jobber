@@ -59,7 +59,7 @@ const Component = () => {
                       Audiences
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Scopes
+                      Permissions
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Expires
@@ -158,27 +158,31 @@ const Component = () => {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex flex-wrap gap-1">
-                            {client.allowedScopes.length > 0 ? (
-                              client.allowedScopes
-                                .slice(0, 2)
-                                .map((scope, i) => (
-                                  <span
-                                    key={i}
-                                    className="inline-flex px-2 py-1 text-xs font-mono bg-purple-100 text-purple-700 rounded"
-                                  >
-                                    {scope}
-                                  </span>
-                                ))
+                            {client.permissions &&
+                            client.permissions.length > 0 ? (
+                              client.permissions.slice(0, 2).map((perm, i) => (
+                                <span
+                                  key={i}
+                                  className={`inline-flex px-2 py-1 text-xs font-mono rounded ${
+                                    perm.effect === "allow"
+                                      ? "bg-green-100 text-green-700"
+                                      : "bg-red-100 text-red-700"
+                                  }`}
+                                >
+                                  {perm.effect}: {perm.resource}
+                                </span>
+                              ))
                             ) : (
                               <span className="text-xs text-gray-400 italic">
                                 None
                               </span>
                             )}
-                            {client.allowedScopes.length > 2 && (
-                              <span className="text-xs text-gray-500">
-                                +{client.allowedScopes.length - 2} more
-                              </span>
-                            )}
+                            {client.permissions &&
+                              client.permissions.length > 2 && (
+                                <span className="text-xs text-gray-500">
+                                  +{client.permissions.length - 2} more
+                                </span>
+                              )}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">

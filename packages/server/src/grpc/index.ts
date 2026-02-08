@@ -1,41 +1,51 @@
+import { ServerCredentials } from "@grpc/grpc-js";
 import { LoopBase } from "@jobber/common";
+import { BouncerBase } from "@jobber/common/bouncer-base.js";
+import { JobberPermissionsSchema } from "@jobber/common/permissions.js";
 import { GeneralAPIDefinition } from "@jobber/grpc/general.js";
+import { createLocalJWKSet, errors as joseErrors, jwtVerify } from "jose";
 import {
   CallContext,
   createServer,
   Server,
-  ServiceImplementation,
   ServerError,
+  ServiceImplementation,
   Status,
 } from "nice-grpc";
 import {
-  ServerReflectionService,
   ServerReflection,
+  ServerReflectionService,
 } from "nice-grpc-server-reflection";
-
-import { ServerCredentials } from "@grpc/grpc-js";
+import { readFile } from "node:fs/promises";
 import { container, singleton } from "tsyringe";
+
 import { getConfigOption } from "~/config.js";
 
-import { createLocalJWKSet, jwtVerify, errors as joseErrors } from "jose";
-import { jobModel } from "~/db/job.js";
-import * as grpcJob from "@jobber/grpc/basics/job.js";
 import * as grpcAction from "@jobber/grpc/basics/action.js";
-import * as grpcTrigger from "@jobber/grpc/basics/trigger.js";
 import * as grpcJobVersion from "@jobber/grpc/basics/job-version.js";
-import { JobsTableType } from "~/db/schema/jobs.js";
+import * as grpcJob from "@jobber/grpc/basics/job.js";
+import * as grpcTrigger from "@jobber/grpc/basics/trigger.js";
+
 import { actionsModel } from "~/db/actions.js";
+import { jobVersionsModel } from "~/db/job-versions.js";
+import { jobModel } from "~/db/job.js";
 import { ActionsTableType } from "~/db/schema/actions.js";
+import { JobVersionsTableType } from "~/db/schema/job-versions.js";
+import { JobsTableType } from "~/db/schema/jobs.js";
 import { TriggersTableType } from "~/db/schema/triggers.js";
 import { triggersModel } from "~/db/triggers.js";
-import { jobVersionsModel } from "~/db/job-versions.js";
-import { JobVersionsTableType } from "~/db/schema/job-versions.js";
-import { readFile } from "node:fs/promises";
-import { OAuthSigningKeys } from "~/signing-keys.js";
 import { OAuthServiceClients } from "~/service-clients.js";
+import { OAuthSigningKeys } from "~/signing-keys.js";
+import { TriggerMqtt } from "~/jobber/triggers/mqtt.js";
+import { storeModel } from "~/db/store.js";
+import { getUnixTimestamp } from "~/util.js";
 
 const authorizedCall = <TRequest, TResponse>(
-  callback: (request: TRequest, context: CallContext) => Promise<TResponse>,
+  callback: (
+    request: TRequest,
+    context: CallContext,
+    bouncer: BouncerBase,
+  ) => Promise<TResponse>,
 ) => {
   return async (
     request: TRequest,
@@ -58,12 +68,18 @@ const authorizedCall = <TRequest, TResponse>(
 
       const jwks = createLocalJWKSet(await oauthSigningKeys.createJwksSet());
 
-      await jwtVerify(token, jwks, {
+      const { payload } = await jwtVerify(token, jwks, {
         issuer: getConfigOption("OAUTH_ISSUER"),
         audience: oauthServiceClients.getAudienceGeneralApi(),
       });
 
-      return callback(request, context);
+      const permissions = await JobberPermissionsSchema.parseAsync(
+        payload.permissions,
+      );
+
+      const bouncer = new BouncerBase(permissions);
+
+      return callback(request, context, bouncer);
     } catch (err) {
       if (err instanceof ServerError) {
         throw err;
@@ -231,11 +247,15 @@ const mapGrpcJobVersion = (
 };
 
 const generalApiDefinition: ServiceImplementation<GeneralAPIDefinition> = {
-  getJob: authorizedCall(async (request, _context) => {
+  getJob: authorizedCall(async (request, _context, bouncer) => {
     const job = await jobModel.byId(request.jobId);
 
     if (!job) {
       throw new ServerError(Status.NOT_FOUND, "Job not found");
+    }
+
+    if (bouncer.canReadJob(job)) {
+      throw new ServerError(Status.PERMISSION_DENIED, "Permission denied");
     }
 
     return {
@@ -243,15 +263,17 @@ const generalApiDefinition: ServiceImplementation<GeneralAPIDefinition> = {
     };
   }),
 
-  getJobs: authorizedCall(async (_request, _context) => {
-    const jobs = (await jobModel.all()).map(mapGrpcJob);
+  getJobs: authorizedCall(async (_request, _context, bouncer) => {
+    const jobs = (await jobModel.all())
+      .map(mapGrpcJob)
+      .filter((job) => bouncer.canReadJob(job));
 
     return {
       jobs,
     };
   }),
 
-  getJobAction: authorizedCall(async (request, _context) => {
+  getJobAction: authorizedCall(async (request, _context, bouncer) => {
     const action = await actionsModel.byId(request.actionId);
 
     if (!action) {
@@ -262,12 +284,16 @@ const generalApiDefinition: ServiceImplementation<GeneralAPIDefinition> = {
       throw new ServerError(Status.NOT_FOUND, "Action not found");
     }
 
+    if (!bouncer.canReadJobAction(action)) {
+      throw new ServerError(Status.PERMISSION_DENIED, "Permission denied");
+    }
+
     return {
       action: mapGrpcAction(action),
     };
   }),
 
-  getJobActions: authorizedCall(async (request, _context) => {
+  getJobActions: authorizedCall(async (request, _context, bouncer) => {
     const actions = (await actionsModel.all())
       .filter((action) => {
         if (action.jobId !== request.jobId) {
@@ -278,7 +304,7 @@ const generalApiDefinition: ServiceImplementation<GeneralAPIDefinition> = {
           return false;
         }
 
-        return true;
+        return bouncer.canReadJobAction(action);
       })
       .map(mapGrpcAction);
 
@@ -287,7 +313,7 @@ const generalApiDefinition: ServiceImplementation<GeneralAPIDefinition> = {
     };
   }),
 
-  getJobTrigger: authorizedCall(async (request, _context) => {
+  getJobTrigger: authorizedCall(async (request, _context, bouncer) => {
     const trigger = await triggersModel.byId(request.triggerId);
 
     if (!trigger) {
@@ -298,12 +324,16 @@ const generalApiDefinition: ServiceImplementation<GeneralAPIDefinition> = {
       throw new ServerError(Status.NOT_FOUND, "Trigger not found");
     }
 
+    if (!bouncer.canReadJobTriggers(trigger)) {
+      throw new ServerError(Status.PERMISSION_DENIED, "Permission denied");
+    }
+
     return {
       trigger: mapGrpcTrigger(trigger),
     };
   }),
 
-  getJobTriggers: authorizedCall(async (request, _context) => {
+  getJobTriggers: authorizedCall(async (request, _context, bouncer) => {
     const triggers = (
       await triggersModel.all({
         jobId: request.jobId,
@@ -319,7 +349,7 @@ const generalApiDefinition: ServiceImplementation<GeneralAPIDefinition> = {
           return false;
         }
 
-        return true;
+        return bouncer.canReadJobTriggers(trigger);
       })
       .map(mapGrpcTrigger);
 
@@ -328,11 +358,15 @@ const generalApiDefinition: ServiceImplementation<GeneralAPIDefinition> = {
     };
   }),
 
-  getJobVersion: authorizedCall(async (request, _context) => {
+  getJobVersion: authorizedCall(async (request, _context, bouncer) => {
     const jobVersion = await jobVersionsModel.byId(request.jobVersionId);
 
     if (!jobVersion) {
       throw new ServerError(Status.NOT_FOUND, "Job version not found");
+    }
+
+    if (!bouncer.canReadJobVersion(jobVersion)) {
+      throw new ServerError(Status.PERMISSION_DENIED, "Permission denied");
     }
 
     return {
@@ -340,14 +374,14 @@ const generalApiDefinition: ServiceImplementation<GeneralAPIDefinition> = {
     };
   }),
 
-  getJobVersions: authorizedCall(async (request, _context) => {
+  getJobVersions: authorizedCall(async (request, _context, bouncer) => {
     const jobVersions = (await jobVersionsModel.all({ jobId: request.jobId }))
       .filter((jobVersion) => {
         if (jobVersion.jobId !== request.jobId) {
           return false;
         }
 
-        return true;
+        return bouncer.canReadJobVersion(jobVersion);
       })
       .map(mapGrpcJobVersion);
 
@@ -356,12 +390,104 @@ const generalApiDefinition: ServiceImplementation<GeneralAPIDefinition> = {
     };
   }),
 
-  getRunner: authorizedCall(async (request, _context) => {
+  getRunner: authorizedCall(async (request, _context, bouncer) => {
     throw new ServerError(Status.UNIMPLEMENTED, "Not implemented");
   }),
 
-  getRunners: authorizedCall(async (request, _context) => {
+  getRunners: authorizedCall(async (request, _context, bouncer) => {
     throw new ServerError(Status.UNIMPLEMENTED, "Not implemented");
+  }),
+
+  getStoreItem: authorizedCall(async (request, _context, bouncer) => {
+    const storeItem = await storeModel.byKey(request.jobId, request.key);
+
+    if (!storeItem) {
+      throw new ServerError(Status.NOT_FOUND, "Store item not found");
+    }
+
+    if (!bouncer.canReadJobStore(storeItem)) {
+      throw new ServerError(Status.PERMISSION_DENIED, "Permission denied");
+    }
+
+    return {
+      key: storeItem.storeKey,
+      value: storeItem.storeValue,
+    };
+  }),
+
+  setStoreItem: authorizedCall(async (request, _context, bouncer) => {
+    const job = await jobModel.byId(request.jobId);
+
+    if (!job) {
+      throw new ServerError(Status.NOT_FOUND, "Job not found");
+    }
+
+    if (!bouncer.canWriteJobStore({ jobId: request.jobId })) {
+      throw new ServerError(Status.PERMISSION_DENIED, "Permission denied");
+    }
+
+    const expiry = request.ttl ? getUnixTimestamp() + request.ttl : undefined;
+
+    const storeItem = await storeModel.upsert({
+      jobId: request.jobId,
+      storeKey: request.key,
+      storeValue: request.value,
+      expiry: expiry,
+    });
+
+    if (!storeItem) {
+      throw new ServerError(Status.INTERNAL, "Failed to set store item");
+    }
+
+    return {
+      key: storeItem.storeKey,
+      value: storeItem.storeValue,
+    };
+  }),
+
+  deleteStoreItem: authorizedCall(async (request, _context, bouncer) => {
+    const job = await jobModel.byId(request.jobId);
+
+    if (!job) {
+      throw new ServerError(Status.NOT_FOUND, "Job not found");
+    }
+
+    if (!bouncer.canDeleteJobStore({ jobId: request.jobId })) {
+      throw new ServerError(Status.PERMISSION_DENIED, "Permission denied");
+    }
+
+    const storeItem = await storeModel.deleteByKey(request.jobId, request.key);
+
+    if (!storeItem) {
+      throw new ServerError(Status.NOT_FOUND, "Store item not found");
+    }
+
+    return {
+      key: storeItem.storeKey,
+      value: storeItem.storeValue,
+    };
+  }),
+
+  publishMqttMessage: authorizedCall(async (request, _context, bouncer) => {
+    const job = await jobModel.byId(request.jobId);
+
+    if (!job) {
+      throw new ServerError(Status.NOT_FOUND, "Job not found");
+    }
+
+    if (!bouncer.canPublishMqttMessage(job)) {
+      throw new ServerError(Status.PERMISSION_DENIED, "Permission denied");
+    }
+
+    const triggerMqtt = container.resolve(TriggerMqtt);
+
+    await triggerMqtt.publishMqttMessage(
+      job.id,
+      request.topic,
+      Buffer.from(request.payload),
+    );
+
+    return {};
   }),
 };
 
@@ -379,12 +505,12 @@ export class GrpcServer extends LoopBase {
 
     this.server.add(GeneralAPIDefinition, generalApiDefinition);
 
-    // this.server.add(
-    //   ServerReflectionService,
-    //   ServerReflection(await readFile("../grpc/src/protoset.bin"), [
-    //     GeneralAPIDefinition.fullName,
-    //   ]),
-    // );
+    this.server.add(
+      ServerReflectionService,
+      ServerReflection(await readFile("../grpc/src/protoset.bin"), [
+        GeneralAPIDefinition.fullName,
+      ]),
+    );
 
     await this.server.listen(
       `${getConfigOption("MANAGER_GRPC_BIND_ADDRESS")}:${getConfigOption(

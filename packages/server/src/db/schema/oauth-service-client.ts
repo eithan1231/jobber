@@ -1,3 +1,4 @@
+import { JobberPermissions } from "@jobber/common/permissions.js";
 import {
   boolean,
   jsonb,
@@ -36,6 +37,8 @@ export const oauthServiceClientTable = pgTable("oauthServiceClient", {
 
   allowedAudiences: jsonb("allowedAudiences").$type<string[]>().notNull(),
   allowedScopes: jsonb("allowedScopes").$type<string[]>().notNull(),
+
+  permissions: jsonb("permissions").$type<JobberPermissions>().notNull(),
 
   enabled: boolean("enabled").default(true).notNull(),
 

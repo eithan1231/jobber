@@ -3,7 +3,7 @@ import { container } from "tsyringe";
 import { InternalHonoApp } from "~/index.js";
 import { Store } from "~/jobber/store.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
-import { canPerformAction } from "~/permissions.js";
+import { canPerformAction } from "@jobber/common/permissions.js";
 
 export async function createRouteJobStore() {
   const store = container.resolve(Store);
@@ -23,10 +23,10 @@ export async function createRouteJobStore() {
         return next();
       }
 
-      if (!bouncer.canReadJobStoreItem(item)) {
+      if (!bouncer.canReadJobStore(item)) {
         return c.json(
           { success: false, message: "Insufficient Permissions" },
-          403
+          403,
         );
       }
 
@@ -34,7 +34,7 @@ export async function createRouteJobStore() {
         success: true,
         data: item,
       });
-    }
+    },
   );
 
   app.get("/job/:jobId/store/", createMiddlewareAuth(), async (c, next) => {
@@ -44,7 +44,7 @@ export async function createRouteJobStore() {
     const items = await store.getItemsNoValue(jobId);
 
     const itemsFiltered = items.filter((item) => {
-      return bouncer.canReadJobStoreItem(item);
+      return bouncer.canReadJobStore(item);
     });
 
     return c.json({
@@ -67,10 +67,10 @@ export async function createRouteJobStore() {
         return next();
       }
 
-      if (!bouncer.canDeleteJobStoreItem(item)) {
+      if (!bouncer.canDeleteJobStore(item)) {
         return c.json(
           { success: false, message: "Insufficient Permissions" },
-          403
+          403,
         );
       }
 
@@ -80,7 +80,7 @@ export async function createRouteJobStore() {
         success: true,
         data: item,
       });
-    }
+    },
   );
 
   return app;

@@ -11,7 +11,6 @@ import { logsTable } from "~/db/schema/logs.js";
 import { InternalHonoApp } from "~/index.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { getJobActionArchiveFile } from "~/paths.js";
-import { canPerformAction } from "~/permissions.js";
 
 export async function createRouteJob() {
   const app = new Hono<InternalHonoApp>();
@@ -37,8 +36,8 @@ export async function createRouteJob() {
         jobVersionsTable,
         and(
           eq(jobVersionsTable.jobId, jobsTable.id),
-          eq(jobVersionsTable.id, jobsTable.jobVersionId)
-        )
+          eq(jobVersionsTable.id, jobsTable.jobVersionId),
+        ),
       )
       .where(eq(jobsTable.id, jobId))
       .limit(1)
@@ -78,8 +77,8 @@ export async function createRouteJob() {
         jobVersionsTable,
         and(
           eq(jobVersionsTable.jobId, jobsTable.id),
-          eq(jobVersionsTable.id, jobsTable.jobVersionId)
-        )
+          eq(jobVersionsTable.id, jobsTable.jobVersionId),
+        ),
       )
       .orderBy(desc(jobVersionsTable.created));
 
@@ -152,7 +151,7 @@ export async function createRouteJob() {
       .where(eq(actionsTable.jobId, job.id))
       .innerJoin(
         jobVersionsTable,
-        eq(actionsTable.jobVersionId, jobVersionsTable.id)
+        eq(actionsTable.jobVersionId, jobVersionsTable.id),
       );
     //
 
@@ -168,7 +167,7 @@ export async function createRouteJob() {
     for (const actionArchive of actionArchives) {
       const filename = getJobActionArchiveFile(
         actionArchive.version,
-        actionArchive.action
+        actionArchive.action,
       );
 
       await rm(filename).catch((err) => {

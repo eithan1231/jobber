@@ -7,7 +7,7 @@ import { apiTokensTable, ApiTokensTableType } from "~/db/schema/api-tokens.js";
 import { InternalHonoApp } from "~/index.js";
 import { withLock } from "~/lock.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
-import { JobberPermissionsSchema } from "~/permissions.js";
+import { JobberPermissionsSchema } from "@jobber/common/permissions.js";
 
 export async function createRouteApiTokens() {
   const app = new Hono<InternalHonoApp>();
@@ -32,7 +32,7 @@ export async function createRouteApiTokens() {
       .from(apiTokensTable);
 
     const tokensFiltered = tokens.filter((token) =>
-      bouncer.canReadApiToken(token)
+      bouncer.canReadApiToken(token),
     );
 
     return c.json({

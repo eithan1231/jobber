@@ -8,6 +8,10 @@ import {
 import { createAuthLogin, getAuth, JobberAuth } from "../api/auth";
 import { JobberGenericResponse } from "../api/common";
 import { getConfig, JobberConfig } from "../api/config";
+import {
+  canPerformAction as canPerformActionOriginal,
+  JobberPermissionAction,
+} from "@jobber/common/permissions.js";
 
 export type AuthContextType = {
   initialised: boolean;
@@ -15,12 +19,12 @@ export type AuthContextType = {
   auth: JobberAuth | null;
   canPerformAction: (
     resource: string,
-    action: "read" | "write" | "delete"
+    action: "read" | "write" | "delete",
   ) => boolean;
   login: (username: string, password: string) => Promise<JobberGenericResponse>;
   register: (
     username: string,
-    password: string
+    password: string,
   ) => Promise<JobberGenericResponse>;
 };
 
@@ -70,46 +74,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const canPerformAction = useCallback(
-    (resource: string, action: "read" | "write" | "delete") => {
+    (resource: string, action: JobberPermissionAction) => {
       if (context.auth === null) {
         return false;
       }
 
-      for (const permission of context.auth.permissions) {
-        if (permission.effect !== "deny") {
-          continue;
-        }
-
-        if (!permission.actions.includes(action)) {
-          continue;
-        }
-
-        if (!resourceMatches(resource, permission.resource)) {
-          continue;
-        }
-
-        return false;
-      }
-
-      for (const permission of context.auth.permissions) {
-        if (permission.effect !== "allow") {
-          continue;
-        }
-
-        if (!permission.actions.includes(action)) {
-          continue;
-        }
-
-        if (!resourceMatches(resource, permission.resource)) {
-          continue;
-        }
-
-        return true;
-      }
-
-      return false;
+      return canPerformActionOriginal(
+        context.auth.permissions,
+        resource,
+        action,
+      );
     },
-    [context]
+    [context],
   );
 
   const login = useCallback(async (username: string, password: string) => {

@@ -19,7 +19,7 @@ import {
 import { InternalHonoApp } from "~/index.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { createMiddlewareResponseTime } from "~/middleware/response-time.js";
-import { PERMISSION_NONE } from "~/permissions.js";
+import { PERMISSION_NONE } from "@jobber/common/permissions.js";
 
 export async function createRouteAuth() {
   const app = new Hono<InternalHonoApp>();

@@ -6,7 +6,6 @@ import "basics/api-token.proto";
 import "basics/environment.proto";
 import "basics/job-version.proto";
 import "basics/job.proto";
-import "basics/jwt-key.proto";
 import "basics/runner.proto";
 import "basics/trigger.proto";
 
@@ -27,6 +26,13 @@ service GeneralAPI {
 
   rpc getRunner(RunnerRequest) returns (RunnerResponse);
   rpc getRunners(RunnersRequest) returns (RunnersResponse);
+
+  rpc getStoreItem(StoreItemRequest) returns (StoreItemResponse);
+  rpc setStoreItem(SetStoreItemRequest) returns (SetStoreItemResponse);
+  rpc deleteStoreItem(DeleteStoreItemRequest) returns (DeleteStoreItemResponse);
+
+  // This will likely be migrated to its own service similar to the GatewayAPI
+  rpc publishMqttMessage(PublishMqttMessageRequest) returns (PublishMqttMessageResponse);
 }
 
 /** getJob **/
@@ -122,3 +128,46 @@ message RunnersRequest {
 message RunnersResponse {
   repeated Runner.Item runners = 1;
 }
+
+
+/** getStoreItem **/
+message StoreItemRequest {
+  string jobId = 1;
+  string key = 2;
+}
+message StoreItemResponse {
+  string key = 1;
+  string value = 2;
+}
+
+
+/** setStoreItem **/
+message SetStoreItemRequest {
+  string jobId = 1;
+  string key = 2;
+  string value = 3;
+  optional uint32 ttl = 4;
+}
+message SetStoreItemResponse {
+  string key = 1;
+  string value = 2;
+}
+
+
+/** deleteStoreItem **/
+message DeleteStoreItemRequest {
+  string jobId = 1;
+  string key = 2;
+}
+message DeleteStoreItemResponse {
+  string key = 1;
+}
+
+
+/** publishMqttMessage **/
+message PublishMqttMessageRequest {
+  string jobId = 1;
+  string topic = 2;
+  string payload = 3;
+}
+message PublishMqttMessageResponse {}

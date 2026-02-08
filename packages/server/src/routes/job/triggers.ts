@@ -10,7 +10,7 @@ import { TriggerCron } from "~/jobber/triggers/cron.js";
 import { TriggerHttp } from "~/jobber/triggers/http.js";
 import { TriggerMqtt } from "~/jobber/triggers/mqtt.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
-import { canPerformAction } from "~/permissions.js";
+import { canPerformAction } from "@jobber/common/permissions.js";
 
 export async function createRouteJobTriggers() {
   const triggerCron = container.resolve(TriggerCron);
@@ -41,15 +41,15 @@ export async function createRouteJobTriggers() {
           triggersTable,
           and(
             eq(jobsTable.id, triggersTable.jobId),
-            eq(jobsTable.jobVersionId, triggersTable.jobVersionId)
-          )
+            eq(jobsTable.jobVersionId, triggersTable.jobVersionId),
+          ),
         )
         .innerJoin(
           jobVersionsTable,
           and(
             eq(jobVersionsTable.jobId, triggersTable.jobId),
-            eq(jobVersionsTable.id, triggersTable.jobVersionId)
-          )
+            eq(jobVersionsTable.id, triggersTable.jobVersionId),
+          ),
         )
         .where(eq(triggersTable.jobId, jobId));
 
@@ -98,7 +98,7 @@ export async function createRouteJobTriggers() {
         success: true,
         data: triggersFiltered,
       });
-    }
+    },
   );
 
   app.get("/job/:jobId/triggers", createMiddlewareAuth(), async (c, next) => {
@@ -120,8 +120,8 @@ export async function createRouteJobTriggers() {
         jobVersionsTable,
         and(
           eq(triggersTable.jobId, jobVersionsTable.jobId),
-          eq(triggersTable.jobVersionId, jobVersionsTable.id)
-        )
+          eq(triggersTable.jobVersionId, jobVersionsTable.id),
+        ),
       )
       .where(eq(triggersTable.jobId, jobId));
 
@@ -185,7 +185,7 @@ export async function createRouteJobTriggers() {
         })
         .from(triggersTable)
         .where(
-          and(eq(triggersTable.id, triggerId), eq(triggersTable.jobId, jobId))
+          and(eq(triggersTable.id, triggerId), eq(triggersTable.jobId, jobId)),
         )
         .limit(1)
         .then((row) => row.at(0) ?? null);
@@ -197,7 +197,7 @@ export async function createRouteJobTriggers() {
       if (!bouncer.canReadJobTriggers(trigger)) {
         return c.json(
           { success: false, message: "Insufficient Permissions" },
-          403
+          403,
         );
       }
 
@@ -225,7 +225,7 @@ export async function createRouteJobTriggers() {
       }
 
       throw new Error("Unsupported trigger type: " + trigger.context["type"]);
-    }
+    },
   );
 
   return app;
