@@ -4,7 +4,7 @@ import { getDrizzle } from "~/db/index.js";
 import { jobVersionsTable } from "~/db/schema/job-versions.js";
 import { InternalHonoApp } from "~/index.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
-import { canPerformAction } from "~/permissions.js";
+import { canPerformAction } from "@jobber/common/permissions.js";
 
 export async function createRouteVersions() {
   const app = new Hono<InternalHonoApp>();

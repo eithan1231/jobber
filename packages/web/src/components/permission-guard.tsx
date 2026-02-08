@@ -1,5 +1,6 @@
 import { useContext } from "react";
 import { AuthContext } from "../contexts/auth-context";
+import { JobberPermissionAction } from "@jobber/common/permissions.js";
 
 export const PermissionGuardComponent = ({
   children,
@@ -8,7 +9,7 @@ export const PermissionGuardComponent = ({
 }: {
   children: React.ReactNode;
   resource: string;
-  action: "read" | "write" | "delete";
+  action: JobberPermissionAction;
 }) => {
   const { auth, canPerformAction } = useContext(AuthContext);
 

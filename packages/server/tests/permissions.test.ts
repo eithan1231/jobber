@@ -1,4 +1,4 @@
-import { resourceMatches } from "../src/permissions";
+import { resourceMatches } from "../src/permissions.js";
 
 import { describe, expect, it } from "vitest";
 

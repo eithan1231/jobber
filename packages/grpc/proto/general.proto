@@ -1,0 +1,173 @@
+syntax = "proto3";
+
+import "base.proto";
+import "basics/action.proto";
+import "basics/api-token.proto";
+import "basics/environment.proto";
+import "basics/job-version.proto";
+import "basics/job.proto";
+import "basics/runner.proto";
+import "basics/trigger.proto";
+
+package GeneralAPI;
+
+service GeneralAPI {
+  rpc getJob(JobRequest) returns (JobResponse);
+  rpc getJobs(JobsRequest) returns (JobsResponse);
+
+  rpc getJobVersion(JobVersionRequest) returns (JobVersionResponse);
+  rpc getJobVersions(JobVersionsRequest) returns (JobVersionsResponse);
+  
+  rpc getJobAction(JobActionRequest) returns (JobActionResponse);
+  rpc getJobActions(JobActionsRequest) returns (JobActionsResponse);
+
+  rpc getJobTrigger(JobTriggerRequest) returns (JobTriggerResponse);
+  rpc getJobTriggers(JobTriggersRequest) returns (JobTriggersResponse);
+
+  rpc getRunner(RunnerRequest) returns (RunnerResponse);
+  rpc getRunners(RunnersRequest) returns (RunnersResponse);
+
+  rpc getStoreItem(StoreItemRequest) returns (StoreItemResponse);
+  rpc setStoreItem(SetStoreItemRequest) returns (SetStoreItemResponse);
+  rpc deleteStoreItem(DeleteStoreItemRequest) returns (DeleteStoreItemResponse);
+
+  // This will likely be migrated to its own service similar to the GatewayAPI
+  rpc publishMqttMessage(PublishMqttMessageRequest) returns (PublishMqttMessageResponse);
+}
+
+/** getJob **/
+message JobRequest {
+  string jobId = 1;
+}
+message JobResponse {
+  Job.Item job = 1;
+}
+
+
+/** getJobs **/
+message JobsRequest {}
+message JobsResponse {
+  repeated Job.Item jobs = 1;
+}
+
+
+/** getJobVersion **/
+message JobVersionRequest {
+  string jobVersionId = 1;
+}
+message JobVersionResponse {
+  JobVersion.Item jobVersion = 1;
+}
+
+
+/** getJobVersions **/
+message JobVersionsRequest {
+  string jobId = 1;
+}
+message JobVersionsResponse {
+  repeated JobVersion.Item jobVersions = 1;
+}
+
+
+/** getJobAction **/
+message JobActionRequest {
+  string jobId = 1;
+  string actionId = 2;
+}
+message JobActionResponse {
+  Action.Item action = 1;
+}
+
+
+/** getJobActions **/
+message JobActionsRequest {
+  string jobId = 1;
+  optional string versionId = 2;
+}
+message JobActionsResponse {
+  repeated Action.Item actions = 1;
+}
+
+
+/** getJobTrigger **/
+message JobTriggerRequest {
+  string jobId = 1;
+  string triggerId = 2;
+}
+message JobTriggerResponse {
+  Trigger.Item trigger = 1;
+}
+
+
+/** getJobTriggers **/
+message JobTriggersRequest {
+  string jobId = 1;
+  optional string versionId = 2;
+}
+message JobTriggersResponse {
+  repeated Trigger.Item triggers = 1;
+}
+
+
+/** getRunner **/
+message RunnerRequest {
+  string runnerId = 1;
+}
+message RunnerResponse {
+  Runner.Item runner = 1;
+}
+
+
+/** getRunners **/
+message RunnersRequest {
+  optional string jobId = 1;
+  optional string versionId = 2;
+  optional string actionId = 3;
+  optional Runner.Item.Status status = 4;
+}
+message RunnersResponse {
+  repeated Runner.Item runners = 1;
+}
+
+
+/** getStoreItem **/
+message StoreItemRequest {
+  string jobId = 1;
+  string key = 2;
+}
+message StoreItemResponse {
+  string key = 1;
+  string value = 2;
+}
+
+
+/** setStoreItem **/
+message SetStoreItemRequest {
+  string jobId = 1;
+  string key = 2;
+  string value = 3;
+  optional uint32 ttl = 4;
+}
+message SetStoreItemResponse {
+  string key = 1;
+  string value = 2;
+}
+
+
+/** deleteStoreItem **/
+message DeleteStoreItemRequest {
+  string jobId = 1;
+  string key = 2;
+}
+message DeleteStoreItemResponse {
+  string key = 1;
+}
+
+
+/** publishMqttMessage **/
+message PublishMqttMessageRequest {
+  string jobId = 1;
+  string topic = 2;
+  string payload = 3;
+}
+message PublishMqttMessageResponse {}

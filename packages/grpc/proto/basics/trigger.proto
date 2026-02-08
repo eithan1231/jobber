@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+import "basics/common.proto";
+
+package Trigger;
+
+message Item {
+  message TriggerSchedule {
+    optional string name = 1;
+    string cron = 2;
+    optional string timezone = 3;
+  }
+
+  message TriggerHttp {
+    optional string name = 1;
+    optional string hostname = 2;
+    optional string method = 3;
+    optional string path = 4;
+  }
+
+  message TriggerMqtt {
+    message Connection {
+      optional string protocol = 1;
+      optional string protocolVariable = 2;
+
+      optional string port = 3;
+      optional string portVariable = 4;
+
+      optional string host = 5;
+      optional string hostVariable = 6;
+    
+      optional string username = 7;
+      optional string usernameVariable = 8;
+
+      optional string password = 9;
+      optional string passwordVariable = 10;
+
+      optional string clientId = 11;
+      optional string clientIdVariable = 12;
+    }
+
+    optional string name = 1;
+    repeated string topics = 2;
+    Connection connection = 3;
+  }
+  
+  string id = 1;
+  string jobId = 2;
+  string versionId = 3;
+
+  oneof context {
+    TriggerSchedule schedule = 4;
+    TriggerHttp http = 5;
+    TriggerMqtt mqtt = 6;
+  }
+}

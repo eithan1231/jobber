@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package Base;
+
+message Empty {}
+
+message ExportChunk {
+  string id = 1;
+  int64 sequence = 2;
+  bytes data = 3;
+}

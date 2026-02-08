@@ -8,7 +8,7 @@ import { InternalHonoApp } from "~/index.js";
 import { RunnerManager } from "~/jobber/runners/manager.js";
 import { Telemetry } from "~/jobber/telemetry.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
-import { canPerformAction } from "~/permissions.js";
+import { canPerformAction } from "@jobber/common/permissions.js";
 import { getUnixTimestamp } from "~/util.js";
 
 export async function createRouteMetrics() {

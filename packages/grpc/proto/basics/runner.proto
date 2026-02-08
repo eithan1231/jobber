@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package Runner;
+
+message Item {
+  enum Status {
+    STARTING = 0;
+    READY = 1;
+    CLOSING = 2;
+    CLOSED = 3;
+  }
+
+  string id = 1;
+  string jobId = 2;
+  string actionId = 3;
+  Status status = 4;
+
+  reserved 5 to 10;
+
+  string createdAt = 11;
+  optional string readyAt = 12;
+  optional string closingAt = 13;
+  optional string closedAt = 14;
+}

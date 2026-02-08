@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package Action;
+
+message Item {
+  message DockerArguments {
+    message Volume {
+      enum VolumeMode {
+        READ_ONLY = 0;
+        READ_WRITE = 1;
+      }
+
+      string source = 1;
+      string target = 2;
+      VolumeMode mode = 3;
+    }
+
+    message Label {
+      string key = 1;
+      string value = 2;
+    }
+
+    repeated string networks = 1;
+    repeated Volume volumes = 2;
+    repeated Label labels = 3;
+    optional string memoryLimit = 4;
+    repeated string directPassthroughArguments = 5;
+  }
+
+  enum RunnerMode {
+    STANDARD = 0;
+    RUN_ONCE = 1;
+  }
+
+  string id = 1;
+  string jobId = 2;
+  string versionId = 3;
+
+  string runnerImage = 4;
+  bool runnerAsynchronous = 5;
+  uint32 runnerMinCount = 6;
+  uint32 runnerMaxCount = 7;
+  uint32 runnerTimeout = 8;
+  uint32 runnerMaxIdleAge = 9;
+  uint32 runnerMaxAge = 10;
+  uint32 runnerMaxAgeHard = 11;
+  DockerArguments dockerArguments = 12;
+  RunnerMode runnerMode = 13;
+}

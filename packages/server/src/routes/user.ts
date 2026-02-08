@@ -16,7 +16,7 @@ import {
   canPerformAction,
   JobberPermissions,
   JobberPermissionsSchema,
-} from "~/permissions.js";
+} from "@jobber/common/permissions.js";
 
 export async function createRouteUser() {
   const app = new Hono<InternalHonoApp>();
@@ -108,7 +108,7 @@ export async function createRouteUser() {
     if (existingUser) {
       return c.json(
         { success: false, message: "Username already exists" },
-        409
+        409,
       );
     }
 
@@ -183,7 +183,7 @@ export async function createRouteUser() {
         if (!bouncer.canWriteUserUsername(user)) {
           return c.json(
             { success: false, message: "Unauthorized to change username" },
-            403
+            403,
           );
         }
 
@@ -194,7 +194,7 @@ export async function createRouteUser() {
         if (!bouncer.canWriteUserPassword(user)) {
           return c.json(
             { success: false, message: "Unauthorized to change password" },
-            403
+            403,
           );
         }
 
@@ -206,7 +206,7 @@ export async function createRouteUser() {
         if (!bouncer.canWriteUserPermissions(user)) {
           return c.json(
             { success: false, message: "Unauthorized to change permissions" },
-            403
+            403,
           );
         }
 

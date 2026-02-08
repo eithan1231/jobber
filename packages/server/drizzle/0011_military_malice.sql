@@ -1,0 +1,1 @@
+ALTER TABLE "oauthServiceClient" ADD COLUMN "permissions" jsonb NOT NULL DEFAULT '[]'::jsonb;

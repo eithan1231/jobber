@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+package Runner;
+
+service Runner {
+  rpc eventHttp(stream HttpEventRequest) returns (stream HttpEventResponse);
+  rpc eventMqtt(MqttEventRequest) returns (MqttEventResponse);
+  rpc eventSchedule(ScheduleEventRequest) returns (ScheduleEventResponse);
+}
+
+message HttpHeaders {
+  string name = 1;
+  string value = 2;
+}
+
+message HttpBody {
+  string id = 1;
+  uint64 seq = 2;
+  bytes data = 3;
+  bool end = 4;
+}
+
+message HttpRequestHead {
+  string id = 1;
+  string method = 2;
+  string scheme = 3;
+  string hostname = 4;
+  string path = 5;
+  repeated HttpHeaders headers = 6;
+}
+
+message HttpResponseHead {
+  string id = 1;
+  int32 status = 2;
+  repeated HttpHeaders headers = 3;
+}
+
+message HttpEventRequest {
+  oneof event {
+    HttpRequestHead req_head = 1;
+    HttpBody req_body = 2;
+  }
+}
+
+message HttpEventResponse {
+  oneof event {
+    HttpResponseHead res_head = 1;
+    HttpBody res_body = 2;
+  }
+}
+
+message MqttEventRequest {
+  string topic = 1;
+  bytes payload = 2;
+}
+
+message MqttEventResponse {
+  enum Status {
+    ACCEPTED = 0;
+    REJECTED = 1;
+  }
+
+  Status status = 1;
+}
+
+message ScheduleEventRequest {
+  string id = 1;
+  string name = 2;
+  uint64 scheduled_time = 3;
+}
+
+message ScheduleEventResponse {
+  enum Status {
+    ACCEPTED = 0;
+    REJECTED = 1;
+  }
+
+  Status status = 1;
+}

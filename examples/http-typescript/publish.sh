@@ -25,6 +25,7 @@ curl \
   --request POST \
   --url 'http://localhost:3000/api/job/publish/' \
   --header 'content-type: multipart/form-data' \
+  --header 'Authorization: Bearer eab549247662024701c92a1cdd4af07c45d8ebcd5acf73be0f7a242926a03e266ff174' \
   --form 'archive=@archive.zip;type=application/zip'
 
 rm archive.zip

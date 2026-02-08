@@ -19,7 +19,7 @@ import {
 import { InternalHonoApp } from "~/index.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { createMiddlewareResponseTime } from "~/middleware/response-time.js";
-import { PERMISSION_NONE } from "~/permissions.js";
+import { PERMISSION_NONE } from "@jobber/common/permissions.js";
 
 export async function createRouteAuth() {
   const app = new Hono<InternalHonoApp>();
@@ -31,7 +31,7 @@ export async function createRouteAuth() {
       if (!getConfigOption("AUTH_PUBLIC_LOGIN_ENABLED")) {
         return c.json(
           { success: false, message: "Public login is disabled" },
-          403
+          403,
         );
       }
 
@@ -57,7 +57,7 @@ export async function createRouteAuth() {
       if (!user) {
         return c.json(
           { success: false, message: "Invalid username or password" },
-          401
+          401,
         );
       }
 
@@ -66,7 +66,7 @@ export async function createRouteAuth() {
       if (!isValidPassword) {
         return c.json(
           { success: false, message: "Invalid username or password" },
-          401
+          401,
         );
       }
 
@@ -95,7 +95,7 @@ export async function createRouteAuth() {
           session: {},
         },
       });
-    }
+    },
   );
 
   app.post(
@@ -105,7 +105,7 @@ export async function createRouteAuth() {
       if (!getConfigOption("AUTH_PUBLIC_REGISTRATION_ENABLED")) {
         return c.json(
           { success: false, message: "Public registration is disabled" },
-          403
+          403,
         );
       }
 
@@ -131,7 +131,7 @@ export async function createRouteAuth() {
       if (existingUser) {
         return c.json(
           { success: false, message: "Username already exists" },
-          409
+          409,
         );
       }
 
@@ -151,7 +151,7 @@ export async function createRouteAuth() {
       if (!user) {
         return c.json(
           { success: false, message: "Failed to create user" },
-          500
+          500,
         );
       }
 
@@ -180,7 +180,7 @@ export async function createRouteAuth() {
           user: {},
         },
       });
-    }
+    },
   );
 
   app.get("/auth", createMiddlewareAuth(), async (c) => {

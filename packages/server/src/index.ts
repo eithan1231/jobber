@@ -1,7 +1,7 @@
 import "reflect-metadata";
 
-import "./jobber/log-drivers/index.js";
 import { LogDriverBase } from "./jobber/log-drivers/abstract.js";
+import "./jobber/log-drivers/index.js";
 import { RunnerManager } from "./jobber/runners/manager.js";
 import { Store } from "./jobber/store.js";
 import { Telemetry } from "./jobber/telemetry.js";
@@ -20,20 +20,23 @@ import { container } from "tsyringe";
 import { ZodError } from "zod";
 
 import { getDrizzle, getPool, runDrizzleMigration } from "./db/index.js";
-import { ApiTokensTableType } from "./db/schema/api-tokens.js";
-import { SessionsTableType } from "./db/schema/sessions.js";
 import {
   UserPasswordSchema,
   usersTable,
-  UsersTableType,
   UserUsernameSchema,
 } from "./db/schema/users.js";
 
+import { PERMISSION_SUPER } from "@jobber/common/permissions.js";
 import { getConfigOption } from "./config.js";
 import { cleanupLocks } from "./lock.js";
 import { getJobActionArchiveDirectory, getPgDumpDirectory } from "./paths.js";
-import { JobberPermissions, PERMISSION_SUPER } from "./permissions.js";
 
+import { Bouncer } from "./bouncer.js";
+import { USERNAME_ANONYMOUS } from "./constants.js";
+import { JobsTableType } from "./db/schema/jobs.js";
+import { GrpcServer } from "./grpc/index.js";
+import { PgBackup } from "./pg-backup.js";
+import { RateLimit } from "./rate-limit.js";
 import { createRouteApiTokens } from "./routes/api-tokens.js";
 import { createRouteAuth } from "./routes/auth.js";
 import { createRouteConfig } from "./routes/config.js";
@@ -48,11 +51,10 @@ import { createRouteJobStore } from "./routes/job/store.js";
 import { createRouteJobTriggers } from "./routes/job/triggers.js";
 import { createRouteVersions } from "./routes/job/versions.js";
 import { createRouteMetrics } from "./routes/metrics.js";
+import { createRouteOAuthAdmin } from "./routes/oauth-admin.js";
+import { createRouteOAuth } from "./routes/oauth.js";
 import { createRouteUser } from "./routes/user.js";
-import { USERNAME_ANONYMOUS } from "./constants.js";
-import { PgBackup } from "./pg-backup.js";
-import { Bouncer } from "./bouncer.js";
-import { JobsTableType } from "./db/schema/jobs.js";
+import { OAuthSigningKeys } from "./signing-keys.js";
 
 export type InternalHonoApp = {
   Variables: {
@@ -75,14 +77,14 @@ async function createInternalHono() {
             issue.path.at(0) === "request" &&
             (issue.path.at(1) === "body" ||
               issue.path.at(1) === "query" ||
-              issue.path.at(1) === "param")
+              issue.path.at(1) === "param"),
         )
       ) {
         return c.json({
           success: false,
           message: "Malformed request body",
           errors: err.errors.map(
-            (issue) => `${issue.path.join(".")} - ${issue.message}`
+            (issue) => `${issue.path.join(".")} - ${issue.message}`,
           ),
         });
       }
@@ -95,7 +97,7 @@ async function createInternalHono() {
         success: false,
         message: "Internal Server Error",
       },
-      500
+      500,
     );
   });
 
@@ -105,7 +107,7 @@ async function createInternalHono() {
         success: false,
         message: "Not Found",
       },
-      404
+      404,
     );
   });
 
@@ -124,14 +126,18 @@ async function createInternalHono() {
   app.route("/api/", await createRouteConfig());
   app.route("/api/", await createRouteVersions());
   app.route("/api/", await createRouteMetrics());
+  app.route("/api/", await createRouteOAuthAdmin());
 
-  app.get("/", async (c) => c.redirect("/jobber/"));
+  // Not within /api/ for compliance with OAuth 2.0 best practices.
+  app.route("/", await createRouteOAuth());
+
+  app.get("/", async (c) => c.redirect("/home/"));
 
   app.use(
     "/*",
     serveStatic({
       root: "./public",
-    })
+    }),
   );
 
   app.use(
@@ -139,7 +145,7 @@ async function createInternalHono() {
     serveStatic({
       path: "index.html",
       root: "./public/",
-    })
+    }),
   );
 
   return app;
@@ -176,7 +182,7 @@ async function createGatewayHono() {
 
       if (acceptHeader.includes("text/html")) {
         const badGatewayPage = await readFile(
-          "./src/static-templates/bad-gateway.html"
+          "./src/static-templates/bad-gateway.html",
         );
 
         return c.html(badGatewayPage.toString(), 502);
@@ -188,7 +194,7 @@ async function createGatewayHono() {
             success: false,
             message: `Jobber: Gateway error!`,
           },
-          502
+          502,
         );
       }
 
@@ -198,7 +204,7 @@ async function createGatewayHono() {
           502,
           {
             "Content-Type": "application/xml",
-          }
+          },
         );
       }
 
@@ -211,7 +217,7 @@ async function createGatewayHono() {
           success: false,
           message: `Jobber: Gateway Error! No HTTP response received.`,
         },
-        502
+        502,
       );
     }
 
@@ -220,7 +226,7 @@ async function createGatewayHono() {
     return c.body(
       Uint8Array.from(response.http.body).buffer,
       response.http.status as StatusCode,
-      response.http.headers
+      response.http.headers,
     );
   });
 
@@ -233,7 +239,7 @@ async function createStartupAccount() {
 
   if (!configUsername || !configPassword) {
     console.log(
-      "[createStartupAccount] No startup username or password configured. Skipping account creation."
+      "[createStartupAccount] No startup username or password configured. Skipping account creation.",
     );
 
     return;
@@ -244,7 +250,7 @@ async function createStartupAccount() {
 
   if (!parsedUsername.success || !parsedPassword.success) {
     console.error(
-      "[createStartupAccount] Invalid startup username or password. Please check your configuration."
+      "[createStartupAccount] Invalid startup username or password. Please check your configuration.",
     );
 
     return;
@@ -268,14 +274,14 @@ async function createStartupAccount() {
 
   if (!user) {
     console.log(
-      "[createStartupAccount] User already exists or could not be created."
+      "[createStartupAccount] User already exists or could not be created.",
     );
 
     return;
   }
 
   console.log(
-    `[createStartupAccount] Startup account created successfully: ${user.username}`
+    `[createStartupAccount] Startup account created successfully: ${user.username}`,
   );
 }
 
@@ -299,9 +305,102 @@ async function createAnonymousAccount() {
     });
 }
 
+// async function createApiTokenInternal() {
+//   // API token created for internal services, used for easy setup. Can be omitted for manual setup.
+
+//   const tokenValue = getConfigOption("API_TOKEN_INTERNAL");
+//   const tokenFlag = getConfigOption("API_TOKEN_INTERNAL_FLAG");
+
+//   if (tokenValue === null) {
+//     return;
+//   }
+
+//   const permissions: JobberPermissions = [];
+
+//   if (tokenFlag === "gateway-permissions") {
+//     // Allow gateway access to create JWTs for runners
+//     permissions.push({
+//       effect: "allow",
+//       resource: "grpc/runner-jwt",
+//       actions: ["read", "write", "delete"],
+//     });
+
+//     // Allow full job access
+//     permissions.push({
+//       effect: "allow",
+//       resource: "job",
+//       actions: ["read", "write", "delete"],
+//     });
+
+//     // Prevent from accessing job environment variables
+//     permissions.push({
+//       effect: "deny",
+//       resource: "job/*/environment",
+//       actions: ["read", "write", "delete"],
+//     });
+
+//     // Prevent from accessing job store
+//     permissions.push({
+//       effect: "deny",
+//       resource: "job/*/store",
+//       actions: ["read", "write", "delete"],
+//     });
+
+//     // Prevent publishing jobs
+//     permissions.push({
+//       effect: "deny",
+//       resource: "job/-/publish",
+//       actions: ["read", "write", "delete"],
+//     });
+
+//     // Prevent all API tokens management
+//     permissions.push({
+//       effect: "deny",
+//       resource: "api-tokens",
+//       actions: ["read", "write", "delete"],
+//     });
+
+//     // Prevent all user management
+//     permissions.push({
+//       effect: "deny",
+//       resource: "users",
+//       actions: ["read", "write", "delete"],
+//     });
+
+//     //
+//   }
+
+//   const anonymousUser = await userModel.byUsername(USERNAME_ANONYMOUS);
+
+//   if (!anonymousUser) {
+//     throw new Error("Anonymous user does not exist.");
+//   }
+
+//   await getDrizzle()
+//     .insert(apiTokensTable)
+//     .values({
+//       token: tokenValue,
+//       description: "Internal API Token",
+//       permissions,
+//       status: "enabled",
+//       expires: new Date("2099-12-31T23:59:59Z"),
+//       userId: anonymousUser.id,
+//     })
+//     .onConflictDoUpdate({
+//       target: apiTokensTable.token,
+//       set: {
+//         description: "Internal API Token",
+//         permissions,
+//         status: "enabled",
+//         expires: new Date("2099-12-31T23:59:59Z"),
+//         userId: anonymousUser.id,
+//       },
+//     });
+// }
+
 async function main() {
   console.log(
-    "WARNING: This is an experimental runtime, and issues ARE expected! Report any issue, or raise a PR with a fix. Issues WILL be investigated and fixed."
+    "WARNING: This is an experimental runtime, and issues ARE expected! Report any issue, or raise a PR with a fix. Issues WILL be investigated and fixed.",
   );
 
   console.log("[main] Initialising Database connection...");
@@ -327,13 +426,16 @@ async function main() {
   console.log(`[main] done.`);
   console.log(`[main] Starting db lock cleanup...`);
   await cleanupLocks();
-  const lockCleanupInterval = setInterval(async () => {
-    try {
-      await cleanupLocks();
-    } catch (err) {
-      console.error("[main] Error during lock cleanup:", err);
-    }
-  }, 1000 * 60 * 5); // Every 5 minutes
+  const lockCleanupInterval = setInterval(
+    async () => {
+      try {
+        await cleanupLocks();
+      } catch (err) {
+        console.error("[main] Error during lock cleanup:", err);
+      }
+    },
+    1000 * 60 * 5,
+  ); // Every 5 minutes
   console.log(`[main] done.`);
 
   console.log(`[main] Creating startup account...`);
@@ -343,6 +445,15 @@ async function main() {
   console.log(`[main] Creating anonymous account...`);
   await createAnonymousAccount();
   console.log(`[main] done.`);
+
+  console.log("[main] Initialising OAuth Signing Keys...");
+  const oauthSigningKeys = container.resolve(OAuthSigningKeys);
+  await oauthSigningKeys.start();
+  console.log(`[main] done.`);
+
+  // console.log(`[main] Creating internal API token...`);
+  // await createApiTokenInternal();
+  // console.log(`[main] done.`);
 
   console.log("[main] Starting pg backup service...");
   const pgBackup = container.resolve(PgBackup);
@@ -378,14 +489,24 @@ async function main() {
 
   console.log(`[main] Registering MQTT Publish Handler...`);
   runnerManager.registerMqttPublishHandler((...args) =>
-    triggerMqtt.publishMqttMessage(...args)
+    triggerMqtt.publishMqttMessage(...args),
   );
+  console.log(`[main] done.`);
+
+  console.log(`[main] Initialising rate limiter...`);
+  const rateLimit = container.resolve(RateLimit);
+  await rateLimit.start();
   console.log(`[main] done.`);
 
   console.log(`[main] Initialising telemetry...`);
   const telemetry = container.resolve(Telemetry);
   await telemetry.start();
   console.log(`[main] done.`);
+
+  console.log("[main] Initialising gRPC server...");
+  const grpcServer = container.resolve(GrpcServer);
+  await grpcServer.start();
+  console.log("[main] done.");
 
   console.log(`[main] Initialising APIs (API Internal, API Gateway)...`);
   const appInternal = await createInternalHono();
@@ -438,6 +559,10 @@ async function main() {
     await runnerManager.stop();
     console.log(`[signalRoutine] done.`);
 
+    console.log("[signalRoutine] Stopping gRPC server.");
+    await grpcServer.stop();
+    console.log("[signalRoutine] done.");
+
     console.log(`[signalRoutine] Stopping pg backup service.`);
     await pgBackup.stop();
     console.log(`[signalRoutine] done.`);
@@ -452,6 +577,14 @@ async function main() {
 
     console.log(`[signalRoutine] Closing API Gateway...`);
     serverGateway.close();
+    console.log(`[signalRoutine] done.`);
+
+    console.log(`[signalRoutine] Stopping rate limiter...`);
+    await rateLimit.stop();
+    console.log(`[signalRoutine] done.`);
+
+    console.log(`[signalRoutine] Stopping OAuth Signing Keys...`);
+    await oauthSigningKeys.stop();
     console.log(`[signalRoutine] done.`);
 
     console.log(`[signalRoutine] Ending Database connection...`);

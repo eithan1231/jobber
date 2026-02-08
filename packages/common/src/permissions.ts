@@ -1,4 +1,5 @@
 import { z } from "zod";
+
 export const JobberPermissionEffectSchema = z.enum(["allow", "deny"]);
 export const JobberPermissionActionSchema = z.enum(["read", "write", "delete"]);
 
@@ -47,7 +48,7 @@ export const PERMISSION_READ_ONLY: JobberPermissions = [
 export const canPerformAction = (
   permissions: JobberPermissions,
   resource: string,
-  action: JobberPermissionAction
+  action: JobberPermissionAction,
 ): boolean => {
   // Check for deny permissions first
   for (const permission of permissions) {

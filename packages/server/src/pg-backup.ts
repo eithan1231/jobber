@@ -1,7 +1,7 @@
 import { CronTime } from "cron";
 import { singleton } from "tsyringe";
 
-import { LoopBase } from "~/loop-base.js";
+import { LoopBase } from "@jobber/common";
 import { getConfigOption } from "./config.js";
 import { getPgDumpDirectory } from "./paths.js";
 

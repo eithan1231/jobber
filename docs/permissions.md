@@ -28,7 +28,7 @@ Example resource pattern: `job/*/actions`
 
 #### Job -> Store
 
-- `job/:jobId/store/:storeId` READ/DELETE
+- `job/:jobId/store` READ/WRITE/DELETE
 
 #### Job -> Triggers
 

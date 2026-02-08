@@ -6,7 +6,7 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
-import { JobberPermissions } from "~/permissions.js";
+import { JobberPermissions } from "@jobber/common/permissions.js";
 import { usersTable } from "./users.js";
 import { createToken } from "~/util.js";
 

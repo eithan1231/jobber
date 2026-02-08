@@ -8,7 +8,7 @@ import { jobVersionsTable } from "~/db/schema/job-versions.js";
 import { jobsTable } from "~/db/schema/jobs.js";
 import { InternalHonoApp } from "~/index.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
-import { canPerformAction } from "~/permissions.js";
+import { canPerformAction } from "@jobber/common/permissions.js";
 import { getUnixTimestamp } from "~/util.js";
 
 type PrometheusQueryResponse =
@@ -102,7 +102,7 @@ export async function createRouteJobMetrics() {
           success: false,
           message: "Metrics are not configured",
         },
-        500
+        500,
       );
     }
 
@@ -126,7 +126,7 @@ export async function createRouteJobMetrics() {
             success: false,
             message: "jobId, metric, and version are required",
           },
-          400
+          400,
         );
       }
 
@@ -146,8 +146,8 @@ export async function createRouteJobMetrics() {
           jobVersionsTable,
           and(
             eq(jobsTable.id, jobVersionsTable.jobId),
-            eq(jobsTable.jobVersionId, jobVersionsTable.id)
-          )
+            eq(jobsTable.jobVersionId, jobVersionsTable.id),
+          ),
         )
         .where(eq(jobsTable.id, jobId))
         .limit(1)
@@ -159,14 +159,14 @@ export async function createRouteJobMetrics() {
             success: false,
             message: "Job not found",
           },
-          404
+          404,
         );
       }
 
       if (!bouncer.canReadJob(job)) {
         return c.json(
           { success: false, message: "Insufficient Permissions" },
-          403
+          403,
         );
       }
 
@@ -177,7 +177,7 @@ export async function createRouteJobMetrics() {
               success: false,
               message: "Job does not have a version",
             },
-            400
+            400,
           );
         }
 
@@ -290,7 +290,7 @@ export async function createRouteJobMetrics() {
             success: false,
             message: `Metric "${metric}" is not supported`,
           },
-          400
+          400,
         );
       }
 
@@ -306,7 +306,7 @@ export async function createRouteJobMetrics() {
 
       if (result.status === "error") {
         console.error(
-          `Error querying Prometheus: ${result.errorType} - ${result.error}`
+          `Error querying Prometheus: ${result.errorType} - ${result.error}`,
         );
 
         return c.json(
@@ -315,7 +315,7 @@ export async function createRouteJobMetrics() {
             message: "Error querying Prometheus",
             error: result.error,
           },
-          500
+          500,
         );
       }
 
@@ -341,9 +341,9 @@ export async function createRouteJobMetrics() {
             };
           }),
         },
-        200
+        200,
       );
-    }
+    },
   );
 
   return app;

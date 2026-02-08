@@ -14,7 +14,7 @@ import { InternalHonoApp } from "~/index.js";
 import { classifyArchiveFile } from "~/jobber/images.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { getJobActionArchiveFile } from "~/paths.js";
-import { canPerformAction } from "~/permissions.js";
+import { canPerformAction } from "@jobber/common/permissions.js";
 import {
   createBenchmark,
   getTmpFile,
@@ -43,7 +43,7 @@ export async function createRouteJobPublish() {
       console.log("[/publish/] User does not have permission to publish jobs");
       return c.json(
         { success: false, message: "Insufficient Permissions" },
-        403
+        403,
       );
     }
 
@@ -65,7 +65,7 @@ export async function createRouteJobPublish() {
           success: false,
           message: "Expected file",
         },
-        400
+        400,
       );
     }
 
@@ -77,7 +77,7 @@ export async function createRouteJobPublish() {
           success: false,
           message: "Unexpected file type",
         },
-        400
+        400,
       );
     }
 
@@ -86,7 +86,7 @@ export async function createRouteJobPublish() {
 
     await handleReadableStreamPipe(
       archiveFile.stream() as ReadableStream,
-      writeStream
+      writeStream,
     );
 
     console.log(`[/publish/] ${benchmark()}ms - File streamed to disk`);
@@ -99,7 +99,7 @@ export async function createRouteJobPublish() {
           success: false,
           message: "Malformed archive file!",
         },
-        400
+        400,
       );
     }
 
@@ -158,7 +158,7 @@ export async function createRouteJobPublish() {
 
       if (!version) {
         console.log(
-          `[/publish/] Failed to create job version for ${job.jobName} v${packageJson.version}`
+          `[/publish/] Failed to create job version for ${job.jobName} v${packageJson.version}`,
         );
 
         return c.json({
@@ -169,7 +169,7 @@ export async function createRouteJobPublish() {
 
       if (version.created !== timestamp) {
         console.log(
-          `[/publish/] Job version ${job.jobName} v${packageJson.version} already exists, skipping action creation`
+          `[/publish/] Job version ${job.jobName} v${packageJson.version} already exists, skipping action creation`,
         );
 
         return c.json({
@@ -241,7 +241,7 @@ export async function createRouteJobPublish() {
               },
             });
           }
-        })
+        }),
       );
 
       if (action) {
@@ -250,7 +250,7 @@ export async function createRouteJobPublish() {
 
       if (query.allowAutomaticRollout) {
         console.log(
-          "[/publish/] Automatic rollout enabled, updating job version"
+          "[/publish/] Automatic rollout enabled, updating job version",
         );
 
         await tx
@@ -261,7 +261,7 @@ export async function createRouteJobPublish() {
           .where(eq(jobsTable.id, job.id));
       } else {
         console.log(
-          "[/publish/] Automatic rollout disabled, not updating job version"
+          "[/publish/] Automatic rollout disabled, not updating job version",
         );
       }
 

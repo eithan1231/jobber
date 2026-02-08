@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+import "base.proto";
+
+package GatewayAPI;
+
+service GatewayAPI {
+// 
+}

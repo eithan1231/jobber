@@ -1,0 +1,37 @@
+{
+  "name": "@jobber/common",
+  "version": "1.0.0",
+  "description": "Common utilities for Jobber Services",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./*": {
+      "types": "./dist/*",
+      "import": "./dist/*",
+      "require": "./dist/*"
+    },
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "type": "module",
+  "scripts": {
+    "build": "rimraf ./dist/* && tsc && tsc-alias -p tsconfig.json"
+  },
+  "keywords": [],
+  "author": "Eithan Hersey-Tuit",
+  "license": "MIT",
+  "dependencies": {
+    "@jobber/tcp-frame-socket": "workspace:*",
+    "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "@tsconfig/node20": "^20.1.4",
+    "@types/node": "^20.16.12",
+    "rimraf": "^5.0.10",
+    "tsc-alias": "^1.8.10",
+    "typescript": "^5.6.3"
+  }
+}

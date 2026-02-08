@@ -13,6 +13,12 @@ async function byId(id: string) {
   return job;
 }
 
+async function all() {
+  const jobs = await getDrizzle().select().from(jobsTable);
+  return jobs;
+}
+
 export const jobModel = {
   byId,
+  all,
 };

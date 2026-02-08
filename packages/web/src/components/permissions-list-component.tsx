@@ -1,11 +1,7 @@
-type Permission = {
-  effect: string;
-  resource: string;
-  actions: string[];
-};
+import { JobberPermissions } from "@jobber/common/permissions.js";
 
 type PermissionsListComponentProps = {
-  permissions: Permission[];
+  permissions: JobberPermissions;
 };
 
 export const PermissionsListComponent = ({

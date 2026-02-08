@@ -1,8 +1,9 @@
+import { LoopBase } from "@jobber/common";
 import assert from "assert";
 import { CronTime } from "cron";
 import { CronError } from "cron/dist/errors.js";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
-import { autoInjectable, inject, singleton } from "tsyringe";
+import { inject, singleton } from "tsyringe";
 import { getDrizzle } from "~/db/index.js";
 import { actionsTable, ActionsTableType } from "~/db/schema/actions.js";
 import {
@@ -11,7 +12,6 @@ import {
 } from "~/db/schema/job-versions.js";
 import { jobsTable, JobsTableType } from "~/db/schema/jobs.js";
 import { triggersTable, TriggersTableType } from "~/db/schema/triggers.js";
-import { LoopBase } from "~/loop-base.js";
 import { counterTriggerCron } from "~/metrics.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
 import { RunnerManager } from "../runners/manager.js";
