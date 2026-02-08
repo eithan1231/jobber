@@ -79,6 +79,30 @@ export async function createRouteOAuthAdmin() {
     });
   });
 
+  app.get("/oauth/signing-keys/:id", createMiddlewareAuth(), async (c) => {
+    const bouncer = c.get("bouncer")!;
+
+    const { id } = c.req.param();
+
+    const key = await oauthSigningKeyModel.byId(id);
+
+    if (!key) {
+      return c.json({ success: false, message: "Key not found" }, 404);
+    }
+
+    if (!bouncer.canReadOauthSigningKey(key)) {
+      return c.json(
+        { success: false, message: "Insufficient Permissions" },
+        403,
+      );
+    }
+
+    return c.json({
+      success: true,
+      data: censorKey(key),
+    });
+  });
+
   app.put("/oauth/signing-keys/:id", createMiddlewareAuth(), async (c) => {
     const bouncer = c.get("bouncer")!;
 
@@ -99,7 +123,7 @@ export async function createRouteOAuthAdmin() {
 
     const schema = z.object({
       status: z.enum(["active", "retiring", "inactive"]).optional(),
-      expiresAt: z.string().datetime().optional(),
+      expiresAt: z.string().datetime().nullable().optional(),
     });
 
     const body = await schema.parseAsync(await c.req.parseBody(), {
@@ -182,6 +206,33 @@ export async function createRouteOAuthAdmin() {
     return c.json({
       success: true,
       data: result,
+    });
+  });
+
+  app.get("/oauth/service-client/:id", createMiddlewareAuth(), async (c) => {
+    const bouncer = c.get("bouncer")!;
+
+    const { id } = c.req.param();
+
+    const client = await oauthServiceClientModel.byId(id);
+
+    if (!client) {
+      return c.json(
+        { success: false, message: "Service Client not found" },
+        404,
+      );
+    }
+
+    if (!bouncer.canReadOauthServiceClient(client)) {
+      return c.json(
+        { success: false, message: "Insufficient Permissions" },
+        403,
+      );
+    }
+
+    return c.json({
+      success: true,
+      data: censorServiceClient(client),
     });
   });
 

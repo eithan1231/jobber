@@ -16,6 +16,10 @@ import TokensTokenIdEditComponent from "./api-tokens/[tokenId]/edit";
 import TokensTokenIdLandingComponent from "./api-tokens/[tokenId]/landing";
 import TokensComponent from "./api-tokens/landing";
 import TokensNewComponent from "./api-tokens/new";
+import SigningKeysComponent from "./oauth/signing-keys/landing";
+import SigningKeyViewComponent from "./oauth/signing-keys/[signingKeyId]/view";
+import ServiceClientsComponent from "./oauth/service-clients/landing";
+import ServiceClientViewComponent from "./oauth/service-clients/[serviceClientId]/view";
 import JobIdEnvironmentComponent from "./jobs/[jobId]/environment";
 import JobIdLandingComponent from "./jobs/[jobId]/landing";
 import JobIdLogsComponent from "./jobs/[jobId]/logs";
@@ -205,6 +209,64 @@ const Component = () => {
                     API Tokens
                   </Link>
                 </PermissionGuardComponent>
+
+                <PermissionGuardComponent
+                  resource={`oauth/signing-key`}
+                  action="read"
+                >
+                  <Link
+                    to="/home/oauth/signing-keys/"
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      pathname.startsWith("/home/oauth/signing-keys")
+                        ? "bg-blue-600 text-white"
+                        : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                    }`}
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                      />
+                    </svg>
+                    Signing Keys
+                  </Link>
+                </PermissionGuardComponent>
+
+                <PermissionGuardComponent
+                  resource={`oauth/service-client`}
+                  action="read"
+                >
+                  <Link
+                    to="/home/oauth/service-clients/"
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      pathname.startsWith("/home/oauth/service-clients")
+                        ? "bg-blue-600 text-white"
+                        : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                    }`}
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
+                      />
+                    </svg>
+                    Service Clients
+                  </Link>
+                </PermissionGuardComponent>
               </nav>
 
               {sortedJobs && sortedJobs.length > 0 && (
@@ -303,6 +365,26 @@ export default {
     {
       path: "api-tokens/:tokenId/",
       Component: TokensTokenIdLandingComponent,
+    },
+
+    // OAUTH SIGNING KEYS
+    {
+      path: "oauth/signing-keys/",
+      Component: SigningKeysComponent,
+    },
+    {
+      path: "oauth/signing-keys/:signingKeyId/",
+      Component: SigningKeyViewComponent,
+    },
+
+    // OAUTH SERVICE CLIENTS
+    {
+      path: "oauth/service-clients/",
+      Component: ServiceClientsComponent,
+    },
+    {
+      path: "oauth/service-clients/:serviceClientId/",
+      Component: ServiceClientViewComponent,
     },
 
     // JOBS
