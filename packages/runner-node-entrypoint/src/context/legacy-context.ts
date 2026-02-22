@@ -1,36 +1,30 @@
-import { JobberHandlerRequest } from "./request.js";
-import { JobberHandlerResponse } from "./response.js";
-import { Runner } from "./runner.js";
+import { Runner } from "~/runner.js";
 
-export class JobberHandlerContext {
-  private runner: Runner;
-  private request: JobberHandlerRequest;
-  private response: JobberHandlerResponse;
-
-  constructor(
-    runner: Runner,
-    request: JobberHandlerRequest,
-    response: JobberHandlerResponse
-  ) {
-    this.runner = runner;
-    this.request = request;
-    this.response = response;
-  }
+export class LegacyContext {
+  constructor(private runner: Runner) {}
 
   public async setStore(key: string, value: string, option?: { ttl?: number }) {
-    return this.runner.sendStoreSet(key, value, option);
+    await this.runner.client.methods.setStoreItem({
+      jobId: this.runner.jobId,
+      key: key,
+      value: value,
+      ttl: option?.ttl,
+    });
   }
 
   public async setStoreJson<T = unknown>(
     key: string,
     value: T,
-    option?: { ttl?: number }
+    option?: { ttl?: number },
   ) {
     await this.setStore(key, JSON.stringify(value), option);
   }
 
   public async getStore(key: string) {
-    return this.runner.sendStoreGet(key);
+    return this.runner.client.methods.getStoreItem({
+      jobId: this.runner.jobId,
+      key: key,
+    });
   }
 
   public async getStoreJson<T = unknown>(key: string): Promise<T | null> {
@@ -50,26 +44,33 @@ export class JobberHandlerContext {
   }
 
   public async deleteStore(key: string) {
-    return await this.runner.sendStoreDelete(key);
+    return await this.runner.client.methods.deleteStoreItem({
+      jobId: this.runner.jobId,
+      key: key,
+    });
   }
 
   public async deleteStoreJson(key: string) {
-    await this.runner.sendStoreDelete(key);
+    await this.deleteStore(key);
   }
 
   public async publish(topic: string, body: Buffer | string | unknown) {
-    let payload: Buffer;
+    let payload: string;
 
     if (typeof body === "object" && !Buffer.isBuffer(body)) {
-      payload = Buffer.from(JSON.stringify(body));
+      payload = JSON.stringify(body);
     } else if (typeof body === "string") {
-      payload = Buffer.from(body);
-    } else if (Buffer.isBuffer(body)) {
       payload = body;
+    } else if (Buffer.isBuffer(body)) {
+      payload = body.toString("utf8");
     } else {
       throw new Error("Invalid body type for MQTT publish");
     }
 
-    return this.runner.sendMqttPublish(topic, payload);
+    return this.runner.client.methods.publishMqttMessage({
+      jobId: this.runner.jobId,
+      topic: topic,
+      payload: payload,
+    });
   }
 }

@@ -16,7 +16,7 @@ import {
   ServerReflection,
   ServerReflectionService,
 } from "nice-grpc-server-reflection";
-import { readFile } from "node:fs/promises";
+import { open, readFile } from "node:fs/promises";
 import { container, singleton } from "tsyringe";
 
 import { getConfigOption } from "~/config.js";
@@ -25,6 +25,7 @@ import * as grpcAction from "@jobber/grpc/basics/action.js";
 import * as grpcJobVersion from "@jobber/grpc/basics/job-version.js";
 import * as grpcJob from "@jobber/grpc/basics/job.js";
 import * as grpcTrigger from "@jobber/grpc/basics/trigger.js";
+import * as grpcRunner from "@jobber/grpc/basics/runner.js";
 
 import { actionsModel } from "~/db/actions.js";
 import { jobVersionsModel } from "~/db/job-versions.js";
@@ -39,6 +40,9 @@ import { OAuthSigningKeys } from "~/signing-keys.js";
 import { TriggerMqtt } from "~/jobber/triggers/mqtt.js";
 import { storeModel } from "~/db/store.js";
 import { getUnixTimestamp } from "~/util.js";
+import { getJobActionArchiveFile } from "~/paths.js";
+import { runnersModel } from "~/db/runners.js";
+import { RunnersTableType } from "~/db/schema/runners.js";
 
 const authorizedCall = <TRequest, TResponse>(
   callback: (
@@ -51,49 +55,53 @@ const authorizedCall = <TRequest, TResponse>(
     request: TRequest,
     context: CallContext,
   ): Promise<TResponse> => {
-    try {
-      const oauthSigningKeys = container.resolve(OAuthSigningKeys);
-      const oauthServiceClients = container.resolve(OAuthServiceClients);
-
-      let token = context.metadata.get("Authorization");
-
-      if (!token) {
-        console.log("gRPC Unauthorized error: No token provided");
-        throw new ServerError(Status.UNAUTHENTICATED, "Unauthenticated");
-      }
-
-      if (token.startsWith("Bearer ")) {
-        token = token.slice("Bearer ".length);
-      }
-
-      const jwks = createLocalJWKSet(await oauthSigningKeys.createJwksSet());
-
-      const { payload } = await jwtVerify(token, jwks, {
-        issuer: getConfigOption("OAUTH_ISSUER"),
-        audience: oauthServiceClients.getAudienceGeneralApi(),
-      });
-
-      const permissions = await JobberPermissionsSchema.parseAsync(
-        payload.permissions,
-      );
-
-      const bouncer = new BouncerBase(permissions);
-
-      return callback(request, context, bouncer);
-    } catch (err) {
-      if (err instanceof ServerError) {
-        throw err;
-      }
-
-      if (err instanceof joseErrors.JOSEError) {
-        console.log("gRPC Unauthorized error:", err);
-        throw new ServerError(Status.UNAUTHENTICATED, "Unauthenticated");
-      }
-
-      console.log("gRPC Internal server error:", err);
-      throw new ServerError(Status.INTERNAL, "Internal server error");
-    }
+    return callback(request, context, await getBouncer(context));
   };
+};
+
+const getBouncer = async (context: CallContext) => {
+  try {
+    const oauthSigningKeys = container.resolve(OAuthSigningKeys);
+    const oauthServiceClients = container.resolve(OAuthServiceClients);
+
+    let token = context.metadata.get("Authorization");
+
+    if (!token) {
+      console.log("gRPC Unauthorized error: No token provided");
+      throw new ServerError(Status.UNAUTHENTICATED, "Unauthenticated");
+    }
+
+    if (token.startsWith("Bearer ")) {
+      token = token.slice("Bearer ".length);
+    }
+
+    const jwks = createLocalJWKSet(await oauthSigningKeys.createJwksSet());
+
+    const { payload } = await jwtVerify(token, jwks, {
+      issuer: getConfigOption("OAUTH_ISSUER"),
+      audience: oauthServiceClients.getAudienceGeneralApi(),
+    });
+
+    const permissions = await JobberPermissionsSchema.parseAsync(
+      payload.permissions,
+    );
+
+    const bouncer = new BouncerBase(permissions);
+
+    return bouncer;
+  } catch (err) {
+    if (err instanceof ServerError) {
+      throw err;
+    }
+
+    if (err instanceof joseErrors.JOSEError) {
+      console.log("gRPC Unauthorized error:", err);
+      throw new ServerError(Status.UNAUTHENTICATED, "Unauthenticated");
+    }
+
+    console.log("gRPC Internal server error:", err);
+    throw new ServerError(Status.INTERNAL, "Internal server error");
+  }
 };
 
 const mapGrpcJob = (job: JobsTableType): grpcJob.Item => {
@@ -246,6 +254,19 @@ const mapGrpcJobVersion = (
   };
 };
 
+const mapGrpcJobRunner = (runner: RunnersTableType): grpcRunner.Item => {
+  return {
+    id: runner.id,
+    jobId: runner.jobId,
+    actionId: runner.actionId,
+    versionId: runner.jobVersionId,
+    createdAt: runner.createdAt.toISOString(),
+    readyAt: runner.readyAt?.toISOString() ?? undefined,
+    closingAt: runner.closingAt?.toISOString() ?? undefined,
+    closedAt: runner.closedAt?.toISOString() ?? undefined,
+  };
+};
+
 const generalApiDefinition: ServiceImplementation<GeneralAPIDefinition> = {
   getJob: authorizedCall(async (request, _context, bouncer) => {
     const job = await jobModel.byId(request.jobId);
@@ -390,8 +411,68 @@ const generalApiDefinition: ServiceImplementation<GeneralAPIDefinition> = {
     };
   }),
 
+  async *getJobVersionArchive(request, context) {
+    const bouncer = await getBouncer(context);
+
+    const [jobVersion, jobAction] = await Promise.all([
+      jobVersionsModel.byId(request.jobVersionId),
+      actionsModel.byVersionId(request.jobVersionId),
+    ]);
+
+    if (!jobVersion || !jobAction) {
+      throw new ServerError(Status.NOT_FOUND, "Job version not found");
+    }
+
+    if (!bouncer.canReadJobVersionArchive(jobVersion)) {
+      throw new ServerError(Status.PERMISSION_DENIED, "Permission denied");
+    }
+
+    const archiveFileName = getJobActionArchiveFile(jobVersion, jobAction);
+
+    const handle = await open(archiveFileName, "r");
+    const chunkSize = 1024 * 10;
+
+    try {
+      for (let seq = 0; ; seq++) {
+        const position = seq * chunkSize;
+
+        const buffer = Buffer.alloc(chunkSize);
+
+        const { bytesRead } = await handle.read({
+          buffer,
+          length: chunkSize,
+          position,
+        });
+
+        if (bytesRead < chunkSize) {
+          break;
+        }
+
+        yield {
+          seq,
+          data: buffer.subarray(0, bytesRead),
+          end: bytesRead < chunkSize,
+        };
+      }
+    } finally {
+      await handle.close();
+    }
+  },
+
   getRunner: authorizedCall(async (request, _context, bouncer) => {
-    throw new ServerError(Status.UNIMPLEMENTED, "Not implemented");
+    const runner = await runnersModel.byId(request.runnerId);
+
+    if (!runner) {
+      throw new ServerError(Status.NOT_FOUND, "Runner not found");
+    }
+
+    if (!bouncer.canReadJobRunners({ id: runner.jobId })) {
+      throw new ServerError(Status.PERMISSION_DENIED, "Permission denied");
+    }
+
+    return {
+      runner: mapGrpcJobRunner(runner),
+    };
   }),
 
   getRunners: authorizedCall(async (request, _context, bouncer) => {

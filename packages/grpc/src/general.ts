@@ -56,6 +56,18 @@ export interface JobVersionsResponse {
   jobVersions: Item1[];
 }
 
+/** getJobVersionArchive * */
+export interface JobVersionArchiveRequest {
+  jobId: string;
+  jobVersionId: string;
+}
+
+export interface JobVersionArchiveResponse {
+  seq: number;
+  data: Uint8Array;
+  end: boolean;
+}
+
 /** getJobAction * */
 export interface JobActionRequest {
   jobId: string;
@@ -612,6 +624,174 @@ export const JobVersionsResponse: MessageFns<JobVersionsResponse> = {
   fromPartial(object: DeepPartial<JobVersionsResponse>): JobVersionsResponse {
     const message = createBaseJobVersionsResponse();
     message.jobVersions = object.jobVersions?.map((e) => Item1.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBaseJobVersionArchiveRequest(): JobVersionArchiveRequest {
+  return { jobId: "", jobVersionId: "" };
+}
+
+export const JobVersionArchiveRequest: MessageFns<JobVersionArchiveRequest> = {
+  encode(message: JobVersionArchiveRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.jobId !== "") {
+      writer.uint32(10).string(message.jobId);
+    }
+    if (message.jobVersionId !== "") {
+      writer.uint32(18).string(message.jobVersionId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): JobVersionArchiveRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseJobVersionArchiveRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.jobId = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.jobVersionId = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): JobVersionArchiveRequest {
+    return {
+      jobId: isSet(object.jobId) ? globalThis.String(object.jobId) : "",
+      jobVersionId: isSet(object.jobVersionId) ? globalThis.String(object.jobVersionId) : "",
+    };
+  },
+
+  toJSON(message: JobVersionArchiveRequest): unknown {
+    const obj: any = {};
+    if (message.jobId !== "") {
+      obj.jobId = message.jobId;
+    }
+    if (message.jobVersionId !== "") {
+      obj.jobVersionId = message.jobVersionId;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<JobVersionArchiveRequest>): JobVersionArchiveRequest {
+    return JobVersionArchiveRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<JobVersionArchiveRequest>): JobVersionArchiveRequest {
+    const message = createBaseJobVersionArchiveRequest();
+    message.jobId = object.jobId ?? "";
+    message.jobVersionId = object.jobVersionId ?? "";
+    return message;
+  },
+};
+
+function createBaseJobVersionArchiveResponse(): JobVersionArchiveResponse {
+  return { seq: 0, data: new Uint8Array(0), end: false };
+}
+
+export const JobVersionArchiveResponse: MessageFns<JobVersionArchiveResponse> = {
+  encode(message: JobVersionArchiveResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.seq !== 0) {
+      writer.uint32(8).uint64(message.seq);
+    }
+    if (message.data.length !== 0) {
+      writer.uint32(18).bytes(message.data);
+    }
+    if (message.end !== false) {
+      writer.uint32(24).bool(message.end);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): JobVersionArchiveResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseJobVersionArchiveResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.seq = longToNumber(reader.uint64());
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.data = reader.bytes();
+          continue;
+        }
+        case 3: {
+          if (tag !== 24) {
+            break;
+          }
+
+          message.end = reader.bool();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): JobVersionArchiveResponse {
+    return {
+      seq: isSet(object.seq) ? globalThis.Number(object.seq) : 0,
+      data: isSet(object.data) ? bytesFromBase64(object.data) : new Uint8Array(0),
+      end: isSet(object.end) ? globalThis.Boolean(object.end) : false,
+    };
+  },
+
+  toJSON(message: JobVersionArchiveResponse): unknown {
+    const obj: any = {};
+    if (message.seq !== 0) {
+      obj.seq = Math.round(message.seq);
+    }
+    if (message.data.length !== 0) {
+      obj.data = base64FromBytes(message.data);
+    }
+    if (message.end !== false) {
+      obj.end = message.end;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<JobVersionArchiveResponse>): JobVersionArchiveResponse {
+    return JobVersionArchiveResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<JobVersionArchiveResponse>): JobVersionArchiveResponse {
+    const message = createBaseJobVersionArchiveResponse();
+    message.seq = object.seq ?? 0;
+    message.data = object.data ?? new Uint8Array(0);
+    message.end = object.end ?? false;
     return message;
   },
 };
@@ -2088,6 +2268,14 @@ export const GeneralAPIDefinition = {
       responseStream: false,
       options: {},
     },
+    getJobVersionArchive: {
+      name: "getJobVersionArchive",
+      requestType: JobVersionArchiveRequest,
+      requestStream: false,
+      responseType: JobVersionArchiveResponse,
+      responseStream: true,
+      options: {},
+    },
     getJobAction: {
       name: "getJobAction",
       requestType: JobActionRequest,
@@ -2183,6 +2371,10 @@ export interface GeneralAPIServiceImplementation<CallContextExt = {}> {
     request: JobVersionsRequest,
     context: CallContext & CallContextExt,
   ): Promise<DeepPartial<JobVersionsResponse>>;
+  getJobVersionArchive(
+    request: JobVersionArchiveRequest,
+    context: CallContext & CallContextExt,
+  ): ServerStreamingMethodResult<DeepPartial<JobVersionArchiveResponse>>;
   getJobAction(
     request: JobActionRequest,
     context: CallContext & CallContextExt,
@@ -2231,6 +2423,10 @@ export interface GeneralAPIClient<CallOptionsExt = {}> {
     request: DeepPartial<JobVersionsRequest>,
     options?: CallOptions & CallOptionsExt,
   ): Promise<JobVersionsResponse>;
+  getJobVersionArchive(
+    request: DeepPartial<JobVersionArchiveRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): AsyncIterable<JobVersionArchiveResponse>;
   getJobAction(
     request: DeepPartial<JobActionRequest>,
     options?: CallOptions & CallOptionsExt,
@@ -2268,6 +2464,31 @@ export interface GeneralAPIClient<CallOptionsExt = {}> {
   ): Promise<PublishMqttMessageResponse>;
 }
 
+function bytesFromBase64(b64: string): Uint8Array {
+  if ((globalThis as any).Buffer) {
+    return Uint8Array.from(globalThis.Buffer.from(b64, "base64"));
+  } else {
+    const bin = globalThis.atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; ++i) {
+      arr[i] = bin.charCodeAt(i);
+    }
+    return arr;
+  }
+}
+
+function base64FromBytes(arr: Uint8Array): string {
+  if ((globalThis as any).Buffer) {
+    return globalThis.Buffer.from(arr).toString("base64");
+  } else {
+    const bin: string[] = [];
+    arr.forEach((byte) => {
+      bin.push(globalThis.String.fromCharCode(byte));
+    });
+    return globalThis.btoa(bin.join(""));
+  }
+}
+
 type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
 
 export type DeepPartial<T> = T extends Builtin ? T
@@ -2276,9 +2497,22 @@ export type DeepPartial<T> = T extends Builtin ? T
   : T extends {} ? { [K in keyof T]?: DeepPartial<T[K]> }
   : Partial<T>;
 
+function longToNumber(int64: { toString(): string }): number {
+  const num = globalThis.Number(int64.toString());
+  if (num > globalThis.Number.MAX_SAFE_INTEGER) {
+    throw new globalThis.Error("Value is larger than Number.MAX_SAFE_INTEGER");
+  }
+  if (num < globalThis.Number.MIN_SAFE_INTEGER) {
+    throw new globalThis.Error("Value is smaller than Number.MIN_SAFE_INTEGER");
+  }
+  return num;
+}
+
 function isSet(value: any): boolean {
   return value !== null && value !== undefined;
 }
+
+export type ServerStreamingMethodResult<Response> = { [Symbol.asyncIterator](): AsyncIterator<Response, void> };
 
 export interface MessageFns<T> {
   encode(message: T, writer?: BinaryWriter): BinaryWriter;

@@ -5,7 +5,7 @@ import { getDrizzle } from "~/db/index.js";
 import { jobModel } from "~/db/job.js";
 import { jobsTable } from "~/db/schema/jobs.js";
 import { InternalHonoApp } from "~/index.js";
-import { RunnerManager } from "~/jobber/runners/manager.js";
+import { RunnerManager } from "~/jobber/runners/manager-legacy.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { canPerformAction } from "@jobber/common/permissions.js";
 

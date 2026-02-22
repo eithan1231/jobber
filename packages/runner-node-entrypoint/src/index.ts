@@ -1,49 +1,59 @@
-import { randomBytes } from "crypto";
-import { getArgument } from "./util.js";
 import { Runner } from "./runner.js";
-import assert from "assert";
+import { getArgument } from "./util.js";
 
 const main = async () => {
-  const jobRunnerIdentifier = getArgument("job-runner-identifier");
-  const jobControllerHost = getArgument("job-controller-host");
-  const jobControllerPort = Number(getArgument("job-controller-port"));
-  const jobDebug = getArgument("job-debug") === "true";
+  const runnerId = getArgument("runner-id");
+  const runnerClientId = getArgument("client-id");
+  const runnerClientSecret = getArgument("client-secret");
+  const runnerGeneralApiEndpoint = getArgument("general-api-endpoint");
+  const runnerOAuthTokenEndpoint = getArgument("oauth-token-endpoint");
+  const runnerOAuthJwksEndpoint = getArgument("oauth-jwks-endpoint");
+  const runnerOAuthIssuer = getArgument("oauth-issuer");
+  const runnerOAuthAudience = getArgument("oauth-audience");
+  const runnerApiPort = Number(getArgument("port"));
 
-  assert(jobRunnerIdentifier);
-  assert(jobControllerHost);
-  assert(jobControllerPort);
-
-  if (jobDebug) {
-    console.log("[main] Starting job runner with the following configuration:");
-    console.log(`  Job Runner Identifier: ${jobRunnerIdentifier}`);
-    console.log(`  Job Controller Host: ${jobControllerHost}`);
-    console.log(`  Job Controller Port: ${jobControllerPort}`);
-    console.log(`  Job Debug Mode: ${jobDebug ? "Enabled" : "Disabled"}`);
-  }
-
-  const jobber = new Runner(
-    jobControllerHost,
-    jobControllerPort,
-    jobRunnerIdentifier,
-    jobDebug,
+  const runnerDebug = ["true", "yes", "ok", "y"].includes(
+    getArgument("debug").toLowerCase(),
   );
 
-  await jobber.connect();
+  if (runnerDebug) {
+    console.log("[main] Starting runner with the following configuration:");
+    console.log(`  Runner Identifier: ${runnerId}`);
+    console.log(`  Runner Client ID: ${runnerClientId}`);
+    console.log(
+      `  Runner Client Secret: ${"*".repeat(runnerClientSecret.length)}`,
+    );
+    console.log(`  Runner General API: ${runnerGeneralApiEndpoint}`);
+    console.log(`  Runner Debug Mode: ${runnerDebug ? "Enabled" : "Disabled"}`);
+  }
 
-  const shutdownRoutine = async () => {
-    if (jobDebug) {
-      console.log("[main/shutdownRoutine] Shutdown signal received");
-    }
+  const runner = new Runner({
+    runnerId,
+    runnerClientId,
+    runnerClientSecret,
+    runnerGeneralApiEndpoint,
 
-    await jobber.onFrameShutdown(randomBytes(16).toString("hex"));
+    runnerOAuthTokenEndpoint,
+    runnerOAuthJwksEndpoint,
+    runnerOAuthIssuer,
+    runnerOAuthAudience,
+
+    runnerApiPort,
+
+    runnerDebug,
+  });
+
+  await runner.start();
+
+  const shutdown = async () => {
+    process.exit(0);
   };
 
   process.once("SIGTERM", async () => {
-    await shutdownRoutine();
+    await shutdown();
   });
-
   process.once("SIGINT", async () => {
-    await shutdownRoutine();
+    await shutdown();
   });
 };
 

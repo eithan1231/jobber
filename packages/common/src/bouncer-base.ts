@@ -112,6 +112,16 @@ export class BouncerBase {
     return this.can(`job/${version.jobId}/versions/${version.id}`, "read");
   }
 
+  public canReadJobVersionArchive(version: {
+    jobId: string;
+    id: string;
+  }): boolean {
+    return this.can(
+      `job/${version.jobId}/versions/${version.id}/archive`,
+      "read",
+    );
+  }
+
   public canJobPublish(): boolean {
     return this.can(`job/-/publish`, "write");
   }
@@ -229,5 +239,37 @@ export class BouncerBase {
    */
   public canPublishMqttMessage(job: { id: string }): boolean {
     return this.can(`special/job/${job.id}/publish-mqtt`, "write");
+  }
+
+  /**
+   * Used within runner
+   * SPECIAL: This is a special case to allow other services to read runner status
+   */
+  public canReadRunnerStatus(job: { id: string }): boolean {
+    return this.can(`special/job/${job.id}/runner-status`, "read");
+  }
+
+  /**
+   * Used within runner
+   * SPECIAL: This is a special case to allow runners to invoke HTTP events
+   */
+  public canInvokeRunnerHttpEvent(job: { id: string }): boolean {
+    return this.can(`special/job/${job.id}/invoke-http-event`, "write");
+  }
+
+  /**
+   * Used within runner
+   * SPECIAL: This is a special case to allow runners to invoke MQTT events
+   */
+  public canInvokeRunnerMqttEvent(job: { id: string }): boolean {
+    return this.can(`special/job/${job.id}/invoke-mqtt-event`, "write");
+  }
+
+  /**
+   * Used within runner
+   * SPECIAL: This is a special case to allow runners to invoke schedule events
+   */
+  public canInvokeRunnerScheduleEvent(job: { id: string }): boolean {
+    return this.can(`special/job/${job.id}/invoke-schedule-event`, "write");
   }
 }

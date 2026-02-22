@@ -6,20 +6,29 @@
   "types": "./dist/index.d.ts",
   "type": "module",
   "scripts": {
-    "build": "pnpm tsup"
+    "build": "pnpm tsdown"
   },
   "keywords": [],
   "author": "Eithan Hersey-Tuit",
   "license": "MIT",
   "dependencies": {
-    "@jobber/tcp-frame-socket": "workspace:*"
+    "@grpc/grpc-js": "^1.14.3",
+    "@grpc/proto-loader": "^0.8.0",
+    "@jobber/common": "workspace:*",
+    "@jobber/grpc": "workspace:*",
+    "@jobber/tcp-frame-socket": "workspace:*",
+    "jose": "^6.1.3",
+    "nice-grpc": "^2.1.14",
+    "nice-grpc-server-reflection": "^3.0.3"
   },
   "devDependencies": {
     "@tsconfig/node20": "^20.1.4",
     "@types/node": "^20.16.12",
+    "grpc-tools": "^1.13.1",
     "rimraf": "^5.0.10",
+    "ts-proto": "^2.10.1",
     "tsc-alias": "^1.8.10",
-    "tsup": "^8.3.5",
+    "tsdown": "^0.20.3",
     "typescript": "^5.6.3"
   }
 }

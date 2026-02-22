@@ -17,7 +17,7 @@ import { LoopBase } from "@jobber/common";
 import { counterTriggerMqtt, counterTriggerMqttPublish } from "~/metrics.js";
 import { createSha1Hash, shortenString } from "~/util.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
-import { RunnerManager } from "../runners/manager.js";
+import { RunnerManager } from "../runners/manager-legacy.js";
 import { inject, singleton } from "tsyringe";
 
 type TriggerMqttItem = {
@@ -47,7 +47,7 @@ export class TriggerMqtt extends LoopBase {
 
   constructor(
     @inject(RunnerManager) private runnerManager: RunnerManager,
-    @inject("LogDriverBase") private logger: LogDriverBase
+    @inject("LogDriverBase") private logger: LogDriverBase,
   ) {
     super();
   }
@@ -109,8 +109,8 @@ export class TriggerMqtt extends LoopBase {
     if (!trigger) {
       console.warn(
         `[TriggerMqtt/publishMqttMessage] MQTT trigger not found for job ID "${shortenString(
-          jobId
-        )}", cannot publish message to topic "${topic}"`
+          jobId,
+        )}", cannot publish message to topic "${topic}"`,
       );
 
       return false;
@@ -118,7 +118,7 @@ export class TriggerMqtt extends LoopBase {
 
     if (!trigger.client.connected) {
       console.warn(
-        `[TriggerMqtt/publishMqttMessage] MQTT client is not connected, cannot publish message to topic "${topic}"`
+        `[TriggerMqtt/publishMqttMessage] MQTT client is not connected, cannot publish message to topic "${topic}"`,
       );
 
       return false;
@@ -143,33 +143,33 @@ export class TriggerMqtt extends LoopBase {
         jobVersionsTable,
         and(
           eq(triggersTable.jobId, jobVersionsTable.jobId),
-          eq(triggersTable.jobVersionId, jobVersionsTable.id)
-        )
+          eq(triggersTable.jobVersionId, jobVersionsTable.id),
+        ),
       )
       .innerJoin(
         jobsTable,
         and(
           eq(triggersTable.jobId, jobsTable.id),
-          eq(triggersTable.jobVersionId, jobsTable.jobVersionId)
-        )
+          eq(triggersTable.jobVersionId, jobsTable.jobVersionId),
+        ),
       )
       .innerJoin(
         actionsTable,
         and(
           eq(triggersTable.jobId, actionsTable.jobId),
-          eq(triggersTable.jobVersionId, actionsTable.jobVersionId)
-        )
+          eq(triggersTable.jobVersionId, actionsTable.jobVersionId),
+        ),
       )
       .leftJoin(
         environmentsTable,
-        eq(environmentsTable.jobId, triggersTable.jobId)
+        eq(environmentsTable.jobId, triggersTable.jobId),
       )
       .where(
         and(
           isNotNull(jobsTable.jobVersionId),
           sql`${triggersTable.context} ->> 'type' = 'mqtt'`,
-          eq(jobsTable.status, "enabled")
-        )
+          eq(jobsTable.status, "enabled"),
+        ),
       );
 
     await this.loopCheckOldTriggers(triggers);
@@ -201,7 +201,7 @@ export class TriggerMqtt extends LoopBase {
       action: ActionsTableType;
       job: JobsTableType;
       environment: EnvironmentsTableType | null;
-    }[]
+    }[],
   ) {
     for (const [triggerId, trigger] of Object.entries(this.triggers)) {
       try {
@@ -237,7 +237,7 @@ export class TriggerMqtt extends LoopBase {
       action: ActionsTableType;
       job: JobsTableType;
       environment: EnvironmentsTableType | null;
-    }[]
+    }[],
   ) {
     for (const triggerSource of triggersSource) {
       const trigger = this.triggers[triggerSource.trigger.id];
@@ -249,7 +249,7 @@ export class TriggerMqtt extends LoopBase {
       try {
         const config = this.buildMqttConfig(
           triggerSource.trigger,
-          triggerSource.environment
+          triggerSource.environment,
         );
 
         if (!config.success) {
@@ -302,7 +302,7 @@ export class TriggerMqtt extends LoopBase {
       action: ActionsTableType;
       job: JobsTableType;
       environment: EnvironmentsTableType | null;
-    }[]
+    }[],
   ) {
     for (const triggerSource of triggersSource) {
       try {
@@ -314,13 +314,13 @@ export class TriggerMqtt extends LoopBase {
 
         const config = this.buildMqttConfig(
           triggerSource.trigger,
-          triggerSource.environment
+          triggerSource.environment,
         );
 
         if (!config.success) {
           console.warn(
             `[TriggerMqtt/loopCheckNewTriggers] Failed to build MQTT config! Errors...`,
-            config.errors
+            config.errors,
           );
 
           this.logger.write({
@@ -329,7 +329,7 @@ export class TriggerMqtt extends LoopBase {
             jobId: triggerSource.job.id,
             jobName: triggerSource.job.jobName,
             message: `[SYSTEM] MQTT Initialisation error! Configuration error: ${config.errorsSimple.join(
-              ", "
+              ", ",
             )}`,
             created: new Date(),
           });
@@ -342,7 +342,7 @@ export class TriggerMqtt extends LoopBase {
         await client.subscribeAsync(triggerSource.trigger.context.topics);
 
         client.on("message", async (topic, payload) =>
-          this.onMqttMessage(triggerSource.trigger.id, topic, payload)
+          this.onMqttMessage(triggerSource.trigger.id, topic, payload),
         );
 
         this.triggers[triggerSource.trigger.id] = {
@@ -390,7 +390,7 @@ export class TriggerMqtt extends LoopBase {
   private async onMqttMessage(
     triggerId: string,
     topic: string,
-    payload: Buffer
+    payload: Buffer,
   ) {
     const triggerItem = this.triggers[triggerId];
 
@@ -417,7 +417,7 @@ export class TriggerMqtt extends LoopBase {
           topic,
           body: payload.toString("base64"),
           bodyLength: payload.length,
-        }
+        },
       );
 
       counterTriggerMqtt
@@ -431,7 +431,7 @@ export class TriggerMqtt extends LoopBase {
 
       if (!handleResponse.success) {
         console.log(
-          `[TriggerMqtt/onMqttMessage] Sending MQTT handle event failed! topic "${topic}", error: ${handleResponse.error}`
+          `[TriggerMqtt/onMqttMessage] Sending MQTT handle event failed! topic "${topic}", error: ${handleResponse.error}`,
         );
 
         return;
@@ -445,12 +445,12 @@ export class TriggerMqtt extends LoopBase {
       for (const publishItem of handleResponse.mqtt.publish) {
         try {
           console.warn(
-            `[TriggerMqtt/onMqttMessage] Received deprecated publish event for topic "${topic}".`
+            `[TriggerMqtt/onMqttMessage] Received deprecated publish event for topic "${topic}".`,
           );
 
           if (!triggerItem.client.connected) {
             console.warn(
-              `[TriggerMqtt/onMqttMessage] MQTT client is not connected, cannot publish message to topic "${publishItem.topic}"`
+              `[TriggerMqtt/onMqttMessage] MQTT client is not connected, cannot publish message to topic "${publishItem.topic}"`,
             );
 
             this.logger.write({
@@ -485,7 +485,7 @@ export class TriggerMqtt extends LoopBase {
 
           await triggerItem.client.publishAsync(
             publishItem.topic,
-            publishItem.body
+            publishItem.body,
           );
         } catch (err) {
           console.error(err);
@@ -520,7 +520,7 @@ export class TriggerMqtt extends LoopBase {
 
   private buildMqttConfig(
     trigger: TriggersTableType,
-    environment: EnvironmentsTableType | null
+    environment: EnvironmentsTableType | null,
   ) {
     assert(trigger.context.type === "mqtt");
 
@@ -539,11 +539,11 @@ export class TriggerMqtt extends LoopBase {
           env[trigger.context.connection.clientIdVariable].value;
       } else {
         errors.push(
-          `MQTT Config Building: clientId from  environment failure, ${trigger.context.connection.clientIdVariable} missing`
+          `MQTT Config Building: clientId from  environment failure, ${trigger.context.connection.clientIdVariable} missing`,
         );
 
         errorsSimple.push(
-          `${trigger.context.connection.clientIdVariable} missing`
+          `${trigger.context.connection.clientIdVariable} missing`,
         );
       }
     }
@@ -555,7 +555,7 @@ export class TriggerMqtt extends LoopBase {
         result.host = env[trigger.context.connection.hostVariable].value;
       } else {
         errors.push(
-          `MQTT Config Building: host from  environment failure, ${trigger.context.connection.hostVariable} missing`
+          `MQTT Config Building: host from  environment failure, ${trigger.context.connection.hostVariable} missing`,
         );
 
         errorsSimple.push(`${trigger.context.connection.hostVariable} missing`);
@@ -570,11 +570,11 @@ export class TriggerMqtt extends LoopBase {
           env[trigger.context.connection.passwordVariable].value;
       } else {
         errors.push(
-          `MQTT Config Building: password from  environment failure, ${trigger.context.connection.passwordVariable} missing`
+          `MQTT Config Building: password from  environment failure, ${trigger.context.connection.passwordVariable} missing`,
         );
 
         errorsSimple.push(
-          `${trigger.context.connection.passwordVariable} missing`
+          `${trigger.context.connection.passwordVariable} missing`,
         );
       }
     }
@@ -584,11 +584,11 @@ export class TriggerMqtt extends LoopBase {
     } else if (trigger.context.connection.portVariable) {
       if (env[trigger.context.connection.portVariable]) {
         result.port = Number(
-          env[trigger.context.connection.portVariable].value
+          env[trigger.context.connection.portVariable].value,
         );
       } else {
         errors.push(
-          `MQTT Config Building: port from  environment failure, ${trigger.context.connection.portVariable} missing`
+          `MQTT Config Building: port from  environment failure, ${trigger.context.connection.portVariable} missing`,
         );
 
         errorsSimple.push(`${trigger.context.connection.portVariable} missing`);
@@ -597,11 +597,11 @@ export class TriggerMqtt extends LoopBase {
 
     if (Number.isNaN(result.port)) {
       errors.push(
-        `MQTT Config Building: port from  environment failure, ${trigger.context.connection.portVariable} expected valid number`
+        `MQTT Config Building: port from  environment failure, ${trigger.context.connection.portVariable} expected valid number`,
       );
 
       errorsSimple.push(
-        `${trigger.context.connection.portVariable} expected valid number`
+        `${trigger.context.connection.portVariable} expected valid number`,
       );
     }
 
@@ -613,11 +613,11 @@ export class TriggerMqtt extends LoopBase {
           .value as typeof result.protocol;
       } else {
         errors.push(
-          `MQTT Config Building: protocol from  environment failure, ${trigger.context.connection.protocolVariable} missing`
+          `MQTT Config Building: protocol from  environment failure, ${trigger.context.connection.protocolVariable} missing`,
         );
 
         errorsSimple.push(
-          `${trigger.context.connection.protocolVariable} missing`
+          `${trigger.context.connection.protocolVariable} missing`,
         );
       }
     }
@@ -630,11 +630,11 @@ export class TriggerMqtt extends LoopBase {
           env[trigger.context.connection.usernameVariable].value;
       } else {
         errors.push(
-          `MQTT Config Building: username from  environment failure, ${trigger.context.connection.usernameVariable} missing`
+          `MQTT Config Building: username from  environment failure, ${trigger.context.connection.usernameVariable} missing`,
         );
 
         errorsSimple.push(
-          `${trigger.context.connection.usernameVariable} missing`
+          `${trigger.context.connection.usernameVariable} missing`,
         );
       }
     }
@@ -656,7 +656,8 @@ export class TriggerMqtt extends LoopBase {
 
   private getMqttTriggerByJobId(jobId: string) {
     return Object.values(this.triggers).find(
-      (index) => index.job.id === jobId && index.trigger.context.type === "mqtt"
+      (index) =>
+        index.job.id === jobId && index.trigger.context.type === "mqtt",
     );
   }
 }

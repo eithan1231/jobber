@@ -5,14 +5,1542 @@
 // source: runner.proto
 
 /* eslint-disable */
+import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
+import type { CallContext, CallOptions } from "nice-grpc-common";
+import { Empty } from "./base.js";
 
 export const protobufPackage = "RunnerAPI";
 
+export interface BasicContext {
+  triggerName: string;
+}
+
+export interface HttpHeader {
+  name: string;
+  value: string;
+}
+
+export interface EventHttpRequest {
+  info?: BasicContext | undefined;
+  head?: EventHttpRequest_Head | undefined;
+  body?: EventHttpRequest_Body | undefined;
+}
+
+export interface EventHttpRequest_Head {
+  id: string;
+  method: string;
+  scheme: string;
+  hostname: string;
+  path: string;
+  query: string;
+  headers: HttpHeader[];
+}
+
+export interface EventHttpRequest_Body {
+  id: string;
+  seq: number;
+  data: Uint8Array;
+  end: boolean;
+}
+
+export interface EventHttpResponse {
+  head?: EventHttpResponse_Head | undefined;
+  body?: EventHttpResponse_Body | undefined;
+}
+
+export interface EventHttpResponse_Head {
+  id: string;
+  status: number;
+  headers: HttpHeader[];
+}
+
+export interface EventHttpResponse_Body {
+  id: string;
+  seq: number;
+  data: Uint8Array;
+  end: boolean;
+}
+
+export interface EventMqttRequest {
+  context: BasicContext | undefined;
+  topic: string;
+  payload: Uint8Array;
+}
+
+export interface EventMqttResponse {
+  status: EventMqttResponse_Status;
+}
+
+export const EventMqttResponse_Status = {
+  ACCEPTED: "ACCEPTED",
+  REJECTED: "REJECTED",
+  UNRECOGNIZED: "UNRECOGNIZED",
+} as const;
+
+export type EventMqttResponse_Status = typeof EventMqttResponse_Status[keyof typeof EventMqttResponse_Status];
+
+export namespace EventMqttResponse_Status {
+  export type ACCEPTED = typeof EventMqttResponse_Status.ACCEPTED;
+  export type REJECTED = typeof EventMqttResponse_Status.REJECTED;
+  export type UNRECOGNIZED = typeof EventMqttResponse_Status.UNRECOGNIZED;
+}
+
+export function eventMqttResponse_StatusFromJSON(object: any): EventMqttResponse_Status {
+  switch (object) {
+    case 0:
+    case "ACCEPTED":
+      return EventMqttResponse_Status.ACCEPTED;
+    case 1:
+    case "REJECTED":
+      return EventMqttResponse_Status.REJECTED;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return EventMqttResponse_Status.UNRECOGNIZED;
+  }
+}
+
+export function eventMqttResponse_StatusToJSON(object: EventMqttResponse_Status): string {
+  switch (object) {
+    case EventMqttResponse_Status.ACCEPTED:
+      return "ACCEPTED";
+    case EventMqttResponse_Status.REJECTED:
+      return "REJECTED";
+    case EventMqttResponse_Status.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
+export function eventMqttResponse_StatusToNumber(object: EventMqttResponse_Status): number {
+  switch (object) {
+    case EventMqttResponse_Status.ACCEPTED:
+      return 0;
+    case EventMqttResponse_Status.REJECTED:
+      return 1;
+    case EventMqttResponse_Status.UNRECOGNIZED:
+    default:
+      return -1;
+  }
+}
+
+export interface EventScheduleRequest {
+  context: BasicContext | undefined;
+  id: string;
+  name: string;
+}
+
+export interface EventScheduleResponse {
+  status: EventScheduleResponse_Status;
+}
+
+export const EventScheduleResponse_Status = {
+  ACCEPTED: "ACCEPTED",
+  REJECTED: "REJECTED",
+  UNRECOGNIZED: "UNRECOGNIZED",
+} as const;
+
+export type EventScheduleResponse_Status =
+  typeof EventScheduleResponse_Status[keyof typeof EventScheduleResponse_Status];
+
+export namespace EventScheduleResponse_Status {
+  export type ACCEPTED = typeof EventScheduleResponse_Status.ACCEPTED;
+  export type REJECTED = typeof EventScheduleResponse_Status.REJECTED;
+  export type UNRECOGNIZED = typeof EventScheduleResponse_Status.UNRECOGNIZED;
+}
+
+export function eventScheduleResponse_StatusFromJSON(object: any): EventScheduleResponse_Status {
+  switch (object) {
+    case 0:
+    case "ACCEPTED":
+      return EventScheduleResponse_Status.ACCEPTED;
+    case 1:
+    case "REJECTED":
+      return EventScheduleResponse_Status.REJECTED;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return EventScheduleResponse_Status.UNRECOGNIZED;
+  }
+}
+
+export function eventScheduleResponse_StatusToJSON(object: EventScheduleResponse_Status): string {
+  switch (object) {
+    case EventScheduleResponse_Status.ACCEPTED:
+      return "ACCEPTED";
+    case EventScheduleResponse_Status.REJECTED:
+      return "REJECTED";
+    case EventScheduleResponse_Status.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
+export function eventScheduleResponse_StatusToNumber(object: EventScheduleResponse_Status): number {
+  switch (object) {
+    case EventScheduleResponse_Status.ACCEPTED:
+      return 0;
+    case EventScheduleResponse_Status.REJECTED:
+      return 1;
+    case EventScheduleResponse_Status.UNRECOGNIZED:
+    default:
+      return -1;
+  }
+}
+
+export interface StatusResponse {
+  status: StatusResponse_Status;
+}
+
+export const StatusResponse_Status = {
+  STARTING: "STARTING",
+  READY: "READY",
+  CLOSING: "CLOSING",
+  CLOSED: "CLOSED",
+  FATAL: "FATAL",
+  UNRECOGNIZED: "UNRECOGNIZED",
+} as const;
+
+export type StatusResponse_Status = typeof StatusResponse_Status[keyof typeof StatusResponse_Status];
+
+export namespace StatusResponse_Status {
+  export type STARTING = typeof StatusResponse_Status.STARTING;
+  export type READY = typeof StatusResponse_Status.READY;
+  export type CLOSING = typeof StatusResponse_Status.CLOSING;
+  export type CLOSED = typeof StatusResponse_Status.CLOSED;
+  export type FATAL = typeof StatusResponse_Status.FATAL;
+  export type UNRECOGNIZED = typeof StatusResponse_Status.UNRECOGNIZED;
+}
+
+export function statusResponse_StatusFromJSON(object: any): StatusResponse_Status {
+  switch (object) {
+    case 0:
+    case "STARTING":
+      return StatusResponse_Status.STARTING;
+    case 1:
+    case "READY":
+      return StatusResponse_Status.READY;
+    case 2:
+    case "CLOSING":
+      return StatusResponse_Status.CLOSING;
+    case 3:
+    case "CLOSED":
+      return StatusResponse_Status.CLOSED;
+    case 4:
+    case "FATAL":
+      return StatusResponse_Status.FATAL;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return StatusResponse_Status.UNRECOGNIZED;
+  }
+}
+
+export function statusResponse_StatusToJSON(object: StatusResponse_Status): string {
+  switch (object) {
+    case StatusResponse_Status.STARTING:
+      return "STARTING";
+    case StatusResponse_Status.READY:
+      return "READY";
+    case StatusResponse_Status.CLOSING:
+      return "CLOSING";
+    case StatusResponse_Status.CLOSED:
+      return "CLOSED";
+    case StatusResponse_Status.FATAL:
+      return "FATAL";
+    case StatusResponse_Status.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
+export function statusResponse_StatusToNumber(object: StatusResponse_Status): number {
+  switch (object) {
+    case StatusResponse_Status.STARTING:
+      return 0;
+    case StatusResponse_Status.READY:
+      return 1;
+    case StatusResponse_Status.CLOSING:
+      return 2;
+    case StatusResponse_Status.CLOSED:
+      return 3;
+    case StatusResponse_Status.FATAL:
+      return 4;
+    case StatusResponse_Status.UNRECOGNIZED:
+    default:
+      return -1;
+  }
+}
+
+function createBaseBasicContext(): BasicContext {
+  return { triggerName: "" };
+}
+
+export const BasicContext: MessageFns<BasicContext> = {
+  encode(message: BasicContext, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.triggerName !== "") {
+      writer.uint32(10).string(message.triggerName);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): BasicContext {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseBasicContext();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.triggerName = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): BasicContext {
+    return { triggerName: isSet(object.triggerName) ? globalThis.String(object.triggerName) : "" };
+  },
+
+  toJSON(message: BasicContext): unknown {
+    const obj: any = {};
+    if (message.triggerName !== "") {
+      obj.triggerName = message.triggerName;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<BasicContext>): BasicContext {
+    return BasicContext.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<BasicContext>): BasicContext {
+    const message = createBaseBasicContext();
+    message.triggerName = object.triggerName ?? "";
+    return message;
+  },
+};
+
+function createBaseHttpHeader(): HttpHeader {
+  return { name: "", value: "" };
+}
+
+export const HttpHeader: MessageFns<HttpHeader> = {
+  encode(message: HttpHeader, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.name !== "") {
+      writer.uint32(10).string(message.name);
+    }
+    if (message.value !== "") {
+      writer.uint32(18).string(message.value);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): HttpHeader {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseHttpHeader();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.name = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.value = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): HttpHeader {
+    return {
+      name: isSet(object.name) ? globalThis.String(object.name) : "",
+      value: isSet(object.value) ? globalThis.String(object.value) : "",
+    };
+  },
+
+  toJSON(message: HttpHeader): unknown {
+    const obj: any = {};
+    if (message.name !== "") {
+      obj.name = message.name;
+    }
+    if (message.value !== "") {
+      obj.value = message.value;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<HttpHeader>): HttpHeader {
+    return HttpHeader.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<HttpHeader>): HttpHeader {
+    const message = createBaseHttpHeader();
+    message.name = object.name ?? "";
+    message.value = object.value ?? "";
+    return message;
+  },
+};
+
+function createBaseEventHttpRequest(): EventHttpRequest {
+  return { info: undefined, head: undefined, body: undefined };
+}
+
+export const EventHttpRequest: MessageFns<EventHttpRequest> = {
+  encode(message: EventHttpRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.info !== undefined) {
+      BasicContext.encode(message.info, writer.uint32(10).fork()).join();
+    }
+    if (message.head !== undefined) {
+      EventHttpRequest_Head.encode(message.head, writer.uint32(18).fork()).join();
+    }
+    if (message.body !== undefined) {
+      EventHttpRequest_Body.encode(message.body, writer.uint32(26).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): EventHttpRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventHttpRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.info = BasicContext.decode(reader, reader.uint32());
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.head = EventHttpRequest_Head.decode(reader, reader.uint32());
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.body = EventHttpRequest_Body.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventHttpRequest {
+    return {
+      info: isSet(object.info) ? BasicContext.fromJSON(object.info) : undefined,
+      head: isSet(object.head) ? EventHttpRequest_Head.fromJSON(object.head) : undefined,
+      body: isSet(object.body) ? EventHttpRequest_Body.fromJSON(object.body) : undefined,
+    };
+  },
+
+  toJSON(message: EventHttpRequest): unknown {
+    const obj: any = {};
+    if (message.info !== undefined) {
+      obj.info = BasicContext.toJSON(message.info);
+    }
+    if (message.head !== undefined) {
+      obj.head = EventHttpRequest_Head.toJSON(message.head);
+    }
+    if (message.body !== undefined) {
+      obj.body = EventHttpRequest_Body.toJSON(message.body);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventHttpRequest>): EventHttpRequest {
+    return EventHttpRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventHttpRequest>): EventHttpRequest {
+    const message = createBaseEventHttpRequest();
+    message.info = (object.info !== undefined && object.info !== null)
+      ? BasicContext.fromPartial(object.info)
+      : undefined;
+    message.head = (object.head !== undefined && object.head !== null)
+      ? EventHttpRequest_Head.fromPartial(object.head)
+      : undefined;
+    message.body = (object.body !== undefined && object.body !== null)
+      ? EventHttpRequest_Body.fromPartial(object.body)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseEventHttpRequest_Head(): EventHttpRequest_Head {
+  return { id: "", method: "", scheme: "", hostname: "", path: "", query: "", headers: [] };
+}
+
+export const EventHttpRequest_Head: MessageFns<EventHttpRequest_Head> = {
+  encode(message: EventHttpRequest_Head, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.id !== "") {
+      writer.uint32(10).string(message.id);
+    }
+    if (message.method !== "") {
+      writer.uint32(18).string(message.method);
+    }
+    if (message.scheme !== "") {
+      writer.uint32(26).string(message.scheme);
+    }
+    if (message.hostname !== "") {
+      writer.uint32(34).string(message.hostname);
+    }
+    if (message.path !== "") {
+      writer.uint32(42).string(message.path);
+    }
+    if (message.query !== "") {
+      writer.uint32(50).string(message.query);
+    }
+    for (const v of message.headers) {
+      HttpHeader.encode(v!, writer.uint32(90).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): EventHttpRequest_Head {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventHttpRequest_Head();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.id = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.method = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.scheme = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.hostname = reader.string();
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.path = reader.string();
+          continue;
+        }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          message.query = reader.string();
+          continue;
+        }
+        case 11: {
+          if (tag !== 90) {
+            break;
+          }
+
+          message.headers.push(HttpHeader.decode(reader, reader.uint32()));
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventHttpRequest_Head {
+    return {
+      id: isSet(object.id) ? globalThis.String(object.id) : "",
+      method: isSet(object.method) ? globalThis.String(object.method) : "",
+      scheme: isSet(object.scheme) ? globalThis.String(object.scheme) : "",
+      hostname: isSet(object.hostname) ? globalThis.String(object.hostname) : "",
+      path: isSet(object.path) ? globalThis.String(object.path) : "",
+      query: isSet(object.query) ? globalThis.String(object.query) : "",
+      headers: globalThis.Array.isArray(object?.headers) ? object.headers.map((e: any) => HttpHeader.fromJSON(e)) : [],
+    };
+  },
+
+  toJSON(message: EventHttpRequest_Head): unknown {
+    const obj: any = {};
+    if (message.id !== "") {
+      obj.id = message.id;
+    }
+    if (message.method !== "") {
+      obj.method = message.method;
+    }
+    if (message.scheme !== "") {
+      obj.scheme = message.scheme;
+    }
+    if (message.hostname !== "") {
+      obj.hostname = message.hostname;
+    }
+    if (message.path !== "") {
+      obj.path = message.path;
+    }
+    if (message.query !== "") {
+      obj.query = message.query;
+    }
+    if (message.headers?.length) {
+      obj.headers = message.headers.map((e) => HttpHeader.toJSON(e));
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventHttpRequest_Head>): EventHttpRequest_Head {
+    return EventHttpRequest_Head.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventHttpRequest_Head>): EventHttpRequest_Head {
+    const message = createBaseEventHttpRequest_Head();
+    message.id = object.id ?? "";
+    message.method = object.method ?? "";
+    message.scheme = object.scheme ?? "";
+    message.hostname = object.hostname ?? "";
+    message.path = object.path ?? "";
+    message.query = object.query ?? "";
+    message.headers = object.headers?.map((e) => HttpHeader.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBaseEventHttpRequest_Body(): EventHttpRequest_Body {
+  return { id: "", seq: 0, data: new Uint8Array(0), end: false };
+}
+
+export const EventHttpRequest_Body: MessageFns<EventHttpRequest_Body> = {
+  encode(message: EventHttpRequest_Body, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.id !== "") {
+      writer.uint32(10).string(message.id);
+    }
+    if (message.seq !== 0) {
+      writer.uint32(16).uint64(message.seq);
+    }
+    if (message.data.length !== 0) {
+      writer.uint32(26).bytes(message.data);
+    }
+    if (message.end !== false) {
+      writer.uint32(32).bool(message.end);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): EventHttpRequest_Body {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventHttpRequest_Body();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.id = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.seq = longToNumber(reader.uint64());
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.data = reader.bytes();
+          continue;
+        }
+        case 4: {
+          if (tag !== 32) {
+            break;
+          }
+
+          message.end = reader.bool();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventHttpRequest_Body {
+    return {
+      id: isSet(object.id) ? globalThis.String(object.id) : "",
+      seq: isSet(object.seq) ? globalThis.Number(object.seq) : 0,
+      data: isSet(object.data) ? bytesFromBase64(object.data) : new Uint8Array(0),
+      end: isSet(object.end) ? globalThis.Boolean(object.end) : false,
+    };
+  },
+
+  toJSON(message: EventHttpRequest_Body): unknown {
+    const obj: any = {};
+    if (message.id !== "") {
+      obj.id = message.id;
+    }
+    if (message.seq !== 0) {
+      obj.seq = Math.round(message.seq);
+    }
+    if (message.data.length !== 0) {
+      obj.data = base64FromBytes(message.data);
+    }
+    if (message.end !== false) {
+      obj.end = message.end;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventHttpRequest_Body>): EventHttpRequest_Body {
+    return EventHttpRequest_Body.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventHttpRequest_Body>): EventHttpRequest_Body {
+    const message = createBaseEventHttpRequest_Body();
+    message.id = object.id ?? "";
+    message.seq = object.seq ?? 0;
+    message.data = object.data ?? new Uint8Array(0);
+    message.end = object.end ?? false;
+    return message;
+  },
+};
+
+function createBaseEventHttpResponse(): EventHttpResponse {
+  return { head: undefined, body: undefined };
+}
+
+export const EventHttpResponse: MessageFns<EventHttpResponse> = {
+  encode(message: EventHttpResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.head !== undefined) {
+      EventHttpResponse_Head.encode(message.head, writer.uint32(10).fork()).join();
+    }
+    if (message.body !== undefined) {
+      EventHttpResponse_Body.encode(message.body, writer.uint32(18).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): EventHttpResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventHttpResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.head = EventHttpResponse_Head.decode(reader, reader.uint32());
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.body = EventHttpResponse_Body.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventHttpResponse {
+    return {
+      head: isSet(object.head) ? EventHttpResponse_Head.fromJSON(object.head) : undefined,
+      body: isSet(object.body) ? EventHttpResponse_Body.fromJSON(object.body) : undefined,
+    };
+  },
+
+  toJSON(message: EventHttpResponse): unknown {
+    const obj: any = {};
+    if (message.head !== undefined) {
+      obj.head = EventHttpResponse_Head.toJSON(message.head);
+    }
+    if (message.body !== undefined) {
+      obj.body = EventHttpResponse_Body.toJSON(message.body);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventHttpResponse>): EventHttpResponse {
+    return EventHttpResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventHttpResponse>): EventHttpResponse {
+    const message = createBaseEventHttpResponse();
+    message.head = (object.head !== undefined && object.head !== null)
+      ? EventHttpResponse_Head.fromPartial(object.head)
+      : undefined;
+    message.body = (object.body !== undefined && object.body !== null)
+      ? EventHttpResponse_Body.fromPartial(object.body)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseEventHttpResponse_Head(): EventHttpResponse_Head {
+  return { id: "", status: 0, headers: [] };
+}
+
+export const EventHttpResponse_Head: MessageFns<EventHttpResponse_Head> = {
+  encode(message: EventHttpResponse_Head, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.id !== "") {
+      writer.uint32(10).string(message.id);
+    }
+    if (message.status !== 0) {
+      writer.uint32(16).int32(message.status);
+    }
+    for (const v of message.headers) {
+      HttpHeader.encode(v!, writer.uint32(26).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): EventHttpResponse_Head {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventHttpResponse_Head();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.id = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.status = reader.int32();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.headers.push(HttpHeader.decode(reader, reader.uint32()));
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventHttpResponse_Head {
+    return {
+      id: isSet(object.id) ? globalThis.String(object.id) : "",
+      status: isSet(object.status) ? globalThis.Number(object.status) : 0,
+      headers: globalThis.Array.isArray(object?.headers) ? object.headers.map((e: any) => HttpHeader.fromJSON(e)) : [],
+    };
+  },
+
+  toJSON(message: EventHttpResponse_Head): unknown {
+    const obj: any = {};
+    if (message.id !== "") {
+      obj.id = message.id;
+    }
+    if (message.status !== 0) {
+      obj.status = Math.round(message.status);
+    }
+    if (message.headers?.length) {
+      obj.headers = message.headers.map((e) => HttpHeader.toJSON(e));
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventHttpResponse_Head>): EventHttpResponse_Head {
+    return EventHttpResponse_Head.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventHttpResponse_Head>): EventHttpResponse_Head {
+    const message = createBaseEventHttpResponse_Head();
+    message.id = object.id ?? "";
+    message.status = object.status ?? 0;
+    message.headers = object.headers?.map((e) => HttpHeader.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBaseEventHttpResponse_Body(): EventHttpResponse_Body {
+  return { id: "", seq: 0, data: new Uint8Array(0), end: false };
+}
+
+export const EventHttpResponse_Body: MessageFns<EventHttpResponse_Body> = {
+  encode(message: EventHttpResponse_Body, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.id !== "") {
+      writer.uint32(10).string(message.id);
+    }
+    if (message.seq !== 0) {
+      writer.uint32(16).uint64(message.seq);
+    }
+    if (message.data.length !== 0) {
+      writer.uint32(26).bytes(message.data);
+    }
+    if (message.end !== false) {
+      writer.uint32(32).bool(message.end);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): EventHttpResponse_Body {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventHttpResponse_Body();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.id = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.seq = longToNumber(reader.uint64());
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.data = reader.bytes();
+          continue;
+        }
+        case 4: {
+          if (tag !== 32) {
+            break;
+          }
+
+          message.end = reader.bool();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventHttpResponse_Body {
+    return {
+      id: isSet(object.id) ? globalThis.String(object.id) : "",
+      seq: isSet(object.seq) ? globalThis.Number(object.seq) : 0,
+      data: isSet(object.data) ? bytesFromBase64(object.data) : new Uint8Array(0),
+      end: isSet(object.end) ? globalThis.Boolean(object.end) : false,
+    };
+  },
+
+  toJSON(message: EventHttpResponse_Body): unknown {
+    const obj: any = {};
+    if (message.id !== "") {
+      obj.id = message.id;
+    }
+    if (message.seq !== 0) {
+      obj.seq = Math.round(message.seq);
+    }
+    if (message.data.length !== 0) {
+      obj.data = base64FromBytes(message.data);
+    }
+    if (message.end !== false) {
+      obj.end = message.end;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventHttpResponse_Body>): EventHttpResponse_Body {
+    return EventHttpResponse_Body.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventHttpResponse_Body>): EventHttpResponse_Body {
+    const message = createBaseEventHttpResponse_Body();
+    message.id = object.id ?? "";
+    message.seq = object.seq ?? 0;
+    message.data = object.data ?? new Uint8Array(0);
+    message.end = object.end ?? false;
+    return message;
+  },
+};
+
+function createBaseEventMqttRequest(): EventMqttRequest {
+  return { context: undefined, topic: "", payload: new Uint8Array(0) };
+}
+
+export const EventMqttRequest: MessageFns<EventMqttRequest> = {
+  encode(message: EventMqttRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.context !== undefined) {
+      BasicContext.encode(message.context, writer.uint32(10).fork()).join();
+    }
+    if (message.topic !== "") {
+      writer.uint32(18).string(message.topic);
+    }
+    if (message.payload.length !== 0) {
+      writer.uint32(26).bytes(message.payload);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): EventMqttRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventMqttRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.context = BasicContext.decode(reader, reader.uint32());
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.topic = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.payload = reader.bytes();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventMqttRequest {
+    return {
+      context: isSet(object.context) ? BasicContext.fromJSON(object.context) : undefined,
+      topic: isSet(object.topic) ? globalThis.String(object.topic) : "",
+      payload: isSet(object.payload) ? bytesFromBase64(object.payload) : new Uint8Array(0),
+    };
+  },
+
+  toJSON(message: EventMqttRequest): unknown {
+    const obj: any = {};
+    if (message.context !== undefined) {
+      obj.context = BasicContext.toJSON(message.context);
+    }
+    if (message.topic !== "") {
+      obj.topic = message.topic;
+    }
+    if (message.payload.length !== 0) {
+      obj.payload = base64FromBytes(message.payload);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventMqttRequest>): EventMqttRequest {
+    return EventMqttRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventMqttRequest>): EventMqttRequest {
+    const message = createBaseEventMqttRequest();
+    message.context = (object.context !== undefined && object.context !== null)
+      ? BasicContext.fromPartial(object.context)
+      : undefined;
+    message.topic = object.topic ?? "";
+    message.payload = object.payload ?? new Uint8Array(0);
+    return message;
+  },
+};
+
+function createBaseEventMqttResponse(): EventMqttResponse {
+  return { status: EventMqttResponse_Status.ACCEPTED };
+}
+
+export const EventMqttResponse: MessageFns<EventMqttResponse> = {
+  encode(message: EventMqttResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.status !== EventMqttResponse_Status.ACCEPTED) {
+      writer.uint32(8).int32(eventMqttResponse_StatusToNumber(message.status));
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): EventMqttResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventMqttResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.status = eventMqttResponse_StatusFromJSON(reader.int32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventMqttResponse {
+    return {
+      status: isSet(object.status)
+        ? eventMqttResponse_StatusFromJSON(object.status)
+        : EventMqttResponse_Status.ACCEPTED,
+    };
+  },
+
+  toJSON(message: EventMqttResponse): unknown {
+    const obj: any = {};
+    if (message.status !== EventMqttResponse_Status.ACCEPTED) {
+      obj.status = eventMqttResponse_StatusToJSON(message.status);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventMqttResponse>): EventMqttResponse {
+    return EventMqttResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventMqttResponse>): EventMqttResponse {
+    const message = createBaseEventMqttResponse();
+    message.status = object.status ?? EventMqttResponse_Status.ACCEPTED;
+    return message;
+  },
+};
+
+function createBaseEventScheduleRequest(): EventScheduleRequest {
+  return { context: undefined, id: "", name: "" };
+}
+
+export const EventScheduleRequest: MessageFns<EventScheduleRequest> = {
+  encode(message: EventScheduleRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.context !== undefined) {
+      BasicContext.encode(message.context, writer.uint32(10).fork()).join();
+    }
+    if (message.id !== "") {
+      writer.uint32(18).string(message.id);
+    }
+    if (message.name !== "") {
+      writer.uint32(26).string(message.name);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): EventScheduleRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventScheduleRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.context = BasicContext.decode(reader, reader.uint32());
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.id = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.name = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventScheduleRequest {
+    return {
+      context: isSet(object.context) ? BasicContext.fromJSON(object.context) : undefined,
+      id: isSet(object.id) ? globalThis.String(object.id) : "",
+      name: isSet(object.name) ? globalThis.String(object.name) : "",
+    };
+  },
+
+  toJSON(message: EventScheduleRequest): unknown {
+    const obj: any = {};
+    if (message.context !== undefined) {
+      obj.context = BasicContext.toJSON(message.context);
+    }
+    if (message.id !== "") {
+      obj.id = message.id;
+    }
+    if (message.name !== "") {
+      obj.name = message.name;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventScheduleRequest>): EventScheduleRequest {
+    return EventScheduleRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventScheduleRequest>): EventScheduleRequest {
+    const message = createBaseEventScheduleRequest();
+    message.context = (object.context !== undefined && object.context !== null)
+      ? BasicContext.fromPartial(object.context)
+      : undefined;
+    message.id = object.id ?? "";
+    message.name = object.name ?? "";
+    return message;
+  },
+};
+
+function createBaseEventScheduleResponse(): EventScheduleResponse {
+  return { status: EventScheduleResponse_Status.ACCEPTED };
+}
+
+export const EventScheduleResponse: MessageFns<EventScheduleResponse> = {
+  encode(message: EventScheduleResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.status !== EventScheduleResponse_Status.ACCEPTED) {
+      writer.uint32(8).int32(eventScheduleResponse_StatusToNumber(message.status));
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): EventScheduleResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEventScheduleResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.status = eventScheduleResponse_StatusFromJSON(reader.int32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EventScheduleResponse {
+    return {
+      status: isSet(object.status)
+        ? eventScheduleResponse_StatusFromJSON(object.status)
+        : EventScheduleResponse_Status.ACCEPTED,
+    };
+  },
+
+  toJSON(message: EventScheduleResponse): unknown {
+    const obj: any = {};
+    if (message.status !== EventScheduleResponse_Status.ACCEPTED) {
+      obj.status = eventScheduleResponse_StatusToJSON(message.status);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<EventScheduleResponse>): EventScheduleResponse {
+    return EventScheduleResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<EventScheduleResponse>): EventScheduleResponse {
+    const message = createBaseEventScheduleResponse();
+    message.status = object.status ?? EventScheduleResponse_Status.ACCEPTED;
+    return message;
+  },
+};
+
+function createBaseStatusResponse(): StatusResponse {
+  return { status: StatusResponse_Status.STARTING };
+}
+
+export const StatusResponse: MessageFns<StatusResponse> = {
+  encode(message: StatusResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.status !== StatusResponse_Status.STARTING) {
+      writer.uint32(8).int32(statusResponse_StatusToNumber(message.status));
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): StatusResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseStatusResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.status = statusResponse_StatusFromJSON(reader.int32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): StatusResponse {
+    return {
+      status: isSet(object.status) ? statusResponse_StatusFromJSON(object.status) : StatusResponse_Status.STARTING,
+    };
+  },
+
+  toJSON(message: StatusResponse): unknown {
+    const obj: any = {};
+    if (message.status !== StatusResponse_Status.STARTING) {
+      obj.status = statusResponse_StatusToJSON(message.status);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<StatusResponse>): StatusResponse {
+    return StatusResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<StatusResponse>): StatusResponse {
+    const message = createBaseStatusResponse();
+    message.status = object.status ?? StatusResponse_Status.STARTING;
+    return message;
+  },
+};
+
 export type RunnerAPIDefinition = typeof RunnerAPIDefinition;
-export const RunnerAPIDefinition = { name: "RunnerAPI", fullName: "RunnerAPI.RunnerAPI", methods: {} } as const;
+export const RunnerAPIDefinition = {
+  name: "RunnerAPI",
+  fullName: "RunnerAPI.RunnerAPI",
+  methods: {
+    eventHttp: {
+      name: "eventHttp",
+      requestType: EventHttpRequest,
+      requestStream: true,
+      responseType: EventHttpResponse,
+      responseStream: true,
+      options: {},
+    },
+    eventMqtt: {
+      name: "eventMqtt",
+      requestType: EventMqttRequest,
+      requestStream: false,
+      responseType: EventMqttResponse,
+      responseStream: false,
+      options: {},
+    },
+    eventSchedule: {
+      name: "eventSchedule",
+      requestType: EventScheduleRequest,
+      requestStream: false,
+      responseType: EventScheduleResponse,
+      responseStream: false,
+      options: {},
+    },
+    status: {
+      name: "status",
+      requestType: Empty,
+      requestStream: false,
+      responseType: StatusResponse,
+      responseStream: false,
+      options: {},
+    },
+  },
+} as const;
 
 export interface RunnerAPIServiceImplementation<CallContextExt = {}> {
+  eventHttp(
+    request: AsyncIterable<EventHttpRequest>,
+    context: CallContext & CallContextExt,
+  ): ServerStreamingMethodResult<DeepPartial<EventHttpResponse>>;
+  eventMqtt(request: EventMqttRequest, context: CallContext & CallContextExt): Promise<DeepPartial<EventMqttResponse>>;
+  eventSchedule(
+    request: EventScheduleRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<EventScheduleResponse>>;
+  status(request: Empty, context: CallContext & CallContextExt): Promise<DeepPartial<StatusResponse>>;
 }
 
 export interface RunnerAPIClient<CallOptionsExt = {}> {
+  eventHttp(
+    request: AsyncIterable<DeepPartial<EventHttpRequest>>,
+    options?: CallOptions & CallOptionsExt,
+  ): AsyncIterable<EventHttpResponse>;
+  eventMqtt(request: DeepPartial<EventMqttRequest>, options?: CallOptions & CallOptionsExt): Promise<EventMqttResponse>;
+  eventSchedule(
+    request: DeepPartial<EventScheduleRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<EventScheduleResponse>;
+  status(request: DeepPartial<Empty>, options?: CallOptions & CallOptionsExt): Promise<StatusResponse>;
+}
+
+function bytesFromBase64(b64: string): Uint8Array {
+  if ((globalThis as any).Buffer) {
+    return Uint8Array.from(globalThis.Buffer.from(b64, "base64"));
+  } else {
+    const bin = globalThis.atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; ++i) {
+      arr[i] = bin.charCodeAt(i);
+    }
+    return arr;
+  }
+}
+
+function base64FromBytes(arr: Uint8Array): string {
+  if ((globalThis as any).Buffer) {
+    return globalThis.Buffer.from(arr).toString("base64");
+  } else {
+    const bin: string[] = [];
+    arr.forEach((byte) => {
+      bin.push(globalThis.String.fromCharCode(byte));
+    });
+    return globalThis.btoa(bin.join(""));
+  }
+}
+
+type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
+
+export type DeepPartial<T> = T extends Builtin ? T
+  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
+  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
+  : T extends {} ? { [K in keyof T]?: DeepPartial<T[K]> }
+  : Partial<T>;
+
+function longToNumber(int64: { toString(): string }): number {
+  const num = globalThis.Number(int64.toString());
+  if (num > globalThis.Number.MAX_SAFE_INTEGER) {
+    throw new globalThis.Error("Value is larger than Number.MAX_SAFE_INTEGER");
+  }
+  if (num < globalThis.Number.MIN_SAFE_INTEGER) {
+    throw new globalThis.Error("Value is smaller than Number.MIN_SAFE_INTEGER");
+  }
+  return num;
+}
+
+function isSet(value: any): boolean {
+  return value !== null && value !== undefined;
+}
+
+export type ServerStreamingMethodResult<Response> = { [Symbol.asyncIterator](): AsyncIterator<Response, void> };
+
+export interface MessageFns<T> {
+  encode(message: T, writer?: BinaryWriter): BinaryWriter;
+  decode(input: BinaryReader | Uint8Array, length?: number): T;
+  fromJSON(object: any): T;
+  toJSON(message: T): unknown;
+  create(base?: DeepPartial<T>): T;
+  fromPartial(object: DeepPartial<T>): T;
 }

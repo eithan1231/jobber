@@ -13,7 +13,7 @@ export interface Item {
   id: string;
   jobId: string;
   actionId: string;
-  status: Item_Status;
+  versionId: string;
   createdAt: string;
   readyAt?: string | undefined;
   closingAt?: string | undefined;
@@ -96,7 +96,7 @@ function createBaseItem(): Item {
     id: "",
     jobId: "",
     actionId: "",
-    status: Item_Status.STARTING,
+    versionId: "",
     createdAt: "",
     readyAt: undefined,
     closingAt: undefined,
@@ -115,8 +115,8 @@ export const Item: MessageFns<Item> = {
     if (message.actionId !== "") {
       writer.uint32(26).string(message.actionId);
     }
-    if (message.status !== Item_Status.STARTING) {
-      writer.uint32(32).int32(item_StatusToNumber(message.status));
+    if (message.versionId !== "") {
+      writer.uint32(34).string(message.versionId);
     }
     if (message.createdAt !== "") {
       writer.uint32(90).string(message.createdAt);
@@ -165,11 +165,11 @@ export const Item: MessageFns<Item> = {
           continue;
         }
         case 4: {
-          if (tag !== 32) {
+          if (tag !== 34) {
             break;
           }
 
-          message.status = item_StatusFromJSON(reader.int32());
+          message.versionId = reader.string();
           continue;
         }
         case 11: {
@@ -218,7 +218,7 @@ export const Item: MessageFns<Item> = {
       id: isSet(object.id) ? globalThis.String(object.id) : "",
       jobId: isSet(object.jobId) ? globalThis.String(object.jobId) : "",
       actionId: isSet(object.actionId) ? globalThis.String(object.actionId) : "",
-      status: isSet(object.status) ? item_StatusFromJSON(object.status) : Item_Status.STARTING,
+      versionId: isSet(object.versionId) ? globalThis.String(object.versionId) : "",
       createdAt: isSet(object.createdAt) ? globalThis.String(object.createdAt) : "",
       readyAt: isSet(object.readyAt) ? globalThis.String(object.readyAt) : undefined,
       closingAt: isSet(object.closingAt) ? globalThis.String(object.closingAt) : undefined,
@@ -237,8 +237,8 @@ export const Item: MessageFns<Item> = {
     if (message.actionId !== "") {
       obj.actionId = message.actionId;
     }
-    if (message.status !== Item_Status.STARTING) {
-      obj.status = item_StatusToJSON(message.status);
+    if (message.versionId !== "") {
+      obj.versionId = message.versionId;
     }
     if (message.createdAt !== "") {
       obj.createdAt = message.createdAt;
@@ -263,7 +263,7 @@ export const Item: MessageFns<Item> = {
     message.id = object.id ?? "";
     message.jobId = object.jobId ?? "";
     message.actionId = object.actionId ?? "";
-    message.status = object.status ?? Item_Status.STARTING;
+    message.versionId = object.versionId ?? "";
     message.createdAt = object.createdAt ?? "";
     message.readyAt = object.readyAt ?? undefined;
     message.closingAt = object.closingAt ?? undefined;

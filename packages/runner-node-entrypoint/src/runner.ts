@@ -1,503 +1,216 @@
-import assert from "assert";
-import { randomBytes } from "crypto";
-import { readFile, writeFile } from "fs/promises";
-import { TcpFrameSocket } from "@jobber/tcp-frame-socket";
-import { getTmpFile, shortenString, timeout, unzip } from "./util.js";
-import { JobberHandlerRequest } from "./request.js";
-import { JobberHandlerResponse } from "./response.js";
-import { JobberHandlerContext } from "./context.js";
+import { RunnerClient } from "./runner-client.js";
+import { RunnerServer } from "./runner-server.js";
+import * as grpcRunner from "@jobber/grpc/basics/runner.js";
+import { fileExists, getTempFilePath, unzip } from "./util.js";
+import { open, readFile } from "node:fs/promises";
+import path from "node:path";
+import { validatePackageJson } from "./validator.js";
+import assert from "node:assert";
+import { HttpContext } from "./context/http.js";
+import { ScheduleContext } from "./context/schedule.js";
+import { MqttContext } from "./context/mqtt.js";
 
-type FrameJson = {
+export type RunnerOptions = {
   runnerId: string;
-  name: string;
-  traceId: string;
-  dataType: "buffer" | "json";
+  runnerClientId: string;
+  runnerClientSecret: string;
+  runnerGeneralApiEndpoint: string;
+
+  runnerOAuthTokenEndpoint: string;
+  runnerOAuthJwksEndpoint: string;
+  runnerOAuthIssuer: string;
+  runnerOAuthAudience: string;
+
+  runnerApiPort: number;
+
+  runnerDebug: boolean;
 };
 
-type StoreItem = {
-  key: string;
-  value: string;
-  expiry: number | null;
-  created: number;
-  modified: number;
+type Status = "pending" | "starting" | "running" | "closing";
+
+type RunnerExpectedModule = {
+  handler?: (
+    request: unknown,
+    response: unknown,
+    context: unknown,
+  ) => Promise<unknown> | unknown;
+
+  bootstrap?: () => Promise<void> | void;
+
+  handlerHttp?: (context: HttpContext) => Promise<unknown> | unknown;
+
+  handlerSchedule?: (context: ScheduleContext) => Promise<unknown> | unknown;
+
+  handlerMqtt?: (context: MqttContext) => Promise<unknown> | unknown;
 };
 
 export class Runner {
-  private hostname: string;
-  private port: number;
-  private runnerId: string;
-  private debug: boolean;
+  private _status: Status = "pending";
 
-  private isShuttingDown: boolean = false;
-  private handleRequestsProcessing: number = 0;
+  protected _server: RunnerServer;
 
-  private socket: TcpFrameSocket;
+  protected _client: RunnerClient;
 
-  private traceResponses = new Map<
-    string,
-    (frame: FrameJson, data: Buffer) => void
-  >();
+  private runnerInfo: grpcRunner.Item | null = null;
 
-  constructor(
-    hostname: string,
-    port: number,
-    runnerId: string,
-    debug: boolean
-  ) {
-    this.hostname = hostname;
-    this.port = port;
-    this.runnerId = runnerId;
-    this.debug = debug;
+  private _module: RunnerExpectedModule | null = null;
 
-    this.socket = new TcpFrameSocket();
+  constructor(private options: RunnerOptions) {
+    this._client = new RunnerClient(this, options);
 
-    this.socket.on("frame", (frame) => {
-      this.onFrame(frame);
-    });
-
-    this.socket.on("close", () => {
-      this.debugLog("[Runner] Received close events!");
-    });
+    this._server = new RunnerServer(this, options);
   }
 
-  async connect() {
-    await this.socket.connect({
-      host: this.hostname,
-      port: this.port,
+  async start() {
+    this._status = "starting";
+
+    await this._client.start();
+
+    await this._server.start();
+
+    await this.bootstrap();
+
+    this._status = "running";
+  }
+
+  async stop() {
+    this._status = "closing";
+
+    await this._server.stop();
+
+    await this._client.stop();
+
+    this._status = "pending";
+  }
+
+  async populateRunnerInfo() {
+    const runnerResponse = await this._client.methods.getRunner({
+      runnerId: this.options.runnerId,
     });
 
-    const traceId = `InitTraceId-${randomBytes(16).toString("hex")}`;
+    if (!runnerResponse || !runnerResponse.runner) {
+      throw new Error(`Runner with ID ${this.options.runnerId} not found`);
+    }
 
-    this.traceResponses.set(traceId, async (frame, data) => {
-      assert(frame.dataType === "buffer");
+    this.runnerInfo = runnerResponse.runner;
+  }
 
-      const zipFile = getTmpFile({ extension: "zip" });
-
-      await writeFile(zipFile, data);
-
-      await unzip(zipFile, process.cwd());
-
-      await this.writeFrame(
-        {
-          name: "ready",
-          runnerId: frame.runnerId,
-          traceId: `ready-${randomBytes(16).toString("hex")}`,
-          dataType: "buffer",
-        },
-        Buffer.alloc(0)
-      );
-
-      return;
-    });
-
-    await this.writeFrame(
-      {
-        name: "init",
-        traceId: traceId,
-        runnerId: this.runnerId,
-        dataType: "buffer",
-      },
-      Buffer.alloc(0)
+  async downloadArchive() {
+    assert(
+      this.runnerInfo,
+      "Runner info must be populated before bootstrapping",
     );
-  }
 
-  sendStoreSet(
-    key: string,
-    value: string,
-    option?: { ttl?: number }
-  ): Promise<StoreItem> {
-    const ttl = option?.ttl ?? null;
-
-    const traceId = `StoreSetTraceId-${randomBytes(24).toString("hex")}`;
-
-    return new Promise((resolve, reject) => {
-      let finished = false;
-
-      const timeoutHandle = setTimeout(() => {
-        if (finished) {
-          return;
-        }
-
-        finished = true;
-
-        this.traceResponses.delete(traceId);
-
-        return reject(new Error("Store set request timed out"));
-      }, 10000);
-
-      this.traceResponses.set(traceId, (frame, data) => {
-        assert(frame.dataType === "json");
-
-        if (finished) {
-          return;
-        }
-
-        finished = true;
-
-        clearTimeout(timeoutHandle);
-
-        this.traceResponses.delete(traceId);
-
-        const body = JSON.parse(data.toString()) as StoreItem;
-
-        return resolve(body);
-      });
-
-      this.writeFrame(
-        {
-          name: "store-set",
-          runnerId: this.runnerId,
-          dataType: "json",
-          traceId: traceId,
-        },
-        Buffer.from(
-          JSON.stringify({
-            key,
-            value,
-            ttl,
-          })
-        )
-      );
+    const archiveStream = this._client.methods.getJobVersionArchive({
+      jobVersionId: this.runnerInfo.versionId,
+      jobId: this.runnerInfo.jobId,
     });
-  }
 
-  sendStoreGet(key: string): Promise<StoreItem> {
-    const traceId = `StoreGetTraceId-${randomBytes(24).toString("hex")}`;
-
-    return new Promise((resolve, reject) => {
-      let finished = false;
-
-      const timeoutHandle = setTimeout(() => {
-        if (finished) {
-          return;
-        }
-
-        finished = true;
-
-        this.traceResponses.delete(traceId);
-
-        return reject(new Error("Store get request timed out"));
-      }, 10000);
-
-      this.traceResponses.set(traceId, (frame, data) => {
-        assert(frame.dataType === "json");
-
-        if (finished) {
-          return;
-        }
-
-        finished = true;
-
-        clearTimeout(timeoutHandle);
-
-        this.traceResponses.delete(traceId);
-
-        const body = JSON.parse(data.toString()) as StoreItem;
-
-        return resolve(body);
-      });
-
-      this.writeFrame(
-        {
-          name: "store-get",
-          runnerId: this.runnerId,
-          dataType: "json",
-          traceId: traceId,
-        },
-        Buffer.from(
-          JSON.stringify({
-            key,
-          })
-        )
-      );
+    const archiveFilename = getTempFilePath({
+      extension: "zip",
     });
-  }
 
-  sendStoreDelete(key: string): Promise<StoreItem> {
-    const traceId = `StoreDeleteTraceId-${randomBytes(24).toString("hex")}`;
-
-    return new Promise((resolve, reject) => {
-      let finished = false;
-
-      const timeoutHandle = setTimeout(() => {
-        if (finished) {
-          return;
-        }
-
-        finished = true;
-
-        this.traceResponses.delete(traceId);
-
-        return reject(new Error("Store delete request timed out"));
-      }, 10000);
-
-      this.traceResponses.set(traceId, (frame, data) => {
-        assert(frame.dataType === "json");
-
-        if (finished) {
-          return;
-        }
-
-        finished = true;
-
-        clearTimeout(timeoutHandle);
-
-        this.traceResponses.delete(traceId);
-
-        const body = JSON.parse(data.toString()) as StoreItem;
-
-        return resolve(body);
-      });
-
-      this.writeFrame(
-        {
-          name: "store-delete",
-          runnerId: this.runnerId,
-          dataType: "json",
-          traceId: traceId,
-        },
-        Buffer.from(
-          JSON.stringify({
-            key,
-          })
-        )
-      );
-    });
-  }
-
-  sendMqttPublish(topic: string, body: Buffer): Promise<boolean> {
-    const traceId = `MqttPublishTraceId-${randomBytes(24).toString("hex")}`;
-
-    return new Promise((resolve, reject) => {
-      let finished = false;
-
-      const timeoutHandle = setTimeout(() => {
-        if (finished) {
-          return;
-        }
-
-        finished = true;
-
-        this.traceResponses.delete(traceId);
-
-        return reject(new Error("MQTT publish request timed out"));
-      }, 10000);
-
-      this.traceResponses.set(traceId, (frame, data) => {
-        assert(frame.dataType === "json");
-
-        if (finished) {
-          return;
-        }
-
-        finished = true;
-
-        clearTimeout(timeoutHandle);
-
-        this.traceResponses.delete(traceId);
-
-        const result = JSON.parse(data.toString()) as boolean;
-
-        return resolve(result);
-      });
-
-      this.writeFrame(
-        {
-          name: "mqtt-publish",
-          runnerId: this.runnerId,
-          dataType: "json",
-          traceId: traceId,
-        },
-        Buffer.from(
-          JSON.stringify({
-            topic,
-            body: body.toString("base64"),
-          })
-        )
-      );
-    });
-  }
-
-  async writeFrame(frame: FrameJson, data: Buffer) {
-    const buffer = Buffer.concat([
-      Buffer.from(JSON.stringify(frame)),
-      Buffer.from("\n"),
-      data,
-    ]);
-
-    await this.socket.writeFrame(buffer);
-  }
-
-  async onFrame(buffer: Buffer) {
-    const separator = buffer.indexOf("\n");
-
-    assert(separator > 0);
-
-    const chunkJson = buffer.subarray(0, separator);
-    const bodyBuffer = buffer.subarray(separator + 1);
-
-    const frame = JSON.parse(chunkJson.toString("utf8")) as FrameJson;
-
-    if (frame.name === "response") {
-      const traceResponseCallback = this.traceResponses.get(frame.traceId);
-
-      if (!traceResponseCallback) {
-        return;
-      }
-
-      traceResponseCallback(frame, bodyBuffer);
-
-      return;
-    }
-
-    if (frame.name === "handle") {
-      if (this.isShuttingDown) {
-        console.warn(
-          `[Runner/onFrame] ${frame.name} event received while shutting down`
-        );
-
-        return;
-      }
-
-      assert(frame.dataType === "json");
-
-      const data = JSON.parse(bodyBuffer.toString());
-
-      await this.onFrameHandle(frame, data);
-
-      return;
-    }
-
-    if (frame.name === "shutdown") {
-      await this.onFrameShutdown(frame.traceId);
-
-      return;
-    }
-
-    throw new Error(`Unexpected transaction name ${frame.name}`);
-  }
-
-  async onFrameHandle(frame: FrameJson, data: any) {
-    const start = performance.now();
-
-    this.handleRequestsProcessing++;
-
-    this.debugLog(
-      `[Runner/onFrameHandle] Starting, traceId ${shortenString(frame.traceId)}`
-    );
+    const archiveHandle = await open(archiveFilename, "w");
 
     try {
-      const packageJson = JSON.parse(await readFile("./package.json", "utf8"));
+      for await (const chunk of archiveStream) {
+        await archiveHandle.write(chunk.data);
 
-      if (typeof packageJson.main !== "string") {
-        throw new Error(
-          "Failed to load package.json, property 'main' is not present or not a string"
-        );
+        if (chunk.end) {
+          await archiveHandle.close();
+        }
       }
 
-      const clientModule = await import(packageJson.main);
-
-      const jobberRequest = new JobberHandlerRequest(data);
-      const jobberResponse = new JobberHandlerResponse(jobberRequest);
-      const jobberContext = new JobberHandlerContext(
-        this,
-        jobberRequest,
-        jobberResponse
-      );
-
-      await clientModule.handler(jobberRequest, jobberResponse, jobberContext);
-
-      const responseData: any = {
-        success: true,
-        duration: performance.now() - start,
-      };
-
-      if (jobberRequest.type() === "http") {
-        assert(jobberResponse._body);
-
-        responseData.http = {
-          status: jobberResponse._status,
-          headers: jobberResponse._headers,
-          body: Buffer.concat(jobberResponse._body).toString("base64"),
-        };
-      }
-
-      if (jobberRequest.type() === "mqtt") {
-        assert(jobberResponse._publish);
-
-        // TODO: Remove this in a later revision, deprecated way of publishing MQTT events.
-        await Promise.all(
-          jobberResponse._publish.map(async (pub) => {
-            console.warn(`@deprecated publish ${pub.topic}`);
-            await this.sendMqttPublish(pub.topic, pub.body);
-          })
-        );
-      }
-
-      await this.writeFrame(
-        {
-          name: "response",
-          runnerId: this.runnerId,
-          traceId: frame.traceId,
-          dataType: "json",
-        },
-        Buffer.from(JSON.stringify(responseData))
-      );
-
-      this.debugLog(
-        "[Runner/onFrameHandle] Delivered response, traceId",
-        shortenString(frame.traceId)
-      );
+      return archiveFilename;
     } catch (err) {
-      if (!(err instanceof Error)) {
-        console.error(err);
-        return;
+      await archiveHandle.close();
+
+      throw err;
+    }
+  }
+
+  async bootstrap() {
+    await this.populateRunnerInfo();
+
+    const archiveFilename = await this.downloadArchive();
+
+    await unzip(archiveFilename, process.cwd());
+
+    const pathPackageJson = path.join(process.cwd(), "package.json");
+
+    if (!(await fileExists(pathPackageJson))) {
+      throw new Error("package.json not found in job archive");
+    }
+
+    const contentPackageJson = await readFile(pathPackageJson, "utf8");
+    const contentPackageJsonParsed = JSON.parse(contentPackageJson);
+    const contentPackageJsonValidated = validatePackageJson(
+      contentPackageJsonParsed,
+    );
+
+    if (!contentPackageJsonValidated.success) {
+      throw new Error(
+        `package.json validation failed: ${contentPackageJsonValidated.errors.join(
+          ", ",
+        )}`,
+      );
+    }
+
+    const pathMain = path.join(
+      process.cwd(),
+      contentPackageJsonValidated.data.main || "index.js",
+    );
+
+    const module = (await import(pathMain)) as RunnerExpectedModule;
+
+    // Validate it has at least one handler
+    if (
+      typeof module.handler !== "function" &&
+      typeof module.handlerHttp !== "function" &&
+      typeof module.handlerSchedule !== "function" &&
+      typeof module.handlerMqtt !== "function"
+    ) {
+      throw new Error(
+        "No handler function found. Please export a handler, handlerHttp, handlerSchedule, or handlerMqtt function.",
+      );
+    }
+
+    if (typeof module.bootstrap === "function") {
+      const bootstrapResult = module.bootstrap();
+
+      if (bootstrapResult instanceof Promise) {
+        await bootstrapResult;
       }
-
-      this.debugLog(
-        "[Runner/onFrameHandle] Failed due to error, traceId",
-        shortenString(frame.traceId)
-      );
-
-      console.error(err);
-
-      await this.writeFrame(
-        {
-          name: "response",
-          runnerId: this.runnerId,
-          traceId: frame.traceId,
-          dataType: "json",
-        },
-        Buffer.from(
-          JSON.stringify({
-            success: false,
-            duration: performance.now() - start,
-            error: err.toString(),
-          })
-        )
-      );
-    } finally {
-      this.handleRequestsProcessing--;
     }
+
+    this._module = module;
   }
 
-  async onFrameShutdown(traceId: string) {
-    this.debugLog("[Runner/onFrameShutdown] Starting shutdown routine");
-
-    this.isShuttingDown = true;
-
-    while (this.handleRequestsProcessing > 0) {
-      await timeout(100);
-    }
-
-    this.socket.end(() => {
-      process.exit();
-    });
+  public get status() {
+    return this._status;
   }
 
-  private debugLog(...args: any[]) {
-    if (this.debug) {
-      console.log("[Runner]", ...args);
+  public get server() {
+    return this._server;
+  }
+
+  public get client() {
+    return this._client;
+  }
+
+  public get module() {
+    if (!this._module) {
+      throw new Error("Module not loaded yet");
     }
+
+    return this._module;
+  }
+
+  public get jobId() {
+    if (!this.runnerInfo) {
+      throw new Error("Runner info not loaded yet");
+    }
+
+    return this.runnerInfo.jobId;
   }
 }

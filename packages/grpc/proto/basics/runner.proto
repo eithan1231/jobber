@@ -13,7 +13,7 @@ message Item {
   string id = 1;
   string jobId = 2;
   string actionId = 3;
-  Status status = 4;
+  string versionId = 4;
 
   reserved 5 to 10;
 

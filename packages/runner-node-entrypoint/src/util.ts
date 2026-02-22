@@ -1,42 +1,69 @@
-import { spawn } from "child_process";
-import { randomBytes } from "crypto";
-import { tmpdir } from "os";
-import path from "path";
+import { spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
+import { tmpdir } from "node:os";
+import { stat } from "node:fs/promises";
+import path from "node:path";
 
-export const getArgument = (name: string) => {
-  const index = process.argv.indexOf(`--${name}`);
+export function getUnixTimestamp() {
+  return Math.floor(Date.now() / 1000);
+}
 
-  if (index < 0) {
-    return null;
+export function getArgument(name: string): string {
+  const arg = process.argv.find((arg) => arg.startsWith(`--${name}=`));
+
+  if (!arg) {
+    throw new Error(`Argument --${name} is required`);
   }
 
-  if (typeof process.argv[index + 1] === "undefined") {
-    return null;
+  return arg.split("=", 2)[1];
+}
+
+export function getTempFilePath({
+  prefix = "jobber",
+  extension = ".tmp",
+  length = 16,
+} = {}) {
+  let filename = "";
+
+  if (prefix) {
+    filename += prefix;
+    filename += "-";
   }
 
-  return process.argv[index + 1];
-};
+  filename += randomBytes(length).toString("hex");
 
-export const timeout = (ms: number) =>
-  new Promise((resolve) => setTimeout(resolve, ms));
-
-export const getUnixTimestamp = () => Math.round(Date.now() / 1000);
-
-export const shortenString = (input: string, maxLength = 20) => {
-  if (input.length > maxLength) {
-    return `${input.substring(0, maxLength - 5)}...${input.substring(
-      input.length - 5
-    )}`;
+  if (extension) {
+    filename += ".";
+    filename += extension;
   }
 
-  return input;
-};
+  return path.join(tmpdir(), extension);
+}
 
-export const unzip = (
+export async function fileExists(path: string) {
+  try {
+    await stat(path);
+    return true;
+  } catch (err) {
+    if (err instanceof Error) {
+      if (
+        "code" in err &&
+        typeof err.code === "string" &&
+        err.code === "ENOENT"
+      ) {
+        return false;
+      }
+    }
+
+    throw err;
+  }
+}
+
+export function unzip(
   source: string,
   destination: string,
-  timeout: number = 60
-) => {
+  timeout: number = 60,
+) {
   return new Promise((resolve, reject) => {
     const logs: string[] = [];
 
@@ -61,7 +88,7 @@ export const unzip = (
       ],
       {
         stdio: "pipe",
-      }
+      },
     );
 
     proc.stderr.on("data", (data) => logs.push(data.toString()));
@@ -99,14 +126,4 @@ export const unzip = (
       throw new Error(`[unzip] Failed with exit code ${code}`);
     });
   });
-};
-
-export const getTmpFile = ({ extension = "", length = 16 }) => {
-  let filename = randomBytes(length).toString("hex");
-
-  if (extension) {
-    filename += `.${extension}`;
-  }
-
-  return path.join(tmpdir(), filename);
-};
+}

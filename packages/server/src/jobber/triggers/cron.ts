@@ -14,7 +14,7 @@ import { jobsTable, JobsTableType } from "~/db/schema/jobs.js";
 import { triggersTable, TriggersTableType } from "~/db/schema/triggers.js";
 import { counterTriggerCron } from "~/metrics.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
-import { RunnerManager } from "../runners/manager.js";
+import { RunnerManager } from "../runners/manager-legacy.js";
 
 type TriggerCronItem = {
   trigger: TriggersTableType;
@@ -45,7 +45,7 @@ export class TriggerCron extends LoopBase {
 
   constructor(
     @inject(RunnerManager) private runnerManager: RunnerManager,
-    @inject("LogDriverBase") private logger: LogDriverBase
+    @inject("LogDriverBase") private logger: LogDriverBase,
   ) {
     super();
   }
@@ -93,29 +93,29 @@ export class TriggerCron extends LoopBase {
         jobVersionsTable,
         and(
           eq(triggersTable.jobId, jobVersionsTable.jobId),
-          eq(triggersTable.jobVersionId, jobVersionsTable.id)
-        )
+          eq(triggersTable.jobVersionId, jobVersionsTable.id),
+        ),
       )
       .innerJoin(
         jobsTable,
         and(
           eq(triggersTable.jobId, jobsTable.id),
-          eq(triggersTable.jobVersionId, jobsTable.jobVersionId)
-        )
+          eq(triggersTable.jobVersionId, jobsTable.jobVersionId),
+        ),
       )
       .innerJoin(
         actionsTable,
         and(
           eq(triggersTable.jobId, actionsTable.jobId),
-          eq(triggersTable.jobVersionId, actionsTable.jobVersionId)
-        )
+          eq(triggersTable.jobVersionId, actionsTable.jobVersionId),
+        ),
       )
       .where(
         and(
           isNotNull(jobsTable.jobVersionId),
           sql`${triggersTable.context} ->> 'type' = 'schedule'`,
-          eq(jobsTable.status, "enabled")
-        )
+          eq(jobsTable.status, "enabled"),
+        ),
       );
 
     await this.loopCheckNewTriggers(triggers);
@@ -132,7 +132,7 @@ export class TriggerCron extends LoopBase {
       trigger: TriggersTableType;
       action: ActionsTableType;
       job: JobsTableType;
-    }[]
+    }[],
   ) {
     for (const triggerSource of triggersSource) {
       if (this.triggers[triggerSource.trigger.id]) {
@@ -144,7 +144,7 @@ export class TriggerCron extends LoopBase {
       try {
         const cron = new CronTime(
           triggerSource.trigger.context.cron,
-          triggerSource.trigger.context.timezone
+          triggerSource.trigger.context.timezone,
         );
 
         this.triggers[triggerSource.trigger.id] = {
@@ -168,7 +168,7 @@ export class TriggerCron extends LoopBase {
           };
 
           console.log(
-            `[TriggerCron/loopCheckNewTriggers] Invalid cron syntax for trigger ${triggerSource.trigger.id} on job ${triggerSource.job.id}: ${err.message}`
+            `[TriggerCron/loopCheckNewTriggers] Invalid cron syntax for trigger ${triggerSource.trigger.id} on job ${triggerSource.job.id}: ${err.message}`,
           );
 
           this.logger.write({
@@ -196,7 +196,7 @@ export class TriggerCron extends LoopBase {
       trigger: TriggersTableType;
       action: ActionsTableType;
       job: JobsTableType;
-    }[]
+    }[],
   ) {
     for (const [triggerId, trigger] of Object.entries(this.triggers)) {
       if (triggersSource.some((index) => index.trigger.id === triggerId)) {
@@ -216,7 +216,7 @@ export class TriggerCron extends LoopBase {
       trigger: TriggersTableType;
       action: ActionsTableType;
       job: JobsTableType;
-    }[]
+    }[],
   ) {
     const time = Date.now();
 
@@ -252,7 +252,7 @@ export class TriggerCron extends LoopBase {
 
           if (!handleResponse.success) {
             console.log(
-              `[TriggerCron/loopCheckTriggers] Sending schedule handle event failed! ${handleResponse.error}`
+              `[TriggerCron/loopCheckTriggers] Sending schedule handle event failed! ${handleResponse.error}`,
             );
 
             return;

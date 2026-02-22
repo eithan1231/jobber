@@ -9,12 +9,12 @@ export function getJobActionArchiveDirectory() {
 }
 
 export function getJobActionArchiveFile(
-  version: JobVersionsTableType,
-  action: ActionsTableType
+  version: Pick<JobVersionsTableType, "jobId" | "version">,
+  action: Pick<ActionsTableType, "id">,
 ) {
   return path.join(
     getJobActionArchiveDirectory(),
-    sanitiseFilename(`${version.version}_${action.id}.zip`)
+    sanitiseFilename(`${version.version}_${action.id}.zip`),
   );
 }
 

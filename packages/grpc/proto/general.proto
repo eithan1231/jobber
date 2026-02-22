@@ -17,6 +17,7 @@ service GeneralAPI {
 
   rpc getJobVersion(JobVersionRequest) returns (JobVersionResponse);
   rpc getJobVersions(JobVersionsRequest) returns (JobVersionsResponse);
+  rpc getJobVersionArchive(JobVersionArchiveRequest) returns (stream JobVersionArchiveResponse);
   
   rpc getJobAction(JobActionRequest) returns (JobActionResponse);
   rpc getJobActions(JobActionsRequest) returns (JobActionsResponse);
@@ -30,6 +31,7 @@ service GeneralAPI {
   rpc getStoreItem(StoreItemRequest) returns (StoreItemResponse);
   rpc setStoreItem(SetStoreItemRequest) returns (SetStoreItemResponse);
   rpc deleteStoreItem(DeleteStoreItemRequest) returns (DeleteStoreItemResponse);
+
 
   // This will likely be migrated to its own service similar to the GatewayAPI
   rpc publishMqttMessage(PublishMqttMessageRequest) returns (PublishMqttMessageResponse);
@@ -66,6 +68,18 @@ message JobVersionsRequest {
 }
 message JobVersionsResponse {
   repeated JobVersion.Item jobVersions = 1;
+}
+
+
+/** getJobVersionArchive **/
+message JobVersionArchiveRequest {
+  string jobId = 1;
+  string jobVersionId = 2;
+}
+message JobVersionArchiveResponse {
+  uint64 seq = 1;
+  bytes data = 2;
+  bool end = 3;
 }
 
 

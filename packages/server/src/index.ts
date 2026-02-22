@@ -2,7 +2,7 @@ import "reflect-metadata";
 
 import { LogDriverBase } from "./jobber/log-drivers/abstract.js";
 import "./jobber/log-drivers/index.js";
-import { RunnerManager } from "./jobber/runners/manager.js";
+import { RunnerManager } from "./jobber/runners/manager-legacy.js";
 import { Store } from "./jobber/store.js";
 import { Telemetry } from "./jobber/telemetry.js";
 import { TriggerCron } from "./jobber/triggers/cron.js";

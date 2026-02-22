@@ -11,7 +11,7 @@ import { triggersTable, TriggersTableType } from "~/db/schema/triggers.js";
 import { LoopBase } from "@jobber/common";
 import { counterTriggerHttp } from "~/metrics.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
-import { RunnerManager } from "../runners/manager.js";
+import { RunnerManager } from "../runners/manager-legacy.js";
 import { HandleRequest, HandleRequestHttp } from "../runners/server.js";
 import { inject, singleton } from "tsyringe";
 
@@ -38,7 +38,7 @@ export class TriggerHttp extends LoopBase {
 
   constructor(
     @inject(RunnerManager) private runnerManager: RunnerManager,
-    @inject("LogDriverBase") private logger: LogDriverBase
+    @inject("LogDriverBase") private logger: LogDriverBase,
   ) {
     super();
   }
@@ -79,29 +79,29 @@ export class TriggerHttp extends LoopBase {
         jobVersionsTable,
         and(
           eq(triggersTable.jobId, jobVersionsTable.jobId),
-          eq(triggersTable.jobVersionId, jobVersionsTable.id)
-        )
+          eq(triggersTable.jobVersionId, jobVersionsTable.id),
+        ),
       )
       .innerJoin(
         jobsTable,
         and(
           eq(triggersTable.jobId, jobsTable.id),
-          eq(triggersTable.jobVersionId, jobsTable.jobVersionId)
-        )
+          eq(triggersTable.jobVersionId, jobsTable.jobVersionId),
+        ),
       )
       .innerJoin(
         actionsTable,
         and(
           eq(triggersTable.jobId, actionsTable.jobId),
-          eq(triggersTable.jobVersionId, actionsTable.jobVersionId)
-        )
+          eq(triggersTable.jobVersionId, actionsTable.jobVersionId),
+        ),
       )
       .where(
         and(
           isNotNull(jobsTable.jobVersionId),
           sql`${triggersTable.context} ->> 'type' = 'http'`,
-          eq(jobsTable.status, "enabled")
-        )
+          eq(jobsTable.status, "enabled"),
+        ),
       );
 
     await this.loopCheckNewTriggers(triggers);
@@ -118,7 +118,7 @@ export class TriggerHttp extends LoopBase {
       | "path"
       | "queries"
       | "query"
-    >
+    >,
   ) {
     for (const [triggerId, trigger] of Object.entries(this.triggers)) {
       const headerHost = request.headers["host"];
@@ -161,7 +161,7 @@ export class TriggerHttp extends LoopBase {
         trigger.version,
         trigger.job,
         trigger.action,
-        handleRequest
+        handleRequest,
       );
 
       if (result.success && result.http?.status) {
@@ -198,7 +198,7 @@ export class TriggerHttp extends LoopBase {
       trigger: TriggersTableType;
       action: ActionsTableType;
       job: JobsTableType;
-    }[]
+    }[],
   ) {
     for (const triggerSource of triggersSource) {
       if (this.triggers[triggerSource.trigger.id]) {
@@ -222,7 +222,7 @@ export class TriggerHttp extends LoopBase {
 
       this.triggers[triggerSource.trigger.id] = {
         trigger: structuredClone(
-          triggerSource.trigger
+          triggerSource.trigger,
         ) as TriggerHttpItem["trigger"],
         triggerPathRegex,
         triggerPathString,
@@ -251,7 +251,7 @@ export class TriggerHttp extends LoopBase {
       trigger: TriggersTableType;
       action: ActionsTableType;
       job: JobsTableType;
-    }[]
+    }[],
   ) {
     for (const [triggerId, trigger] of Object.entries(this.triggers)) {
       if (triggersSource.some((index) => index.trigger.id === triggerId)) {
