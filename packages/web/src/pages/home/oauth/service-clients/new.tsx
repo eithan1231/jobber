@@ -2,6 +2,7 @@ import { MouseEvent, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   JobberPermissions,
+  PERMISSION_GATEWAY,
   PERMISSION_NONE,
 } from "@jobber/common/permissions.js";
 import { createOAuthServiceClient } from "../../../../api/oauth-admin";
@@ -107,6 +108,15 @@ const Component = () => {
     setLoading(false);
   };
 
+  const handlePrefillGateway = () => {
+    setPayloadName("jobber-gateway-" + crypto.randomUUID().slice(0, 8));
+    setPayloadDescription("Service client for Jobber Gateway");
+    setPayloadAudiences("jobber-api\njobber-runner:*");
+    setPayloadScopes("");
+    setPayloadPermissions(JSON.stringify(PERMISSION_GATEWAY, null, 2));
+    setPayloadTtl(TTL_OPTIONS[0].value);
+  };
+
   return (
     <PermissionGuardComponent resource="oauth/service-client" action="write">
       <HomePageComponent title="New Service Client">
@@ -125,13 +135,37 @@ const Component = () => {
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
             {/* Header */}
             <div className="bg-gradient-to-r from-teal-50 to-cyan-50 px-6 py-6 border-b border-gray-200">
-              <h1 className="text-xl font-bold text-gray-900">
-                Create Service Client
-              </h1>
-              <p className="text-sm text-gray-600 mt-1">
-                Create a new OAuth service client for machine-to-machine
-                authentication
-              </p>
+              <div className="flex items-start justify-between">
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">
+                    Create Service Client
+                  </h1>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Create a new OAuth service client for machine-to-machine
+                    authentication
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handlePrefillGateway}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-teal-700 bg-teal-100 hover:bg-teal-200 rounded-md transition-colors"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                    />
+                  </svg>
+                  Prefill for Gateway
+                </button>
+              </div>
             </div>
 
             {/* Success Message */}

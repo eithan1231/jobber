@@ -14,7 +14,7 @@ import { jobsTable, JobsTableType } from "~/db/schema/jobs.js";
 import { triggersTable, TriggersTableType } from "~/db/schema/triggers.js";
 import { counterTriggerCron } from "~/metrics.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
-import { RunnerManager } from "../runners/manager-legacy.js";
+import { RunnerManager } from "../runners/manager.js";
 
 type TriggerCronItem = {
   trigger: TriggersTableType;
@@ -233,34 +233,34 @@ export class TriggerCron extends LoopBase {
 
       assert(trigger.trigger.context.type === "schedule");
 
-      this.runnerManager
-        .sendHandleRequest(trigger.version, trigger.job, trigger.action, {
-          type: "schedule",
-          name: trigger.trigger.context.name,
-          cron: trigger.trigger.context.cron,
-          timezone: trigger.trigger.context.timezone,
-        })
-        .then((handleResponse) => {
-          counterTriggerCron
-            .labels({
-              job_id: trigger.job.id,
-              job_name: trigger.job.jobName,
-              version: trigger.version.version,
-              success: handleResponse.success ? 1 : 0,
-            })
-            .inc();
+      // this.runnerManager
+      //   .sendHandleRequest(trigger.version, trigger.job, trigger.action, {
+      //     type: "schedule",
+      //     name: trigger.trigger.context.name,
+      //     cron: trigger.trigger.context.cron,
+      //     timezone: trigger.trigger.context.timezone,
+      //   })
+      //   .then((handleResponse) => {
+      //     counterTriggerCron
+      //       .labels({
+      //         job_id: trigger.job.id,
+      //         job_name: trigger.job.jobName,
+      //         version: trigger.version.version,
+      //         success: handleResponse.success ? 1 : 0,
+      //       })
+      //       .inc();
 
-          if (!handleResponse.success) {
-            console.log(
-              `[TriggerCron/loopCheckTriggers] Sending schedule handle event failed! ${handleResponse.error}`,
-            );
+      //     if (!handleResponse.success) {
+      //       console.log(
+      //         `[TriggerCron/loopCheckTriggers] Sending schedule handle event failed! ${handleResponse.error}`,
+      //       );
 
-            return;
-          }
-        })
-        .catch((err) => {
-          console.error(err);
-        });
+      //       return;
+      //     }
+      //   })
+      //   .catch((err) => {
+      //     console.error(err);
+      //   });
     }
   }
 }

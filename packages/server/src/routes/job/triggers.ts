@@ -7,14 +7,12 @@ import { jobsTable } from "~/db/schema/jobs.js";
 import { triggersTable } from "~/db/schema/triggers.js";
 import { InternalHonoApp } from "~/index.js";
 import { TriggerCron } from "~/jobber/triggers/cron.js";
-import { TriggerHttp } from "~/jobber/triggers/http.js";
 import { TriggerMqtt } from "~/jobber/triggers/mqtt.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { canPerformAction } from "@jobber/common/permissions.js";
 
 export async function createRouteJobTriggers() {
   const triggerCron = container.resolve(TriggerCron);
-  const triggerHttp = container.resolve(TriggerHttp);
   const triggerMqtt = container.resolve(TriggerMqtt);
 
   const app = new Hono<InternalHonoApp>();
@@ -56,15 +54,6 @@ export async function createRouteJobTriggers() {
       const triggersWithStatus = triggers.map((trigger) => {
         if (trigger.context.type === "schedule") {
           const status = triggerCron.getTriggerStatus(jobId, trigger.id);
-
-          return {
-            ...trigger,
-            status,
-          };
-        }
-
-        if (trigger.context.type === "http") {
-          const status = triggerHttp.getTriggerStatus(jobId, trigger.id);
 
           return {
             ...trigger,
@@ -133,13 +122,6 @@ export async function createRouteJobTriggers() {
           ...trigger,
           status,
         };
-      } else if (trigger.context.type === "http") {
-        const status = triggerHttp.getTriggerStatus(jobId, trigger.id);
-
-        return {
-          ...trigger,
-          status,
-        };
       } else if (trigger.context.type === "mqtt") {
         const status = triggerMqtt.getTriggerStatus(jobId, trigger.id);
 
@@ -203,13 +185,6 @@ export async function createRouteJobTriggers() {
 
       if (trigger.context.type === "schedule") {
         const status = await triggerCron.getTriggerStatus(jobId, triggerId);
-
-        return c.json({
-          success: true,
-          data: status,
-        });
-      } else if (trigger.context.type === "http") {
-        const status = await triggerHttp.getTriggerStatus(jobId, triggerId);
 
         return c.json({
           success: true,

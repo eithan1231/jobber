@@ -1,8 +1,17 @@
 import { defineConfig } from "tsdown";
 
+const parseName = (path: string) => {
+  const parts = path.split("/");
+
+  const lastNodeModule = parts.lastIndexOf("node_modules");
+
+  parts.splice(0, lastNodeModule + 1);
+
+  return parts;
+};
+
 export default defineConfig({
   entry: "src/index.ts",
-  outDir: "dist",
   tsconfig: "tsconfig.json",
   noExternal: /.*/,
   treeshake: true,
@@ -10,19 +19,41 @@ export default defineConfig({
     cjs: {
       target: ["node16"],
       dts: false,
+      outDir: "dist/cjs",
     },
     esm: {
       target: ["node16"],
       dts: false,
+      outDir: "dist/esm",
     },
   },
   outputOptions: {
     legalComments: "none",
-    minify: true,
     sourcemap: "hidden",
+    entryFileNames: "jobber-start.js",
+
+    chunkFileNames: (chunk) => {
+      return "jobber-modules/[name].js";
+    },
+
     codeSplitting: {
       includeDependenciesRecursively: true,
-      maxSize: 100 * 1024, // 100 KB
+      groups: [
+        {
+          name: (item) => {
+            const parts = parseName(item);
+            const firstPart = parts.at(0);
+
+            if (firstPart?.startsWith("@jobber")) {
+              return `${firstPart}-${parts.at(1)}`;
+            }
+
+            return `${firstPart}`;
+          },
+          test: /node_modules/,
+          priority: 100,
+        },
+      ],
     },
     exports: "named",
   },

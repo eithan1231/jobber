@@ -1,8 +1,7 @@
-import assert from "assert";
-import { ScheduleContext } from "./schedule.js";
-import { MqttContext } from "./mqtt.js";
-import { HttpContext } from "./http.js";
 import { once } from "events";
+import { HttpContext } from "./http.js";
+import { MqttContext } from "./mqtt.js";
+import { ScheduleContext } from "./schedule.js";
 
 export class LegacyContextResponse {
   constructor(private _context: MqttContext | HttpContext | ScheduleContext) {}

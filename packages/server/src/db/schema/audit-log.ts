@@ -47,6 +47,11 @@ export type AuditEntry =
   | {
       type: "oauth-valid-client";
       clientId: string;
+    }
+  | {
+      type: "oauth-invalid-audience";
+      clientId: string;
+      audience: string;
     };
 
 export const auditLogTable = pgTable("auditLog", {

@@ -1,10 +1,9 @@
-import { EventHttpRequest, EventHttpResponse } from "@jobber/grpc/runner.js";
-import { Runner } from "~/runner.js";
 import { deferred } from "@jobber/common/deferred.js";
-import { PassThrough, Readable, Writable } from "node:stream";
-import { pipeline } from "node:stream/promises";
-import { once } from "node:events";
+import { EventHttpRequest, EventHttpResponse } from "@jobber/grpc/runner.js";
 import { randomUUID } from "node:crypto";
+import { once } from "node:events";
+import { PassThrough, Readable, Writable } from "node:stream";
+import { Runner } from "~/runner.js";
 
 class HttpContextRequest {
   private eventBasicContext: EventHttpRequest["info"];

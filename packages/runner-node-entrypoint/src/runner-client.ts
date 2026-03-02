@@ -1,23 +1,15 @@
-import {
-  GeneralAPIClient,
-  GeneralAPIDefinition,
-} from "@jobber/grpc/general.js";
-import { Runner, RunnerOptions } from "./runner.js";
-import {
-  createClient,
-  CallContext,
-  createServer,
-  ServerError,
-  ServiceImplementation,
-  Status,
-  createChannel,
-  ChannelCredentials,
-  Metadata,
-  Client,
-} from "nice-grpc";
-import { LoopBase } from "@jobber/common/loop-base.js";
-import { getUnixTimestamp } from "./util.js";
 import { ChannelImplementation } from "@grpc/grpc-js/build/src/channel.js";
+import { LoopBase } from "@jobber/common/loop-base.js";
+import { GeneralAPIDefinition } from "@jobber/grpc/general.js";
+import {
+  ChannelCredentials,
+  Client,
+  createChannel,
+  createClient,
+  Metadata,
+} from "nice-grpc";
+import { Runner, RunnerOptions } from "./runner.js";
+import { getUnixTimestamp } from "./util.js";
 
 type CachedToken = {
   accessToken: string;

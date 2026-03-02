@@ -1,11 +1,7 @@
-import { status } from "@grpc/grpc-js";
 import { BouncerBase } from "@jobber/common/bouncer-base.js";
+import { deferred } from "@jobber/common/deferred.js";
 import { JobberPermissionsSchema } from "@jobber/common/permissions.js";
-import {
-  RunnerAPIDefinition,
-  EventScheduleResponse_Status,
-  EventMqttResponse_Status,
-} from "@jobber/grpc/runner.js";
+import { RunnerAPIDefinition } from "@jobber/grpc/runner.js";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { JOSEError } from "jose/errors";
 import {
@@ -15,15 +11,14 @@ import {
   ServiceImplementation,
   Status,
 } from "nice-grpc";
-import { Runner, RunnerOptions } from "./runner.js";
-import { MqttContext } from "./context/mqtt.js";
-import { LegacyContextRequest } from "./context/legacy-request.js";
-import { LegacyContext } from "./context/legacy-context.js";
-import { LegacyContextResponse } from "./context/legacy-response.js";
-import { ScheduleContext } from "./context/schedule.js";
-import { HttpContext } from "./context/http.js";
 import assert from "node:assert";
-import { deferred } from "@jobber/common/deferred.js";
+import { HttpContext } from "./context/http.js";
+import { LegacyContext } from "./context/legacy-context.js";
+import { LegacyContextRequest } from "./context/legacy-request.js";
+import { LegacyContextResponse } from "./context/legacy-response.js";
+import { MqttContext } from "./context/mqtt.js";
+import { ScheduleContext } from "./context/schedule.js";
+import { Runner, RunnerOptions } from "./runner.js";
 
 export class RunnerServer {
   private jwks: ReturnType<typeof createRemoteJWKSet>;

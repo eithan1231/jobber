@@ -1,44 +1,37 @@
 import { LoopBase } from "@jobber/common";
 import {
-  HttpEventRequest,
-  HttpHeaders,
-  RunnerDefinition,
-} from "@jobber/grpc/runner.js";
-import {
   Channel,
   createChannel,
   createClientFactory,
+  Metadata,
   RawClient,
 } from "nice-grpc";
+import { Item as JobItem } from "@jobber/grpc/basics/job.js";
+import { Item as ActionItem } from "@jobber/grpc/basics/action.js";
+import { Item as TriggerItem } from "@jobber/grpc/basics/trigger.js";
+import { Item as RunnerItem } from "@jobber/grpc/basics/runner.js";
+import {
+  EventHttpRequest,
+  EventHttpRequest_Head,
+} from "@jobber/grpc/runner.js";
+import { RunnerAPIDefinition } from "@jobber/grpc/runner.js";
 import { FromTsProtoServiceDefinition } from "nice-grpc/lib/service-definitions/ts-proto.js";
 import { IncomingMessage, Server } from "node:http";
-import { inject, singleton } from "tsyringe";
-import { GrpcClient } from "./grpc-client.js";
 import {
-  ActionItem,
-  JobItem,
-  RunnerItem,
-  TriggerHttpItem,
-} from "@jobber/grpc/server.js";
-import assert from "node:assert";
+  getOAuthAudienceGeneralApi,
+  getOAuthAudienceRunnerApi,
+} from "@jobber/common/oauth.js";
+
 import { randomUUID } from "node:crypto";
 import { getConfigOption } from "./config.js";
+import { GeneralAPIDefinition } from "@jobber/grpc/general.js";
+import assert from "node:assert";
+import { getOauth2Token } from "./oauth-client.js";
 
-type RunnerClient = RawClient<FromTsProtoServiceDefinition<RunnerDefinition>>;
+type RunnerClient = RawClient<
+  FromTsProtoServiceDefinition<RunnerAPIDefinition>
+>;
 
-async function asyncIterablePromiseAll<T>(
-  iterable: AsyncIterable<T>
-): Promise<T[]> {
-  const resolved: T[] = [];
-
-  for await (const p of iterable) {
-    resolved.push(p);
-  }
-
-  return resolved;
-}
-
-@singleton()
 export class GatewayClient extends LoopBase {
   protected loopDuration = 1000;
 
@@ -47,40 +40,60 @@ export class GatewayClient extends LoopBase {
 
   private server: Server | null = null;
 
-  private routes = new Map<
+  private grpcChannel: Channel | null = null;
+  private grpcClient: RawClient<
+    FromTsProtoServiceDefinition<GeneralAPIDefinition>
+  > | null = null;
+
+  // Key: job.id
+  private jobs = new Map<
     string,
     {
-      hostname?: string;
-      method?: string;
-      path?: string;
-
       job: JobItem;
       action: ActionItem;
-      trigger: TriggerHttpItem;
+      triggers: TriggerItem[];
       runners: RunnerItem[];
     }
   >();
 
-  private runners = new Map<
+  // Key: runner.id
+  private runnerGrpc = new Map<
     string,
     {
-      runner: RunnerItem;
+      jobId: string;
       channel: Channel;
       client: RunnerClient;
     }
   >();
 
-  constructor(
-    @inject(GrpcClient, { isOptional: false })
-    private grpcClient: GrpcClient
-  ) {
+  // Key: trigger.id
+  private triggers = new Map<string, TriggerItem>();
+
+  constructor() {
     super();
   }
 
   protected async loopStarting() {
+    this.grpcChannel = createChannel(getConfigOption("GRPC_ENDPOINT"));
+
+    this.grpcClient = createClientFactory().create(
+      GeneralAPIDefinition,
+      this.grpcChannel,
+      {
+        "*": async () => {
+          const metadata = new Metadata();
+          const token = await getOauth2Token(getOAuthAudienceGeneralApi());
+
+          metadata.set("Authorization", `Bearer ${token}`);
+
+          return metadata;
+        },
+      },
+    );
+
     this.server = new Server();
 
-    this.server.listen(getConfigOption("GATEWAY_PORT"));
+    this.server.listen(getConfigOption("PORT"));
 
     this.server.on("request", async (req, res) => {
       if (this.status === "neutral") {
@@ -95,33 +108,36 @@ export class GatewayClient extends LoopBase {
         return;
       }
 
-      const route = this.getRouteByRequest(req);
+      const route = this.getTriggerByRequest(req);
 
-      if (!route) {
+      if (!route || !route.http || this.jobs.has(route.jobId)) {
         // handle bad gateway error
         res.statusCode = 502;
         res.end("Bad Gateway");
         return;
       }
 
-      if (route.action.runnerMode === "RUN_ONCE") {
+      const { job, action, triggers, runners } = this.jobs.get(route.jobId)!;
+
+      if (action.runnerMode === "RUN_ONCE") {
         throw new Error("RUN_ONCE not implemented yet");
       }
 
       let runner: RunnerItem;
 
-      if (route.runners.length === 0) {
-        runner = await this.grpcClient.client.createRunner({
-          jobId: route.job.id,
-          versionId: route.job.versionId,
-        });
+      if (runners.length === 0) {
+        // runner = await this.grpcClient!.createRunner({
+        //   jobId: job.id,
+        //   versionId: job.versionId,
+        // });
+        throw new Error("No runners available for job " + job.id);
       } else {
         // select random runner
-        const randomIndex = Math.floor(Math.random() * route.runners.length);
-        runner = route.runners[randomIndex];
+        const randomIndex = Math.floor(Math.random() * runners.length);
+        runner = runners[randomIndex];
       }
 
-      const runnerConnection = this.runners.get(runner.id);
+      const runnerConnection = this.runnerGrpc.get(runner.id);
       if (!runnerConnection) {
         res.statusCode = 502;
         res.end("Bad Gateway - Runner connection not found");
@@ -129,8 +145,8 @@ export class GatewayClient extends LoopBase {
       }
 
       const requestIterable =
-        async function* (): AsyncIterable<HttpEventRequest> {
-          let headers: HttpHeaders[] = [];
+        async function* (): AsyncIterable<EventHttpRequest> {
+          let headers: EventHttpRequest_Head["headers"] = [];
 
           for (const [key, value] of Object.entries(req.headers)) {
             if (Array.isArray(value)) {
@@ -142,14 +158,24 @@ export class GatewayClient extends LoopBase {
             }
           }
 
+          let path = "";
+          let query = "";
+
+          if (req.url) {
+            const [rawPath, rawQuery] = req.url.split("?", 2);
+            path = rawPath;
+            query = rawQuery || "";
+          }
+
           yield {
-            reqHead: {
+            head: {
               id: randomUUID(),
               scheme: "http", // TODO: this
               method: req.method || "GET",
               hostname: req.headers["host"] || "",
               headers: headers,
-              path: req.url || "/",
+              query: query,
+              path: path,
             },
           };
 
@@ -157,7 +183,7 @@ export class GatewayClient extends LoopBase {
 
           for await (const chunk of req) {
             yield {
-              reqBody: {
+              body: {
                 id: randomUUID(),
                 seq: dataSequence++,
                 data: chunk,
@@ -167,7 +193,7 @@ export class GatewayClient extends LoopBase {
           }
 
           yield {
-            reqBody: {
+            body: {
               id: randomUUID(),
               seq: dataSequence++,
               data: new Uint8Array(0),
@@ -179,16 +205,16 @@ export class GatewayClient extends LoopBase {
       const response = runnerConnection.client.eventHttp(requestIterable());
 
       for await (const event of response) {
-        if (event.resHead) {
-          res.statusCode = event.resHead.status;
-          for (const header of event.resHead.headers) {
+        if (event.head) {
+          res.statusCode = event.head.status;
+          for (const header of event.head.headers) {
             res.setHeader(header.name, header.value);
           }
         }
 
-        if (event.resBody) {
-          res.write(event.resBody.data);
-          if (event.resBody.end) {
+        if (event.body) {
+          res.write(event.body.data);
+          if (event.body.end) {
             res.end();
           }
         }
@@ -205,76 +231,122 @@ export class GatewayClient extends LoopBase {
         } else {
           resolve(true);
         }
-      })
+      }),
     );
+
+    await this.grpcChannel?.close();
+    this.grpcChannel = null;
+    this.grpcClient = null;
   }
 
   protected async loopIteration() {
-    const gatewayConfig = await this.grpcClient.client.getGatewayConfig({});
+    if (!this.grpcClient) {
+      throw new Error("GrpcClient not started");
+    }
 
-    for (const route of this.routes.values()) {
-      const hasRoute = gatewayConfig.items.find((item) =>
-        item.httpTriggers.find(
-          (trigger) =>
-            trigger.jobId === route.job.id && trigger.id === route.trigger.id
-        )
+    const jobs = await this.grpcClient
+      .getJobs({})
+      .then((res) =>
+        res.jobs.filter((job) => job.status === "ENABLED" && job.versionId),
       );
 
-      if (!hasRoute) {
-        this.routes.delete(route.action.id);
+    // Remove jobs that no longer exist
 
-        for (const runner of route.runners) {
-          const runnerInfo = this.runners.get(runner.id);
-
-          if (!runnerInfo) {
-            continue;
-          }
-
-          runnerInfo.channel.close();
-
-          this.runners.delete(runner.id);
-        }
+    for (const [id, data] of this.jobs) {
+      if (!jobs.find((job) => job.id === id)) {
+        await this.handleJobRemoval(data.job);
       }
     }
 
-    for (const item of gatewayConfig.items) {
-      for (const runner of item.runners) {
-        if (!this.runners.has(runner.id)) {
-          const channel = createChannel(`${runner.ip}:${runner.port}`);
+    // Add or update existing jobs
+    await Promise.all(jobs.map(async (job) => this.handleJobUpdate(job)));
+  }
 
-          const client = createClientFactory().create(
-            RunnerDefinition,
-            channel
-          );
+  private async handleJobUpdate(job: JobItem) {
+    assert(this.grpcClient);
 
-          this.runners.set(runner.id, {
-            runner,
-            channel,
-            client,
-          });
-        }
+    const { triggers } = await this.grpcClient.getJobTriggers({
+      jobId: job.id,
+    });
+
+    const { action } = await this.grpcClient.getJobAction({
+      jobId: job.id,
+    });
+
+    const { runners } = await this.grpcClient.getRunners({
+      jobId: job.id,
+      status: "READY",
+      versionId: job.versionId,
+    });
+
+    if (!action) {
+      console.log(`[Gateway] Job ${job.id} has no action, skipping`);
+      return;
+    }
+
+    this.jobs.set(job.id, {
+      job,
+      action,
+      triggers,
+      runners,
+    });
+
+    for (const runner of runners) {
+      if (this.runnerGrpc.has(runner.id)) {
+        continue;
       }
 
-      for (const trigger of item.httpTriggers) {
-        assert(item.job);
-        assert(item.action);
+      const channel = createChannel(getConfigOption("GRPC_ENDPOINT"));
+      const client = createClientFactory().create(
+        RunnerAPIDefinition,
+        channel,
+        {
+          "*": async () => {
+            const metadata = new Metadata();
+            const token = await getOauth2Token(
+              getOAuthAudienceRunnerApi(runner.id),
+            );
 
-        this.routes.set(trigger.id, {
-          hostname: trigger.hostname,
-          method: trigger.method,
-          path: trigger.path,
+            metadata.set("Authorization", `Bearer ${token}`);
 
-          job: item.job,
-          action: item.action,
-          trigger: trigger,
+            return metadata;
+          },
+        },
+      );
 
-          runners: item.runners,
-        });
-      }
+      this.runnerGrpc.set(runner.id, {
+        jobId: job.id,
+        channel,
+        client,
+      });
+    }
+
+    for (const trigger of triggers) {
+      this.triggers.set(trigger.id, trigger);
     }
   }
 
-  private getRouteByRequest(req: IncomingMessage) {
+  private async handleJobRemoval(job: JobItem) {
+    for (const [, trigger] of this.triggers) {
+      if (trigger.jobId === job.id) {
+        this.triggers.delete(trigger.id);
+      }
+    }
+
+    for (const [runnerId, runner] of this.runnerGrpc) {
+      if (runner.jobId !== job.id) {
+        continue;
+      }
+
+      runner.channel.close();
+      this.runnerGrpc.delete(runnerId);
+    }
+
+    this.jobs.delete(job.id);
+  }
+
+  private getTriggerByRequest(req: IncomingMessage) {
+    // TODO: This is slow as shit.
     const host = req.headers["host"];
     const method = req.method;
     const path = req.url;
@@ -283,22 +355,26 @@ export class GatewayClient extends LoopBase {
       return null;
     }
 
-    for (const route of this.routes.values()) {
-      if (route.hostname && route.hostname !== host) {
+    for (const route of this.triggers.values()) {
+      if (!route.http) {
         continue;
       }
 
-      if (route.method && route.method !== method) {
+      if (route.http.hostname && route.http.hostname !== host) {
         continue;
       }
 
-      if (route.path) {
-        if (route.path.startsWith("^")) {
-          const regex = new RegExp(route.path);
+      if (route.http.method && route.http.method !== method) {
+        continue;
+      }
+
+      if (route.http.path) {
+        if (route.http.path.startsWith("^")) {
+          const regex = new RegExp(route.http.path);
           if (!regex.test(path)) {
             continue;
           }
-        } else if (route.path && route.path !== path) {
+        } else if (route.http.path && route.http.path !== path) {
           continue;
         }
       }

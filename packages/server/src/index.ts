@@ -2,11 +2,10 @@ import "reflect-metadata";
 
 import { LogDriverBase } from "./jobber/log-drivers/abstract.js";
 import "./jobber/log-drivers/index.js";
-import { RunnerManager } from "./jobber/runners/manager-legacy.js";
+import { RunnerManager } from "./jobber/runners/manager.js";
 import { Store } from "./jobber/store.js";
 import { Telemetry } from "./jobber/telemetry.js";
 import { TriggerCron } from "./jobber/triggers/cron.js";
-import { TriggerHttp } from "./jobber/triggers/http.js";
 import { TriggerMqtt } from "./jobber/triggers/mqtt.js";
 
 import { serve } from "@hono/node-server";
@@ -147,88 +146,6 @@ async function createInternalHono() {
       root: "./public/",
     }),
   );
-
-  return app;
-}
-
-async function createGatewayHono() {
-  const triggerHttp = container.resolve(TriggerHttp);
-
-  const app = new Hono();
-
-  app.all("*", async (c, next) => {
-    const bodyDirect = await c.req.arrayBuffer();
-
-    const headers = c.req.header();
-    const query = c.req.query();
-    const queries = c.req.queries();
-    const path = c.req.path;
-    const method = c.req.method;
-    const body = Buffer.from(bodyDirect);
-    const bodyLength = body.length;
-
-    const response = await triggerHttp.sendHandleRequest({
-      body: body.toString("base64"),
-      bodyLength,
-      method,
-      path,
-      queries,
-      query,
-      headers,
-    });
-
-    if (!response || !response.success || !response.http) {
-      const acceptHeader = c.req.header("accept") || "";
-
-      if (acceptHeader.includes("text/html")) {
-        const badGatewayPage = await readFile(
-          "./src/static-templates/bad-gateway.html",
-        );
-
-        return c.html(badGatewayPage.toString(), 502);
-      }
-
-      if (acceptHeader.includes("application/json")) {
-        return c.json(
-          {
-            success: false,
-            message: `Jobber: Gateway error!`,
-          },
-          502,
-        );
-      }
-
-      if (acceptHeader.includes("application/xml")) {
-        return c.body(
-          `<response><success>false</success><message>Jobber: Gateway error!</message></response>`,
-          502,
-          {
-            "Content-Type": "application/xml",
-          },
-        );
-      }
-
-      return c.text(`Jobber: Gateway error!`, 502);
-    }
-
-    if (!response.http) {
-      return c.json(
-        {
-          success: false,
-          message: `Jobber: Gateway Error! No HTTP response received.`,
-        },
-        502,
-      );
-    }
-
-    // TODO: In the future we should migrate to a streaming response for larger bodies. Previously
-    // it was implicitly converted to a string, which is nonideal.
-    return c.body(
-      Uint8Array.from(response.http.body).buffer,
-      response.http.status as StatusCode,
-      response.http.headers,
-    );
-  });
 
   return app;
 }
@@ -472,26 +389,21 @@ async function main() {
 
   console.log(`[main] Initialising runner manager...`);
   const runnerManager = container.resolve(RunnerManager);
-  await runnerManager.start();
+  // await runnerManager.start();
   console.log(`[main] done.`);
 
   console.log(`[main] Initialising triggers (Cron, MQTT, HTTP)...`);
   const triggerCron = container.resolve(TriggerCron);
   const triggerMqtt = container.resolve(TriggerMqtt);
-  const triggerHttp = container.resolve(TriggerHttp);
 
-  await Promise.all([
-    triggerCron.start(),
-    triggerMqtt.start(),
-    triggerHttp.start(),
-  ]);
+  await Promise.all([triggerCron.start(), triggerMqtt.start()]);
   console.log(`[main] done.`);
 
-  console.log(`[main] Registering MQTT Publish Handler...`);
-  runnerManager.registerMqttPublishHandler((...args) =>
-    triggerMqtt.publishMqttMessage(...args),
-  );
-  console.log(`[main] done.`);
+  // console.log(`[main] Registering MQTT Publish Handler...`);
+  // runnerManager.registerMqttPublishHandler((...args) =>
+  //   triggerMqtt.publishMqttMessage(...args),
+  // );
+  // console.log(`[main] done.`);
 
   console.log(`[main] Initialising rate limiter...`);
   const rateLimit = container.resolve(RateLimit);
@@ -510,24 +422,14 @@ async function main() {
 
   console.log(`[main] Initialising APIs (API Internal, API Gateway)...`);
   const appInternal = await createInternalHono();
-  const appGateway = await createGatewayHono();
 
   const serverInternal = serve({
     port: 3000,
     fetch: appInternal.fetch,
   });
 
-  const serverGateway = serve({
-    port: 3001,
-    fetch: appGateway.fetch,
-  });
-
   serverInternal.once("listening", () => {
     console.log("[main] API Internal now listening");
-  });
-
-  serverGateway.once("listening", () => {
-    console.log("[main] API Gateway now listening");
   });
 
   console.log(`[main] Application startup routine has completed.`);
@@ -540,11 +442,7 @@ async function main() {
     console.log(`[signalRoutine] done.`);
 
     console.log(`[signalRoutine] Stopping all triggers.`);
-    await Promise.all([
-      triggerCron.stop(),
-      triggerMqtt.stop(),
-      triggerHttp.stop(),
-    ]);
+    await Promise.all([triggerCron.stop(), triggerMqtt.stop()]);
     console.log(`[signalRoutine] done.`);
 
     console.log(`[signalRoutine] Stopping telemetry.`);
@@ -556,7 +454,7 @@ async function main() {
     console.log(`[signalRoutine] done.`);
 
     console.log(`[signalRoutine] Stopping runner manager.`);
-    await runnerManager.stop();
+    // await runnerManager.stop();
     console.log(`[signalRoutine] done.`);
 
     console.log("[signalRoutine] Stopping gRPC server.");
@@ -573,10 +471,6 @@ async function main() {
 
     console.log(`[signalRoutine] Stopping store.`);
     await store.stop();
-    console.log(`[signalRoutine] done.`);
-
-    console.log(`[signalRoutine] Closing API Gateway...`);
-    serverGateway.close();
     console.log(`[signalRoutine] done.`);
 
     console.log(`[signalRoutine] Stopping rate limiter...`);

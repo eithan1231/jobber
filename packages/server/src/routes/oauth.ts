@@ -1,3 +1,4 @@
+import { canOAuthAccessAudience } from "@jobber/common/oauth.js";
 import bcrypt from "bcryptjs";
 import { Hono } from "hono";
 import { SignJWT } from "jose";
@@ -37,6 +38,7 @@ export async function createRouteOAuth() {
       grant_type: z.literal("client_credentials"),
       client_id: z.string(),
       client_secret: z.string(),
+      audience: z.string().optional(),
     });
 
     const body = await schema.parseAsync(await c.req.parseBody(), {
@@ -185,6 +187,26 @@ export async function createRouteOAuth() {
       passphrase: getConfigOption("SECRET_PASSPHRASE"),
     });
 
+    const audiences: string[] = [];
+
+    if (body.audience) {
+      if (
+        canOAuthAccessAudience(body.audience, serviceClient.allowedAudiences)
+      ) {
+        audiences.push(body.audience);
+      } else {
+        await auditLogsModel.createServiceClientLog(serviceClient.id, {
+          type: "oauth-invalid-audience",
+          clientId: serviceClient.id,
+          audience: body.audience,
+        });
+
+        return c.json({ error: "invalid_audience" }, 400);
+      }
+    } else {
+      audiences.push(...serviceClient.allowedAudiences);
+    }
+
     const jwt = await new SignJWT({
       sub: serviceClient.id,
       kid: validKey.id,
@@ -196,7 +218,7 @@ export async function createRouteOAuth() {
         kid: validKey.id,
       })
       .setIssuer(getConfigOption("OAUTH_ISSUER"))
-      .setAudience(serviceClient.allowedAudiences)
+      .setAudience(audiences)
       .setExpirationTime(expiration)
       .setJti(jti)
       .sign(key);

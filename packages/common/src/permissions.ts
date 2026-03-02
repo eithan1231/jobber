@@ -45,6 +45,64 @@ export const PERMISSION_READ_ONLY: JobberPermissions = [
   },
 ] as const;
 
+export const PERMISSION_GATEWAY: JobberPermissions = [
+  {
+    effect: "allow",
+    resource: "job/*",
+    actions: ["read"],
+  },
+  {
+    effect: "allow",
+    resource: "special/job/*/runner-status",
+    actions: ["read"],
+  },
+  {
+    effect: "allow",
+    resource: "special/job/*/invoke-http-event",
+    actions: ["write"],
+  },
+  {
+    effect: "deny",
+    resource: "job/*/environment/*",
+    actions: ["read", "write", "delete"],
+  },
+  {
+    effect: "deny",
+    resource: "job/*/runners",
+    actions: ["read", "write", "delete"],
+  },
+  {
+    effect: "deny",
+    resource: "job/*/store",
+    actions: ["read", "write", "delete"],
+  },
+  {
+    effect: "deny",
+    resource: "job/*/versions/*/archive",
+    actions: ["read", "write", "delete"],
+  },
+  {
+    effect: "deny",
+    resource: "job/*/publish",
+    actions: ["read", "write", "delete"],
+  },
+  {
+    effect: "deny",
+    resource: "api-tokens",
+    actions: ["read", "write", "delete"],
+  },
+  {
+    effect: "deny",
+    resource: "system",
+    actions: ["read", "write", "delete"],
+  },
+  {
+    effect: "deny",
+    resource: "users",
+    actions: ["read", "write", "delete"],
+  },
+] as const;
+
 export const canPerformAction = (
   permissions: JobberPermissions,
   resource: string,

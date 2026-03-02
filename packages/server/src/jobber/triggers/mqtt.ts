@@ -17,7 +17,7 @@ import { LoopBase } from "@jobber/common";
 import { counterTriggerMqtt, counterTriggerMqttPublish } from "~/metrics.js";
 import { createSha1Hash, shortenString } from "~/util.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
-import { RunnerManager } from "../runners/manager-legacy.js";
+import { RunnerManager } from "../runners/manager.js";
 import { inject, singleton } from "tsyringe";
 
 type TriggerMqttItem = {
@@ -408,100 +408,102 @@ export class TriggerMqtt extends LoopBase {
         created: new Date(),
       });
 
-      const handleResponse = await this.runnerManager.sendHandleRequest(
-        triggerItem.version,
-        triggerItem.job,
-        triggerItem.action,
-        {
-          type: "mqtt",
-          topic,
-          body: payload.toString("base64"),
-          bodyLength: payload.length,
-        },
-      );
+      return;
 
-      counterTriggerMqtt
-        .labels({
-          job_id: triggerItem.job.id,
-          job_name: triggerItem.job.jobName,
-          version: triggerItem.version.version,
-          success: handleResponse.success ? 1 : 0,
-        })
-        .inc();
+      // const handleResponse = await this.runnerManager.sendHandleRequest(
+      //   triggerItem.version,
+      //   triggerItem.job,
+      //   triggerItem.action,
+      //   {
+      //     type: "mqtt",
+      //     topic,
+      //     body: payload.toString("base64"),
+      //     bodyLength: payload.length,
+      //   },
+      // );
 
-      if (!handleResponse.success) {
-        console.log(
-          `[TriggerMqtt/onMqttMessage] Sending MQTT handle event failed! topic "${topic}", error: ${handleResponse.error}`,
-        );
+      // counterTriggerMqtt
+      //   .labels({
+      //     job_id: triggerItem.job.id,
+      //     job_name: triggerItem.job.jobName,
+      //     version: triggerItem.version.version,
+      //     success: handleResponse.success ? 1 : 0,
+      //   })
+      //   .inc();
 
-        return;
-      }
+      // if (!handleResponse.success) {
+      //   console.log(
+      //     `[TriggerMqtt/onMqttMessage] Sending MQTT handle event failed! topic "${topic}", error: ${handleResponse.error}`,
+      //   );
 
-      if (!handleResponse.mqtt) {
-        return;
-      }
+      //   return;
+      // }
 
-      // TODO: Remove this in a later revision, deprecated way of publishing MQTT events.
-      for (const publishItem of handleResponse.mqtt.publish) {
-        try {
-          console.warn(
-            `[TriggerMqtt/onMqttMessage] Received deprecated publish event for topic "${topic}".`,
-          );
+      // if (!handleResponse.mqtt) {
+      //   return;
+      // }
 
-          if (!triggerItem.client.connected) {
-            console.warn(
-              `[TriggerMqtt/onMqttMessage] MQTT client is not connected, cannot publish message to topic "${publishItem.topic}"`,
-            );
+      // // TODO: Remove this in a later revision, deprecated way of publishing MQTT events.
+      // for (const publishItem of handleResponse.mqtt.publish) {
+      //   try {
+      //     console.warn(
+      //       `[TriggerMqtt/onMqttMessage] Received deprecated publish event for topic "${topic}".`,
+      //     );
 
-            this.logger.write({
-              source: "system",
-              actionId: triggerItem.action.id,
-              jobId: triggerItem.job.id,
-              jobName: triggerItem.job.jobName,
-              message: `[SYSTEM] MQTT client is not connected, cannot publish message to topic "${publishItem.topic}"`,
-              created: new Date(),
-            });
+      //     if (!triggerItem.client.connected) {
+      //       console.warn(
+      //         `[TriggerMqtt/onMqttMessage] MQTT client is not connected, cannot publish message to topic "${publishItem.topic}"`,
+      //       );
 
-            continue;
-          }
+      //       this.logger.write({
+      //         source: "system",
+      //         actionId: triggerItem.action.id,
+      //         jobId: triggerItem.job.id,
+      //         jobName: triggerItem.job.jobName,
+      //         message: `[SYSTEM] MQTT client is not connected, cannot publish message to topic "${publishItem.topic}"`,
+      //         created: new Date(),
+      //       });
 
-          this.logger.write({
-            source: "system",
-            actionId: triggerItem.action.id,
-            jobId: triggerItem.job.id,
-            jobName: triggerItem.job.jobName,
-            message: `[SYSTEM] MQTT message published to topic "${publishItem.topic}"`,
-            created: new Date(),
-          });
+      //       continue;
+      //     }
 
-          counterTriggerMqttPublish
-            .labels({
-              job_id: triggerItem.job.id,
-              job_name: triggerItem.job.jobName,
-              version: triggerItem.version.version,
-              topic: publishItem.topic,
-            })
-            .inc();
+      //     this.logger.write({
+      //       source: "system",
+      //       actionId: triggerItem.action.id,
+      //       jobId: triggerItem.job.id,
+      //       jobName: triggerItem.job.jobName,
+      //       message: `[SYSTEM] MQTT message published to topic "${publishItem.topic}"`,
+      //       created: new Date(),
+      //     });
 
-          await triggerItem.client.publishAsync(
-            publishItem.topic,
-            publishItem.body,
-          );
-        } catch (err) {
-          console.error(err);
+      //     counterTriggerMqttPublish
+      //       .labels({
+      //         job_id: triggerItem.job.id,
+      //         job_name: triggerItem.job.jobName,
+      //         version: triggerItem.version.version,
+      //         topic: publishItem.topic,
+      //       })
+      //       .inc();
 
-          this.logger.write({
-            source: "system",
-            actionId: triggerItem.action.id,
-            jobId: triggerItem.job.id,
-            jobName: triggerItem.job.jobName,
-            message: `[SYSTEM] MQTT publish error! topic: ${
-              publishItem.topic
-            }, ${err instanceof Error ? err.message : String(err)}`,
-            created: new Date(),
-          });
-        }
-      }
+      //     await triggerItem.client.publishAsync(
+      //       publishItem.topic,
+      //       publishItem.body,
+      //     );
+      //   } catch (err) {
+      //     console.error(err);
+
+      //     this.logger.write({
+      //       source: "system",
+      //       actionId: triggerItem.action.id,
+      //       jobId: triggerItem.job.id,
+      //       jobName: triggerItem.job.jobName,
+      //       message: `[SYSTEM] MQTT publish error! topic: ${
+      //         publishItem.topic
+      //       }, ${err instanceof Error ? err.message : String(err)}`,
+      //       created: new Date(),
+      //     });
+      //   }
+      // }
     } catch (err) {
       console.error(err);
 

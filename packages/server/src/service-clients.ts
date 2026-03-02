@@ -1,6 +1,9 @@
 import { LoopBase } from "@jobber/common";
 import { singleton } from "tsyringe";
-import { OauthServiceClientTableInsertType } from "./db/schema/oauth-service-client.js";
+import {
+  OauthServiceClientTableInsertType,
+  OauthServiceClientTableType,
+} from "./db/schema/oauth-service-client.js";
 import { secureRandomBytes } from "./util.js";
 import { genSalt as bcryptGenSalt, hash as bcryptHash } from "bcryptjs";
 import { oauthServiceClientModel } from "./db/oauth-service-client.js";
@@ -72,5 +75,19 @@ export class OAuthServiceClients extends LoopBase {
 
   public getAudienceGatewayApi() {
     return `jobber-gateway`;
+  }
+
+  public canServiceClientAccessAudience(
+    audience: string,
+    serviceClient: OauthServiceClientTableType,
+  ) {
+    // Special handling for wildcard runner api access
+    if (
+      audience.startsWith("jobber-runner:") &&
+      serviceClient.allowedAudiences.includes(this.getAudienceRunnerApi("*"))
+    ) {
+      return true;
+    }
+    return serviceClient.allowedAudiences.includes(audience);
   }
 }

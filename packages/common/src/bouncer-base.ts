@@ -1,7 +1,7 @@
 import {
   canPerformAction,
-  JobberPermissionAction,
-  JobberPermissions,
+  type JobberPermissionAction,
+  type JobberPermissions,
 } from "./permissions.js";
 
 export class BouncerBase {
