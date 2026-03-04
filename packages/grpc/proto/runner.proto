@@ -111,4 +111,7 @@ message StatusResponse {
   }
 
   Status status = 1;
+  uint32 lastRequestAt = 2;
+  uint32 loadAverage5Seconds = 3;
+  uint32 loadAverage1Minute = 4;
 }

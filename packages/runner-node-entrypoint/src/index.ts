@@ -9,7 +9,6 @@ const main = async () => {
   const runnerOAuthTokenEndpoint = getArgument("oauth-token-endpoint");
   const runnerOAuthJwksEndpoint = getArgument("oauth-jwks-endpoint");
   const runnerOAuthIssuer = getArgument("oauth-issuer");
-  const runnerOAuthAudience = getArgument("oauth-audience");
   const runnerApiPort = Number(getArgument("port"));
 
   const runnerDebug = ["true", "yes", "ok", "y"].includes(
@@ -36,7 +35,6 @@ const main = async () => {
     runnerOAuthTokenEndpoint,
     runnerOAuthJwksEndpoint,
     runnerOAuthIssuer,
-    runnerOAuthAudience,
 
     runnerApiPort,
 
@@ -46,6 +44,8 @@ const main = async () => {
   await runner.start();
 
   const shutdown = async () => {
+    await runner.stop();
+
     process.exit(0);
   };
 

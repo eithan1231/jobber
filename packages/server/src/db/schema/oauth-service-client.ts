@@ -31,7 +31,7 @@ export const oauthServiceClientTable = pgTable("oauthServiceClient", {
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
 
-  clientId: varchar("clientId", { length: 255 }).notNull(),
+  clientId: varchar("clientId", { length: 255 }).unique().notNull(),
 
   metadata: jsonb("metadata").$type<ServiceClientMetadata>().notNull(),
 

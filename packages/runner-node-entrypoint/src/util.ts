@@ -37,7 +37,7 @@ export function getTempFilePath({
     filename += extension;
   }
 
-  return path.join(tmpdir(), extension);
+  return path.join(tmpdir(), filename);
 }
 
 export async function fileExists(path: string) {

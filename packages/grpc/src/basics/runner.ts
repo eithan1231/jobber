@@ -14,6 +14,7 @@ export interface Item {
   jobId: string;
   actionId: string;
   versionId: string;
+  properties: Item_Properties | undefined;
   createdAt: string;
   readyAt?: string | undefined;
   closingAt?: string | undefined;
@@ -91,12 +92,21 @@ export function item_StatusToNumber(object: Item_Status): number {
   }
 }
 
+export interface Item_Properties {
+  runnerPid: string;
+  runnerContainerName: string;
+  runnerContainerNetworks: string[];
+  runnerApiPort: number;
+  runnerDebug: boolean;
+}
+
 function createBaseItem(): Item {
   return {
     id: "",
     jobId: "",
     actionId: "",
     versionId: "",
+    properties: undefined,
     createdAt: "",
     readyAt: undefined,
     closingAt: undefined,
@@ -117,6 +127,9 @@ export const Item: MessageFns<Item> = {
     }
     if (message.versionId !== "") {
       writer.uint32(34).string(message.versionId);
+    }
+    if (message.properties !== undefined) {
+      Item_Properties.encode(message.properties, writer.uint32(42).fork()).join();
     }
     if (message.createdAt !== "") {
       writer.uint32(90).string(message.createdAt);
@@ -172,6 +185,14 @@ export const Item: MessageFns<Item> = {
           message.versionId = reader.string();
           continue;
         }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.properties = Item_Properties.decode(reader, reader.uint32());
+          continue;
+        }
         case 11: {
           if (tag !== 90) {
             break;
@@ -219,6 +240,7 @@ export const Item: MessageFns<Item> = {
       jobId: isSet(object.jobId) ? globalThis.String(object.jobId) : "",
       actionId: isSet(object.actionId) ? globalThis.String(object.actionId) : "",
       versionId: isSet(object.versionId) ? globalThis.String(object.versionId) : "",
+      properties: isSet(object.properties) ? Item_Properties.fromJSON(object.properties) : undefined,
       createdAt: isSet(object.createdAt) ? globalThis.String(object.createdAt) : "",
       readyAt: isSet(object.readyAt) ? globalThis.String(object.readyAt) : undefined,
       closingAt: isSet(object.closingAt) ? globalThis.String(object.closingAt) : undefined,
@@ -239,6 +261,9 @@ export const Item: MessageFns<Item> = {
     }
     if (message.versionId !== "") {
       obj.versionId = message.versionId;
+    }
+    if (message.properties !== undefined) {
+      obj.properties = Item_Properties.toJSON(message.properties);
     }
     if (message.createdAt !== "") {
       obj.createdAt = message.createdAt;
@@ -264,10 +289,139 @@ export const Item: MessageFns<Item> = {
     message.jobId = object.jobId ?? "";
     message.actionId = object.actionId ?? "";
     message.versionId = object.versionId ?? "";
+    message.properties = (object.properties !== undefined && object.properties !== null)
+      ? Item_Properties.fromPartial(object.properties)
+      : undefined;
     message.createdAt = object.createdAt ?? "";
     message.readyAt = object.readyAt ?? undefined;
     message.closingAt = object.closingAt ?? undefined;
     message.closedAt = object.closedAt ?? undefined;
+    return message;
+  },
+};
+
+function createBaseItem_Properties(): Item_Properties {
+  return { runnerPid: "", runnerContainerName: "", runnerContainerNetworks: [], runnerApiPort: 0, runnerDebug: false };
+}
+
+export const Item_Properties: MessageFns<Item_Properties> = {
+  encode(message: Item_Properties, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.runnerPid !== "") {
+      writer.uint32(10).string(message.runnerPid);
+    }
+    if (message.runnerContainerName !== "") {
+      writer.uint32(26).string(message.runnerContainerName);
+    }
+    for (const v of message.runnerContainerNetworks) {
+      writer.uint32(34).string(v!);
+    }
+    if (message.runnerApiPort !== 0) {
+      writer.uint32(40).uint32(message.runnerApiPort);
+    }
+    if (message.runnerDebug !== false) {
+      writer.uint32(48).bool(message.runnerDebug);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): Item_Properties {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseItem_Properties();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.runnerPid = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.runnerContainerName = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.runnerContainerNetworks.push(reader.string());
+          continue;
+        }
+        case 5: {
+          if (tag !== 40) {
+            break;
+          }
+
+          message.runnerApiPort = reader.uint32();
+          continue;
+        }
+        case 6: {
+          if (tag !== 48) {
+            break;
+          }
+
+          message.runnerDebug = reader.bool();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): Item_Properties {
+    return {
+      runnerPid: isSet(object.runnerPid) ? globalThis.String(object.runnerPid) : "",
+      runnerContainerName: isSet(object.runnerContainerName) ? globalThis.String(object.runnerContainerName) : "",
+      runnerContainerNetworks: globalThis.Array.isArray(object?.runnerContainerNetworks)
+        ? object.runnerContainerNetworks.map((e: any) => globalThis.String(e))
+        : [],
+      runnerApiPort: isSet(object.runnerApiPort) ? globalThis.Number(object.runnerApiPort) : 0,
+      runnerDebug: isSet(object.runnerDebug) ? globalThis.Boolean(object.runnerDebug) : false,
+    };
+  },
+
+  toJSON(message: Item_Properties): unknown {
+    const obj: any = {};
+    if (message.runnerPid !== "") {
+      obj.runnerPid = message.runnerPid;
+    }
+    if (message.runnerContainerName !== "") {
+      obj.runnerContainerName = message.runnerContainerName;
+    }
+    if (message.runnerContainerNetworks?.length) {
+      obj.runnerContainerNetworks = message.runnerContainerNetworks;
+    }
+    if (message.runnerApiPort !== 0) {
+      obj.runnerApiPort = Math.round(message.runnerApiPort);
+    }
+    if (message.runnerDebug !== false) {
+      obj.runnerDebug = message.runnerDebug;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<Item_Properties>): Item_Properties {
+    return Item_Properties.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<Item_Properties>): Item_Properties {
+    const message = createBaseItem_Properties();
+    message.runnerPid = object.runnerPid ?? "";
+    message.runnerContainerName = object.runnerContainerName ?? "";
+    message.runnerContainerNetworks = object.runnerContainerNetworks?.map((e) => e) || [];
+    message.runnerApiPort = object.runnerApiPort ?? 0;
+    message.runnerDebug = object.runnerDebug ?? false;
     return message;
   },
 };

@@ -13,7 +13,9 @@ RUN apt update \
 FROM base AS build
 COPY . /repo
 WORKDIR /repo
-RUN pnpm install --frozen-lockfile \
+RUN apt update \
+  && apt install protobuf-compiler --no-install-recommends -y \
+  && pnpm install --frozen-lockfile \
   && pnpm run -r build \
   && pnpm --prod --filter=@jobber/runner-node-entrypoint --node-linker hoisted deploy /app
 
@@ -21,4 +23,4 @@ RUN pnpm install --frozen-lockfile \
 
 FROM base
 WORKDIR /app
-COPY --from=build /app/dist/index.js /app/jobber-entrypoint.js
+COPY --from=build /app/dist/esm/ /app/

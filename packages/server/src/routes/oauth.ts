@@ -12,11 +12,14 @@ import { oauthSigningKeyModel } from "~/db/oauth-signing-key.js";
 import { InternalHonoApp } from "~/index.js";
 import { createMiddlewareResponseTime } from "~/middleware/response-time.js";
 import { RateLimit } from "~/rate-limit.js";
+import { OAuthServiceClients } from "~/service-clients.js";
 import { OAuthSigningKeys } from "~/signing-keys.js";
+import { createBenchmark } from "~/util.js";
 
 export async function createRouteOAuth() {
   const rateLimit = container.resolve(RateLimit);
   const oauthSigningKeys = container.resolve(OAuthSigningKeys);
+  const serviceClients = container.resolve(OAuthServiceClients);
 
   const app = new Hono<InternalHonoApp>();
 
@@ -163,70 +166,17 @@ export async function createRouteOAuth() {
       clientId: body.client_id,
     });
 
-    // Set expiration to 10 minutes from now, or if the client is expiring within 10 minutes, set it to that expiration.
-    let expiration = new Date(Date.now() + 10 * 60 * 1000);
-    if (serviceClient.expiresAt && serviceClient.expiresAt < expiration) {
-      expiration = serviceClient.expiresAt;
-    }
-
-    let jti = `${serviceClient.id}-${Date.now()}`;
-
-    const validKey = await oauthSigningKeyModel.getValidKey();
-
-    if (!validKey) {
-      console.error(
-        `[OAuthTokenRoute] No valid signing key found when trying to issue token for client ${serviceClient.id}`,
-      );
-
-      return c.json({ error: "server_error" }, 500);
-    }
-
-    const key = createPrivateKey({
-      key: validKey.privateKeyEncrypted,
-      format: "pem",
-      passphrase: getConfigOption("SECRET_PASSPHRASE"),
-    });
-
-    const audiences: string[] = [];
-
-    if (body.audience) {
-      if (
-        canOAuthAccessAudience(body.audience, serviceClient.allowedAudiences)
-      ) {
-        audiences.push(body.audience);
-      } else {
-        await auditLogsModel.createServiceClientLog(serviceClient.id, {
-          type: "oauth-invalid-audience",
-          clientId: serviceClient.id,
-          audience: body.audience,
-        });
-
-        return c.json({ error: "invalid_audience" }, 400);
-      }
-    } else {
-      audiences.push(...serviceClient.allowedAudiences);
-    }
-
-    const jwt = await new SignJWT({
-      sub: serviceClient.id,
-      kid: validKey.id,
-      permissions: serviceClient.permissions,
-      typ: "JWT",
-    })
-      .setProtectedHeader({
-        alg: validKey.alg,
-        kid: validKey.id,
-      })
-      .setIssuer(getConfigOption("OAUTH_ISSUER"))
-      .setAudience(audiences)
-      .setExpirationTime(expiration)
-      .setJti(jti)
-      .sign(key);
+    const tokenResult = await serviceClients.generateToken(
+      serviceClient,
+      body.audience,
+    );
 
     return c.json({
-      access_token: jwt,
+      access_token: tokenResult.jwt,
       token_type: "Bearer",
-      expires_in: Math.floor((expiration.getTime() - Date.now()) / 1000),
+      expires_in: Math.floor(
+        (tokenResult.expiration.getTime() - Date.now()) / 1000,
+      ),
     });
   });
 

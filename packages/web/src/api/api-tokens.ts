@@ -1,4 +1,5 @@
-import { JobberGenericResponse, JobberPermissions } from "./common";
+import { JobberPermissions } from "@jobber/common/permissions.js";
+import { JobberGenericResponse } from "./common";
 
 export type JobberApiToken = {
   id: string;
@@ -23,7 +24,7 @@ export const getApiTokens = async (): Promise<
 };
 
 export const getApiToken = async (
-  tokenId: string
+  tokenId: string,
 ): Promise<JobberGenericResponse<JobberApiToken>> => {
   const result = await fetch(`/api/api-tokens/${tokenId}`);
 
@@ -33,7 +34,7 @@ export const getApiToken = async (
 export const createApiToken = async (
   permissions: JobberPermissions,
   description: string,
-  ttl: number
+  ttl: number,
 ): Promise<JobberGenericResponse<JobberApiTokenFull>> => {
   const result = await fetch(`/api/api-tokens/`, {
     method: "POST",
@@ -52,7 +53,7 @@ export const updateApiToken = async (
     permissions?: JobberPermissions;
     status?: "enabled" | "disabled";
     description?: string;
-  }
+  },
 ): Promise<JobberGenericResponse<JobberApiToken>> => {
   const result = await fetch(`/api/api-tokens/${tokenId}`, {
     method: "PUT",
@@ -66,7 +67,7 @@ export const updateApiToken = async (
 };
 
 export const deleteApiToken = async (
-  tokenId: string
+  tokenId: string,
 ): Promise<JobberGenericResponse<{}>> => {
   const result = await fetch(`/api/api-tokens/${tokenId}`, {
     method: "DELETE",

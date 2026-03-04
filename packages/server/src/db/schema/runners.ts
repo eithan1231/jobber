@@ -1,4 +1,4 @@
-import { jsonb, pgTable, timestamp, uuid } from "drizzle-orm/pg-core";
+import { jsonb, pgTable, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
 import { jobVersionsTable } from "./job-versions.js";
 import { jobsTable } from "./jobs.js";
 import { actionsTable } from "./actions.js";
@@ -7,6 +7,11 @@ import { oauthServiceClientTable } from "./oauth-service-client.js";
 
 export const runnersTable = pgTable("runners", {
   id: uuid("id").primaryKey().defaultRandom().notNull(),
+
+  status: varchar("status", {
+    length: 50,
+    enum: ["starting", "ready", "closing", "closed"],
+  }).notNull(),
 
   jobId: uuid()
     .notNull()
@@ -25,18 +30,13 @@ export const runnersTable = pgTable("runners", {
     onDelete: "set null",
   }),
 
-  properties: jsonb()
-    .$type<{
-      runnerPid: string;
-      runnerContainerId: string;
-      runnerContainerName: string;
-      runnerContainerNetworks: string[];
-      runnerApiPort: number;
-      runnerDebug: boolean;
-    }>()
-    .notNull(),
-
-  lastRequestAt: timestamp().notNull().defaultNow(),
+  properties: jsonb().$type<{
+    runnerPid: string;
+    runnerContainerName: string;
+    runnerContainerNetworks: string[];
+    runnerApiPort: number;
+    runnerDebug: boolean;
+  }>(),
 
   createdAt: timestamp().notNull().defaultNow(),
   readyAt: timestamp(),
@@ -45,3 +45,4 @@ export const runnersTable = pgTable("runners", {
 });
 
 export type RunnersTableType = typeof runnersTable.$inferSelect;
+export type RunnersTableInsertType = typeof runnersTable.$inferInsert;

@@ -29,14 +29,17 @@ export class RateLimit extends LoopBase {
   }
 
   public isRateLimited(key: string, limit: number) {
-    if (this.status !== "started") {
-      throw new Error("RateLimit is not started");
-    }
+    return false;
 
-    const bucketKey = this.createBucketKey(key);
-    const bucket = this.buckets.get(bucketKey);
+    // TODO: Reenable
+    // if (this.status !== "started") {
+    //   throw new Error("RateLimit is not started");
+    // }
 
-    return bucket && bucket.count >= limit;
+    // const bucketKey = this.createBucketKey(key);
+    // const bucket = this.buckets.get(bucketKey);
+
+    // return bucket && bucket.count >= limit;
   }
 
   public increment(key: string) {

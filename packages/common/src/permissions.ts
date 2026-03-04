@@ -62,6 +62,11 @@ export const PERMISSION_GATEWAY: JobberPermissions = [
     actions: ["write"],
   },
   {
+    effect: "allow",
+    resource: "job/*/runners",
+    actions: ["read"],
+  },
+  {
     effect: "deny",
     resource: "job/*/environment/*",
     actions: ["read", "write", "delete"],
@@ -69,7 +74,7 @@ export const PERMISSION_GATEWAY: JobberPermissions = [
   {
     effect: "deny",
     resource: "job/*/runners",
-    actions: ["read", "write", "delete"],
+    actions: ["write", "delete"],
   },
   {
     effect: "deny",

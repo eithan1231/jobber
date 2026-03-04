@@ -1,9 +1,9 @@
 import { MouseEvent, useState } from "react";
 import { Link } from "react-router-dom";
 import { createApiToken } from "../../../api/api-tokens";
-import { JobberPermissions } from "../../../api/common";
 import { HomePageComponent } from "../../../components/home-page-component";
 import { PermissionGuardComponent } from "../../../components/permission-guard";
+import { JobberPermissions } from "@jobber/common/permissions.js";
 
 const TTL_OPTIONS = [
   { value: 300, label: "5 minutes" },
@@ -27,7 +27,7 @@ const DEFAULT_PERMISSIONS: JobberPermissions = [
 const Component = () => {
   const [payloadTtl, setPayloadTtl] = useState(TTL_OPTIONS[5].value);
   const [payloadPermissions, setPayloadPermissions] = useState(
-    JSON.stringify(DEFAULT_PERMISSIONS, null, 2)
+    JSON.stringify(DEFAULT_PERMISSIONS, null, 2),
   );
   const [payloadDescription, setPayloadDescription] = useState("");
 
@@ -69,7 +69,7 @@ const Component = () => {
     const result = await createApiToken(
       parsedPermissions,
       payloadDescription,
-      payloadTtl
+      payloadTtl,
     );
 
     if (!result.success) {

@@ -260,6 +260,15 @@ const mapGrpcJobRunner = (runner: RunnersTableType): grpcRunner.Item => {
     jobId: runner.jobId,
     actionId: runner.actionId,
     versionId: runner.jobVersionId,
+    properties: runner.properties
+      ? {
+          runnerPid: runner.properties.runnerPid,
+          runnerContainerName: runner.properties.runnerContainerName,
+          runnerContainerNetworks: runner.properties.runnerContainerNetworks,
+          runnerApiPort: runner.properties.runnerApiPort,
+          runnerDebug: runner.properties.runnerDebug,
+        }
+      : undefined,
     createdAt: runner.createdAt.toISOString(),
     readyAt: runner.readyAt?.toISOString() ?? undefined,
     closingAt: runner.closingAt?.toISOString() ?? undefined,
@@ -296,6 +305,32 @@ const generalApiDefinition: ServiceImplementation<GeneralAPIDefinition> = {
 
   getJobAction: authorizedCall(async (request, _context, bouncer) => {
     const action = await actionsModel.byId(request.actionId);
+
+    if (!action) {
+      throw new ServerError(Status.NOT_FOUND, "Action not found");
+    }
+
+    if (action.jobId !== request.jobId) {
+      throw new ServerError(Status.NOT_FOUND, "Action not found");
+    }
+
+    if (!bouncer.canReadJobAction(action)) {
+      throw new ServerError(Status.PERMISSION_DENIED, "Permission denied");
+    }
+
+    return {
+      action: mapGrpcAction(action),
+    };
+  }),
+
+  getJobActionLatest: authorizedCall(async (request, _context, bouncer) => {
+    const job = await jobModel.byId(request.jobId);
+
+    if (!job || !job.jobVersionId) {
+      throw new ServerError(Status.NOT_FOUND, "Job not found");
+    }
+
+    const action = await actionsModel.byVersionId(job.jobVersionId);
 
     if (!action) {
       throw new ServerError(Status.NOT_FOUND, "Action not found");
@@ -379,8 +414,57 @@ const generalApiDefinition: ServiceImplementation<GeneralAPIDefinition> = {
     };
   }),
 
+  getJobTriggersLatest: authorizedCall(async (request, _context, bouncer) => {
+    const job = await jobModel.byId(request.jobId);
+
+    if (!job || !job.jobVersionId) {
+      throw new ServerError(Status.NOT_FOUND, "Job not found");
+    }
+
+    const triggers = (
+      await triggersModel.all({
+        jobId: request.jobId,
+        jobVersionId: job.jobVersionId,
+      })
+    )
+      .filter((trigger) => {
+        if (trigger.jobId !== request.jobId) {
+          return false;
+        }
+
+        return bouncer.canReadJobTriggers(trigger);
+      })
+      .map(mapGrpcTrigger);
+
+    return {
+      triggers,
+    };
+  }),
+
   getJobVersion: authorizedCall(async (request, _context, bouncer) => {
     const jobVersion = await jobVersionsModel.byId(request.jobVersionId);
+
+    if (!jobVersion) {
+      throw new ServerError(Status.NOT_FOUND, "Job version not found");
+    }
+
+    if (!bouncer.canReadJobVersion(jobVersion)) {
+      throw new ServerError(Status.PERMISSION_DENIED, "Permission denied");
+    }
+
+    return {
+      jobVersion: mapGrpcJobVersion(jobVersion),
+    };
+  }),
+
+  getJobVersionLatest: authorizedCall(async (request, _context, bouncer) => {
+    const job = await jobModel.byId(request.jobId);
+
+    if (!job || !job.jobVersionId) {
+      throw new ServerError(Status.NOT_FOUND, "Job not found");
+    }
+
+    const jobVersion = await jobVersionsModel.byId(job.jobVersionId);
 
     if (!jobVersion) {
       throw new ServerError(Status.NOT_FOUND, "Job version not found");
@@ -444,7 +528,7 @@ const generalApiDefinition: ServiceImplementation<GeneralAPIDefinition> = {
           position,
         });
 
-        if (bytesRead < chunkSize) {
+        if (bytesRead === 0) {
           break;
         }
 
@@ -453,6 +537,10 @@ const generalApiDefinition: ServiceImplementation<GeneralAPIDefinition> = {
           data: buffer.subarray(0, bytesRead),
           end: bytesRead < chunkSize,
         };
+
+        if (bytesRead < chunkSize) {
+          break;
+        }
       }
     } finally {
       await handle.close();
@@ -476,7 +564,38 @@ const generalApiDefinition: ServiceImplementation<GeneralAPIDefinition> = {
   }),
 
   getRunners: authorizedCall(async (request, _context, bouncer) => {
-    throw new ServerError(Status.UNIMPLEMENTED, "Not implemented");
+    const runners = await runnersModel.all();
+
+    if (!runners) {
+      throw new ServerError(Status.NOT_FOUND, "Runner not found");
+    }
+
+    const filteredRunners = runners.filter((runner) => {
+      if (request.jobId && runner.jobId !== request.jobId) {
+        return false;
+      }
+
+      if (request.versionId && runner.jobVersionId !== request.versionId) {
+        return false;
+      }
+
+      if (request.actionId && runner.actionId !== request.actionId) {
+        return false;
+      }
+
+      if (
+        request.status &&
+        runner.status.toLowerCase() !== request.status.toLowerCase()
+      ) {
+        return false;
+      }
+
+      return bouncer.canReadJobRunners({ id: runner.jobId });
+    });
+
+    return {
+      runners: filteredRunners.map((runner) => mapGrpcJobRunner(runner)),
+    };
   }),
 
   getStoreItem: authorizedCall(async (request, _context, bouncer) => {

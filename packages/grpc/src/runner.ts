@@ -190,6 +190,9 @@ export function eventScheduleResponse_StatusToNumber(object: EventScheduleRespon
 
 export interface StatusResponse {
   status: StatusResponse_Status;
+  lastRequestAt: number;
+  loadAverage5Seconds: number;
+  loadAverage1Minute: number;
 }
 
 export const StatusResponse_Status = {
@@ -1361,13 +1364,22 @@ export const EventScheduleResponse: MessageFns<EventScheduleResponse> = {
 };
 
 function createBaseStatusResponse(): StatusResponse {
-  return { status: StatusResponse_Status.STARTING };
+  return { status: StatusResponse_Status.STARTING, lastRequestAt: 0, loadAverage5Seconds: 0, loadAverage1Minute: 0 };
 }
 
 export const StatusResponse: MessageFns<StatusResponse> = {
   encode(message: StatusResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.status !== StatusResponse_Status.STARTING) {
       writer.uint32(8).int32(statusResponse_StatusToNumber(message.status));
+    }
+    if (message.lastRequestAt !== 0) {
+      writer.uint32(16).uint32(message.lastRequestAt);
+    }
+    if (message.loadAverage5Seconds !== 0) {
+      writer.uint32(24).uint32(message.loadAverage5Seconds);
+    }
+    if (message.loadAverage1Minute !== 0) {
+      writer.uint32(32).uint32(message.loadAverage1Minute);
     }
     return writer;
   },
@@ -1387,6 +1399,30 @@ export const StatusResponse: MessageFns<StatusResponse> = {
           message.status = statusResponse_StatusFromJSON(reader.int32());
           continue;
         }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.lastRequestAt = reader.uint32();
+          continue;
+        }
+        case 3: {
+          if (tag !== 24) {
+            break;
+          }
+
+          message.loadAverage5Seconds = reader.uint32();
+          continue;
+        }
+        case 4: {
+          if (tag !== 32) {
+            break;
+          }
+
+          message.loadAverage1Minute = reader.uint32();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -1399,6 +1435,9 @@ export const StatusResponse: MessageFns<StatusResponse> = {
   fromJSON(object: any): StatusResponse {
     return {
       status: isSet(object.status) ? statusResponse_StatusFromJSON(object.status) : StatusResponse_Status.STARTING,
+      lastRequestAt: isSet(object.lastRequestAt) ? globalThis.Number(object.lastRequestAt) : 0,
+      loadAverage5Seconds: isSet(object.loadAverage5Seconds) ? globalThis.Number(object.loadAverage5Seconds) : 0,
+      loadAverage1Minute: isSet(object.loadAverage1Minute) ? globalThis.Number(object.loadAverage1Minute) : 0,
     };
   },
 
@@ -1406,6 +1445,15 @@ export const StatusResponse: MessageFns<StatusResponse> = {
     const obj: any = {};
     if (message.status !== StatusResponse_Status.STARTING) {
       obj.status = statusResponse_StatusToJSON(message.status);
+    }
+    if (message.lastRequestAt !== 0) {
+      obj.lastRequestAt = Math.round(message.lastRequestAt);
+    }
+    if (message.loadAverage5Seconds !== 0) {
+      obj.loadAverage5Seconds = Math.round(message.loadAverage5Seconds);
+    }
+    if (message.loadAverage1Minute !== 0) {
+      obj.loadAverage1Minute = Math.round(message.loadAverage1Minute);
     }
     return obj;
   },
@@ -1416,6 +1464,9 @@ export const StatusResponse: MessageFns<StatusResponse> = {
   fromPartial(object: DeepPartial<StatusResponse>): StatusResponse {
     const message = createBaseStatusResponse();
     message.status = object.status ?? StatusResponse_Status.STARTING;
+    message.lastRequestAt = object.lastRequestAt ?? 0;
+    message.loadAverage5Seconds = object.loadAverage5Seconds ?? 0;
+    message.loadAverage1Minute = object.loadAverage1Minute ?? 0;
     return message;
   },
 };

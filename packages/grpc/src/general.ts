@@ -47,6 +47,15 @@ export interface JobVersionResponse {
   jobVersion: Item1 | undefined;
 }
 
+/** getJobVersionLatest * */
+export interface JobVersionLatestRequest {
+  jobId: string;
+}
+
+export interface JobVersionLatestResponse {
+  jobVersion: Item1 | undefined;
+}
+
 /** getJobVersions * */
 export interface JobVersionsRequest {
   jobId: string;
@@ -78,6 +87,15 @@ export interface JobActionResponse {
   action: Item2 | undefined;
 }
 
+/** getJobActionLatest * */
+export interface JobActionLatestRequest {
+  jobId: string;
+}
+
+export interface JobActionLatestResponse {
+  action: Item2 | undefined;
+}
+
 /** getJobActions * */
 export interface JobActionsRequest {
   jobId: string;
@@ -105,6 +123,15 @@ export interface JobTriggersRequest {
 }
 
 export interface JobTriggersResponse {
+  triggers: Item3[];
+}
+
+/** getJobTriggersLatest * */
+export interface JobTriggersLatestRequest {
+  jobId: string;
+}
+
+export interface JobTriggersLatestResponse {
   triggers: Item3[];
 }
 
@@ -501,6 +528,124 @@ export const JobVersionResponse: MessageFns<JobVersionResponse> = {
   },
   fromPartial(object: DeepPartial<JobVersionResponse>): JobVersionResponse {
     const message = createBaseJobVersionResponse();
+    message.jobVersion = (object.jobVersion !== undefined && object.jobVersion !== null)
+      ? Item1.fromPartial(object.jobVersion)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseJobVersionLatestRequest(): JobVersionLatestRequest {
+  return { jobId: "" };
+}
+
+export const JobVersionLatestRequest: MessageFns<JobVersionLatestRequest> = {
+  encode(message: JobVersionLatestRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.jobId !== "") {
+      writer.uint32(10).string(message.jobId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): JobVersionLatestRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseJobVersionLatestRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.jobId = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): JobVersionLatestRequest {
+    return { jobId: isSet(object.jobId) ? globalThis.String(object.jobId) : "" };
+  },
+
+  toJSON(message: JobVersionLatestRequest): unknown {
+    const obj: any = {};
+    if (message.jobId !== "") {
+      obj.jobId = message.jobId;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<JobVersionLatestRequest>): JobVersionLatestRequest {
+    return JobVersionLatestRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<JobVersionLatestRequest>): JobVersionLatestRequest {
+    const message = createBaseJobVersionLatestRequest();
+    message.jobId = object.jobId ?? "";
+    return message;
+  },
+};
+
+function createBaseJobVersionLatestResponse(): JobVersionLatestResponse {
+  return { jobVersion: undefined };
+}
+
+export const JobVersionLatestResponse: MessageFns<JobVersionLatestResponse> = {
+  encode(message: JobVersionLatestResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.jobVersion !== undefined) {
+      Item1.encode(message.jobVersion, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): JobVersionLatestResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseJobVersionLatestResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.jobVersion = Item1.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): JobVersionLatestResponse {
+    return { jobVersion: isSet(object.jobVersion) ? Item1.fromJSON(object.jobVersion) : undefined };
+  },
+
+  toJSON(message: JobVersionLatestResponse): unknown {
+    const obj: any = {};
+    if (message.jobVersion !== undefined) {
+      obj.jobVersion = Item1.toJSON(message.jobVersion);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<JobVersionLatestResponse>): JobVersionLatestResponse {
+    return JobVersionLatestResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<JobVersionLatestResponse>): JobVersionLatestResponse {
+    const message = createBaseJobVersionLatestResponse();
     message.jobVersion = (object.jobVersion !== undefined && object.jobVersion !== null)
       ? Item1.fromPartial(object.jobVersion)
       : undefined;
@@ -932,6 +1077,124 @@ export const JobActionResponse: MessageFns<JobActionResponse> = {
   },
 };
 
+function createBaseJobActionLatestRequest(): JobActionLatestRequest {
+  return { jobId: "" };
+}
+
+export const JobActionLatestRequest: MessageFns<JobActionLatestRequest> = {
+  encode(message: JobActionLatestRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.jobId !== "") {
+      writer.uint32(10).string(message.jobId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): JobActionLatestRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseJobActionLatestRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.jobId = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): JobActionLatestRequest {
+    return { jobId: isSet(object.jobId) ? globalThis.String(object.jobId) : "" };
+  },
+
+  toJSON(message: JobActionLatestRequest): unknown {
+    const obj: any = {};
+    if (message.jobId !== "") {
+      obj.jobId = message.jobId;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<JobActionLatestRequest>): JobActionLatestRequest {
+    return JobActionLatestRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<JobActionLatestRequest>): JobActionLatestRequest {
+    const message = createBaseJobActionLatestRequest();
+    message.jobId = object.jobId ?? "";
+    return message;
+  },
+};
+
+function createBaseJobActionLatestResponse(): JobActionLatestResponse {
+  return { action: undefined };
+}
+
+export const JobActionLatestResponse: MessageFns<JobActionLatestResponse> = {
+  encode(message: JobActionLatestResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.action !== undefined) {
+      Item2.encode(message.action, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): JobActionLatestResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseJobActionLatestResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.action = Item2.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): JobActionLatestResponse {
+    return { action: isSet(object.action) ? Item2.fromJSON(object.action) : undefined };
+  },
+
+  toJSON(message: JobActionLatestResponse): unknown {
+    const obj: any = {};
+    if (message.action !== undefined) {
+      obj.action = Item2.toJSON(message.action);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<JobActionLatestResponse>): JobActionLatestResponse {
+    return JobActionLatestResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<JobActionLatestResponse>): JobActionLatestResponse {
+    const message = createBaseJobActionLatestResponse();
+    message.action = (object.action !== undefined && object.action !== null)
+      ? Item2.fromPartial(object.action)
+      : undefined;
+    return message;
+  },
+};
+
 function createBaseJobActionsRequest(): JobActionsRequest {
   return { jobId: "", versionId: undefined };
 }
@@ -1335,6 +1598,124 @@ export const JobTriggersResponse: MessageFns<JobTriggersResponse> = {
   },
   fromPartial(object: DeepPartial<JobTriggersResponse>): JobTriggersResponse {
     const message = createBaseJobTriggersResponse();
+    message.triggers = object.triggers?.map((e) => Item3.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBaseJobTriggersLatestRequest(): JobTriggersLatestRequest {
+  return { jobId: "" };
+}
+
+export const JobTriggersLatestRequest: MessageFns<JobTriggersLatestRequest> = {
+  encode(message: JobTriggersLatestRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.jobId !== "") {
+      writer.uint32(10).string(message.jobId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): JobTriggersLatestRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseJobTriggersLatestRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.jobId = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): JobTriggersLatestRequest {
+    return { jobId: isSet(object.jobId) ? globalThis.String(object.jobId) : "" };
+  },
+
+  toJSON(message: JobTriggersLatestRequest): unknown {
+    const obj: any = {};
+    if (message.jobId !== "") {
+      obj.jobId = message.jobId;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<JobTriggersLatestRequest>): JobTriggersLatestRequest {
+    return JobTriggersLatestRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<JobTriggersLatestRequest>): JobTriggersLatestRequest {
+    const message = createBaseJobTriggersLatestRequest();
+    message.jobId = object.jobId ?? "";
+    return message;
+  },
+};
+
+function createBaseJobTriggersLatestResponse(): JobTriggersLatestResponse {
+  return { triggers: [] };
+}
+
+export const JobTriggersLatestResponse: MessageFns<JobTriggersLatestResponse> = {
+  encode(message: JobTriggersLatestResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.triggers) {
+      Item3.encode(v!, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): JobTriggersLatestResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseJobTriggersLatestResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.triggers.push(Item3.decode(reader, reader.uint32()));
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): JobTriggersLatestResponse {
+    return {
+      triggers: globalThis.Array.isArray(object?.triggers) ? object.triggers.map((e: any) => Item3.fromJSON(e)) : [],
+    };
+  },
+
+  toJSON(message: JobTriggersLatestResponse): unknown {
+    const obj: any = {};
+    if (message.triggers?.length) {
+      obj.triggers = message.triggers.map((e) => Item3.toJSON(e));
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<JobTriggersLatestResponse>): JobTriggersLatestResponse {
+    return JobTriggersLatestResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<JobTriggersLatestResponse>): JobTriggersLatestResponse {
+    const message = createBaseJobTriggersLatestResponse();
     message.triggers = object.triggers?.map((e) => Item3.fromPartial(e)) || [];
     return message;
   },
@@ -2260,6 +2641,14 @@ export const GeneralAPIDefinition = {
       responseStream: false,
       options: {},
     },
+    getJobVersionLatest: {
+      name: "getJobVersionLatest",
+      requestType: JobVersionLatestRequest,
+      requestStream: false,
+      responseType: JobVersionLatestResponse,
+      responseStream: false,
+      options: {},
+    },
     getJobVersions: {
       name: "getJobVersions",
       requestType: JobVersionsRequest,
@@ -2284,6 +2673,14 @@ export const GeneralAPIDefinition = {
       responseStream: false,
       options: {},
     },
+    getJobActionLatest: {
+      name: "getJobActionLatest",
+      requestType: JobActionLatestRequest,
+      requestStream: false,
+      responseType: JobActionLatestResponse,
+      responseStream: false,
+      options: {},
+    },
     getJobActions: {
       name: "getJobActions",
       requestType: JobActionsRequest,
@@ -2305,6 +2702,14 @@ export const GeneralAPIDefinition = {
       requestType: JobTriggersRequest,
       requestStream: false,
       responseType: JobTriggersResponse,
+      responseStream: false,
+      options: {},
+    },
+    getJobTriggersLatest: {
+      name: "getJobTriggersLatest",
+      requestType: JobTriggersLatestRequest,
+      requestStream: false,
+      responseType: JobTriggersLatestResponse,
       responseStream: false,
       options: {},
     },
@@ -2367,6 +2772,10 @@ export interface GeneralAPIServiceImplementation<CallContextExt = {}> {
     request: JobVersionRequest,
     context: CallContext & CallContextExt,
   ): Promise<DeepPartial<JobVersionResponse>>;
+  getJobVersionLatest(
+    request: JobVersionLatestRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<JobVersionLatestResponse>>;
   getJobVersions(
     request: JobVersionsRequest,
     context: CallContext & CallContextExt,
@@ -2379,6 +2788,10 @@ export interface GeneralAPIServiceImplementation<CallContextExt = {}> {
     request: JobActionRequest,
     context: CallContext & CallContextExt,
   ): Promise<DeepPartial<JobActionResponse>>;
+  getJobActionLatest(
+    request: JobActionLatestRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<JobActionLatestResponse>>;
   getJobActions(
     request: JobActionsRequest,
     context: CallContext & CallContextExt,
@@ -2391,6 +2804,10 @@ export interface GeneralAPIServiceImplementation<CallContextExt = {}> {
     request: JobTriggersRequest,
     context: CallContext & CallContextExt,
   ): Promise<DeepPartial<JobTriggersResponse>>;
+  getJobTriggersLatest(
+    request: JobTriggersLatestRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<JobTriggersLatestResponse>>;
   getRunner(request: RunnerRequest, context: CallContext & CallContextExt): Promise<DeepPartial<RunnerResponse>>;
   getRunners(request: RunnersRequest, context: CallContext & CallContextExt): Promise<DeepPartial<RunnersResponse>>;
   getStoreItem(
@@ -2419,6 +2836,10 @@ export interface GeneralAPIClient<CallOptionsExt = {}> {
     request: DeepPartial<JobVersionRequest>,
     options?: CallOptions & CallOptionsExt,
   ): Promise<JobVersionResponse>;
+  getJobVersionLatest(
+    request: DeepPartial<JobVersionLatestRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<JobVersionLatestResponse>;
   getJobVersions(
     request: DeepPartial<JobVersionsRequest>,
     options?: CallOptions & CallOptionsExt,
@@ -2431,6 +2852,10 @@ export interface GeneralAPIClient<CallOptionsExt = {}> {
     request: DeepPartial<JobActionRequest>,
     options?: CallOptions & CallOptionsExt,
   ): Promise<JobActionResponse>;
+  getJobActionLatest(
+    request: DeepPartial<JobActionLatestRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<JobActionLatestResponse>;
   getJobActions(
     request: DeepPartial<JobActionsRequest>,
     options?: CallOptions & CallOptionsExt,
@@ -2443,6 +2868,10 @@ export interface GeneralAPIClient<CallOptionsExt = {}> {
     request: DeepPartial<JobTriggersRequest>,
     options?: CallOptions & CallOptionsExt,
   ): Promise<JobTriggersResponse>;
+  getJobTriggersLatest(
+    request: DeepPartial<JobTriggersLatestRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<JobTriggersLatestResponse>;
   getRunner(request: DeepPartial<RunnerRequest>, options?: CallOptions & CallOptionsExt): Promise<RunnerResponse>;
   getRunners(request: DeepPartial<RunnersRequest>, options?: CallOptions & CallOptionsExt): Promise<RunnersResponse>;
   getStoreItem(

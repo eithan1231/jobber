@@ -16,14 +16,17 @@ service GeneralAPI {
   rpc getJobs(JobsRequest) returns (JobsResponse);
 
   rpc getJobVersion(JobVersionRequest) returns (JobVersionResponse);
+  rpc getJobVersionLatest(JobVersionLatestRequest) returns (JobVersionLatestResponse);
   rpc getJobVersions(JobVersionsRequest) returns (JobVersionsResponse);
   rpc getJobVersionArchive(JobVersionArchiveRequest) returns (stream JobVersionArchiveResponse);
   
   rpc getJobAction(JobActionRequest) returns (JobActionResponse);
+  rpc getJobActionLatest(JobActionLatestRequest) returns (JobActionLatestResponse);
   rpc getJobActions(JobActionsRequest) returns (JobActionsResponse);
 
   rpc getJobTrigger(JobTriggerRequest) returns (JobTriggerResponse);
   rpc getJobTriggers(JobTriggersRequest) returns (JobTriggersResponse);
+  rpc getJobTriggersLatest(JobTriggersLatestRequest) returns (JobTriggersLatestResponse);
 
   rpc getRunner(RunnerRequest) returns (RunnerResponse);
   rpc getRunners(RunnersRequest) returns (RunnersResponse);
@@ -62,6 +65,15 @@ message JobVersionResponse {
 }
 
 
+/** getJobVersionLatest **/
+message JobVersionLatestRequest {
+  string jobId = 1;
+}
+message JobVersionLatestResponse {
+  JobVersion.Item jobVersion = 1;
+}
+
+
 /** getJobVersions **/
 message JobVersionsRequest {
   string jobId = 1;
@@ -93,6 +105,15 @@ message JobActionResponse {
 }
 
 
+/** getJobActionLatest **/
+message JobActionLatestRequest {
+  string jobId = 1;
+}
+message JobActionLatestResponse {
+  Action.Item action = 1;
+}
+
+
 /** getJobActions **/
 message JobActionsRequest {
   string jobId = 1;
@@ -119,6 +140,15 @@ message JobTriggersRequest {
   optional string versionId = 2;
 }
 message JobTriggersResponse {
+  repeated Trigger.Item triggers = 1;
+}
+
+
+/** getJobTriggersLatest **/
+message JobTriggersLatestRequest {
+  string jobId = 1;
+}
+message JobTriggersLatestResponse {
   repeated Trigger.Item triggers = 1;
 }
 

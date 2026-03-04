@@ -27,10 +27,24 @@ async function byClientId(clientId: string) {
   return serviceClient;
 }
 
-async function create(serviceClient: OauthServiceClientTableInsertType) {
+async function upsert(serviceClient: OauthServiceClientTableInsertType) {
   const createdServiceClient = await getDrizzle()
     .insert(oauthServiceClientTable)
     .values(serviceClient)
+    .onConflictDoUpdate({
+      target: oauthServiceClientTable.clientId,
+      set: {
+        name: serviceClient.name,
+        description: serviceClient.description,
+        allowedAudiences: serviceClient.allowedAudiences,
+        allowedScopes: serviceClient.allowedScopes,
+        enabled: serviceClient.enabled,
+        expiresAt: serviceClient.expiresAt,
+        isSystemManaged: serviceClient.isSystemManaged,
+        permissions: serviceClient.permissions,
+        metadata: serviceClient.metadata,
+      },
+    })
     .returning()
     .then((res) => res.at(0));
 
@@ -48,5 +62,5 @@ export const oauthServiceClientModel = {
   byId,
   byClientId,
   all,
-  create,
+  upsert,
 };

@@ -19,6 +19,7 @@ import { LegacyContextResponse } from "./context/legacy-response.js";
 import { MqttContext } from "./context/mqtt.js";
 import { ScheduleContext } from "./context/schedule.js";
 import { Runner, RunnerOptions } from "./runner.js";
+import { getOAuthAudienceRunnerApi } from "@jobber/common/oauth.js";
 
 export class RunnerServer {
   private jwks: ReturnType<typeof createRemoteJWKSet>;
@@ -51,7 +52,7 @@ export class RunnerServer {
 
       const { payload } = await jwtVerify(token, this.jwks, {
         issuer: this.options.runnerOAuthIssuer,
-        audience: this.options.runnerOAuthAudience,
+        audience: getOAuthAudienceRunnerApi(this.options.runnerId),
       });
 
       const permissions = await JobberPermissionsSchema.parseAsync(
@@ -91,29 +92,44 @@ export class RunnerServer {
         if (thisWas.runner.status === "starting") {
           return {
             status: "STARTING",
+            lastRequestAt: thisWas.runner.telemetry.lastRequestAt,
+            loadAverage5Second: thisWas.runner.telemetry.loadAverage5Second,
+            loadAverage60Second: thisWas.runner.telemetry.loadAverage60Second,
           };
         }
 
         if (thisWas.runner.status === "running") {
           return {
             status: "READY",
+            lastRequestAt: thisWas.runner.telemetry.lastRequestAt,
+            loadAverage5Second: thisWas.runner.telemetry.loadAverage5Second,
+            loadAverage60Second: thisWas.runner.telemetry.loadAverage60Second,
           };
         }
 
         if (thisWas.runner.status === "closing") {
           return {
             status: "CLOSING",
+            lastRequestAt: thisWas.runner.telemetry.lastRequestAt,
+            loadAverage5Second: thisWas.runner.telemetry.loadAverage5Second,
+            loadAverage60Second: thisWas.runner.telemetry.loadAverage60Second,
           };
         }
 
         if (thisWas.runner.status === "pending") {
           return {
             status: "CLOSED",
+            lastRequestAt: thisWas.runner.telemetry.lastRequestAt,
+            loadAverage5Second: thisWas.runner.telemetry.loadAverage5Second,
+            loadAverage60Second: thisWas.runner.telemetry.loadAverage60Second,
           };
         }
 
         return {
           status: "UNRECOGNIZED",
+          lastRequestAt: 0,
+          loadAverage5Second: 0,
+          loadAverage60Second: 0,
         };
       },
 
@@ -135,6 +151,8 @@ export class RunnerServer {
         // Ensure headers are received before processing event
         httpContext.request._startStreamingEvents(); // Do not await
         await httpContext.request.receivedHeadersPromise; // Resolves when headers are received.
+
+        thisWas.runner.telemetry.notifyRequest();
 
         if (thisWas.runner.module.handlerHttp) {
           const result = thisWas.runner.module.handlerHttp(httpContext);
@@ -191,6 +209,8 @@ export class RunnerServer {
 
         const mqttContext = new MqttContext(thisWas.runner, request);
 
+        thisWas.runner.telemetry.notifyRequest();
+
         if (thisWas.runner.module.handlerMqtt) {
           const result = thisWas.runner.module.handlerMqtt(mqttContext);
 
@@ -229,6 +249,8 @@ export class RunnerServer {
         }
 
         const scheduleContext = new ScheduleContext(this.runner, request);
+
+        thisWas.runner.telemetry.notifyRequest();
 
         if (this.runner.module.handlerSchedule) {
           const result = this.runner.module.handlerSchedule(scheduleContext);

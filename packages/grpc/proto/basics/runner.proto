@@ -10,12 +10,22 @@ message Item {
     CLOSED = 3;
   }
 
+  message Properties {
+    string runnerPid = 1;
+    reserved 2;
+    string runnerContainerName = 3;
+    repeated string runnerContainerNetworks = 4;
+    uint32 runnerApiPort = 5;
+    bool runnerDebug = 6;
+  }
+
   string id = 1;
   string jobId = 2;
   string actionId = 3;
   string versionId = 4;
+  Properties properties = 5;
 
-  reserved 5 to 10;
+  reserved 6 to 10;
 
   string createdAt = 11;
   optional string readyAt = 12;

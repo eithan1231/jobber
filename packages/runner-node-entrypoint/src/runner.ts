@@ -9,6 +9,7 @@ import { RunnerClient } from "./runner-client.js";
 import { RunnerServer } from "./runner-server.js";
 import { fileExists, getTempFilePath, unzip } from "./util.js";
 import { validatePackageJson } from "./validator.js";
+import { Telemetry } from "./telemetry.js";
 
 export type RunnerOptions = {
   runnerId: string;
@@ -19,7 +20,6 @@ export type RunnerOptions = {
   runnerOAuthTokenEndpoint: string;
   runnerOAuthJwksEndpoint: string;
   runnerOAuthIssuer: string;
-  runnerOAuthAudience: string;
 
   runnerApiPort: number;
 
@@ -51,11 +51,15 @@ export class Runner {
 
   protected _client: RunnerClient;
 
+  protected _telemetry: Telemetry;
+
   private runnerInfo: grpcRunner.Item | null = null;
 
   private _module: RunnerExpectedModule | null = null;
 
   constructor(private options: RunnerOptions) {
+    this._telemetry = new Telemetry();
+
     this._client = new RunnerClient(this, options);
 
     this._server = new RunnerServer(this, options);
@@ -196,6 +200,10 @@ export class Runner {
 
   public get client() {
     return this._client;
+  }
+
+  public get telemetry() {
+    return this._telemetry;
   }
 
   public get module() {

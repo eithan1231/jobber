@@ -1,11 +1,11 @@
 import { MouseEvent, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { updateApiToken } from "../../../../api/api-tokens";
-import { JobberPermissions } from "../../../../api/common";
 import { HomePageComponent } from "../../../../components/home-page-component";
 import { PermissionGuardComponent } from "../../../../components/permission-guard";
 import { TimeSinceComponent } from "../../../../components/time-since-component";
 import { useApiToken } from "../../../../hooks/use-api-token";
+import { JobberPermissions } from "@jobber/common/permissions.js";
 
 const STATUS_OPTIONS = [
   { value: "enabled", label: "Enabled" },
@@ -19,10 +19,10 @@ const Component = () => {
     "enabled" | "disabled" | null
   >(null);
   const [payloadPermissions, setPayloadPermissions] = useState<string | null>(
-    null
+    null,
   );
   const [payloadDescription, setPayloadDescription] = useState<string | null>(
-    null
+    null,
   );
 
   const { apiToken } = useApiToken(tokenId);
@@ -138,7 +138,7 @@ const Component = () => {
                   <dd className="text-gray-900">
                     <TimeSinceComponent
                       timestamp={Math.floor(
-                        new Date(apiToken.created).getTime() / 1000
+                        new Date(apiToken.created).getTime() / 1000,
                       )}
                     />
                   </dd>
@@ -148,7 +148,7 @@ const Component = () => {
                   <dd className="text-gray-900">
                     <TimeSinceComponent
                       timestamp={Math.floor(
-                        new Date(apiToken.expires).getTime() / 1000
+                        new Date(apiToken.expires).getTime() / 1000,
                       )}
                     />
                   </dd>

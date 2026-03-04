@@ -59,9 +59,12 @@ export const ConfigurationOptionsSchema = z.object({
     .pipe(z.boolean())
     .default("false"),
 
-  MANAGER_PORT: z.coerce.number().default(5211),
+  API_PORT: z.coerce.number().default(3000),
+
+  // Hostname for the manager, used for runners to connect to.
   MANAGER_HOST: z.string().default(hostname()),
 
+  // GRPC specific config
   MANAGER_GRPC_PORT: z.coerce.number().default(5212),
   MANAGER_GRPC_BIND_ADDRESS: z.string().default("0.0.0.0"),
 

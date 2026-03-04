@@ -26,11 +26,18 @@ import { randomUUID } from "node:crypto";
 import { getConfigOption } from "./config.js";
 import { GeneralAPIDefinition } from "@jobber/grpc/general.js";
 import assert from "node:assert";
-import { getOauth2Token } from "./oauth-client.js";
+import { createOauth2Token } from "./oauth-client.js";
 
 type RunnerClient = RawClient<
   FromTsProtoServiceDefinition<RunnerAPIDefinition>
 >;
+
+type GrpcAuth = {
+  jwt: string;
+  expiresAt: number;
+  refreshAt: number;
+  metadata: Metadata;
+};
 
 export class GatewayClient extends LoopBase {
   protected loopDuration = 1000;
@@ -40,6 +47,7 @@ export class GatewayClient extends LoopBase {
 
   private server: Server | null = null;
 
+  private grpcAuth: GrpcAuth | null = null;
   private grpcChannel: Channel | null = null;
   private grpcClient: RawClient<
     FromTsProtoServiceDefinition<GeneralAPIDefinition>
@@ -61,6 +69,7 @@ export class GatewayClient extends LoopBase {
     string,
     {
       jobId: string;
+      auth: GrpcAuth;
       channel: Channel;
       client: RunnerClient;
     }
@@ -74,19 +83,24 @@ export class GatewayClient extends LoopBase {
   }
 
   protected async loopStarting() {
-    this.grpcChannel = createChannel(getConfigOption("GRPC_ENDPOINT"));
+    const tokenResult = await createOauth2Token(getOAuthAudienceGeneralApi());
 
+    this.grpcAuth = {
+      jwt: tokenResult.token,
+      expiresAt: tokenResult.expiresAt,
+      refreshAt: tokenResult.refreshAt,
+      metadata: Metadata({
+        Authorization: `Bearer ${tokenResult.token}`,
+      }),
+    };
+
+    this.grpcChannel = createChannel(getConfigOption("GRPC_ENDPOINT"));
     this.grpcClient = createClientFactory().create(
       GeneralAPIDefinition,
       this.grpcChannel,
       {
-        "*": async () => {
-          const metadata = new Metadata();
-          const token = await getOauth2Token(getOAuthAudienceGeneralApi());
-
-          metadata.set("Authorization", `Bearer ${token}`);
-
-          return metadata;
+        "*": {
+          metadata: this.grpcAuth.metadata,
         },
       },
     );
@@ -110,7 +124,7 @@ export class GatewayClient extends LoopBase {
 
       const route = this.getTriggerByRequest(req);
 
-      if (!route || !route.http || this.jobs.has(route.jobId)) {
+      if (!route || !route.http || !this.jobs.has(route.jobId)) {
         // handle bad gateway error
         res.statusCode = 502;
         res.end("Bad Gateway");
@@ -126,11 +140,17 @@ export class GatewayClient extends LoopBase {
       let runner: RunnerItem;
 
       if (runners.length === 0) {
+        // TODO: This, this will need to be done. Need to be able to start
+        // runners on demand
+
         // runner = await this.grpcClient!.createRunner({
         //   jobId: job.id,
         //   versionId: job.versionId,
         // });
-        throw new Error("No runners available for job " + job.id);
+        // throw new Error("No runners available for job " + job.id);
+        res.statusCode = 502;
+        res.end("Bad Gateway - no runners available for job");
+        return;
       } else {
         // select random runner
         const randomIndex = Math.floor(Math.random() * runners.length);
@@ -138,7 +158,7 @@ export class GatewayClient extends LoopBase {
       }
 
       const runnerConnection = this.runnerGrpc.get(runner.id);
-      if (!runnerConnection) {
+      if (!runnerConnection || !runnerConnection.client) {
         res.statusCode = 502;
         res.end("Bad Gateway - Runner connection not found");
         return;
@@ -168,6 +188,12 @@ export class GatewayClient extends LoopBase {
           }
 
           yield {
+            info: {
+              triggerName: route.http?.name!,
+            },
+          };
+
+          yield {
             head: {
               id: randomUUID(),
               scheme: "http", // TODO: this
@@ -179,7 +205,7 @@ export class GatewayClient extends LoopBase {
             },
           };
 
-          let dataSequence = 1;
+          let dataSequence = 0;
 
           for await (const chunk of req) {
             yield {
@@ -244,6 +270,8 @@ export class GatewayClient extends LoopBase {
       throw new Error("GrpcClient not started");
     }
 
+    // TODO: Check if any tokens need refreshing.
+
     const jobs = await this.grpcClient
       .getJobs({})
       .then((res) =>
@@ -265,11 +293,11 @@ export class GatewayClient extends LoopBase {
   private async handleJobUpdate(job: JobItem) {
     assert(this.grpcClient);
 
-    const { triggers } = await this.grpcClient.getJobTriggers({
+    const { triggers } = await this.grpcClient.getJobTriggersLatest({
       jobId: job.id,
     });
 
-    const { action } = await this.grpcClient.getJobAction({
+    const { action } = await this.grpcClient.getJobActionLatest({
       jobId: job.id,
     });
 
@@ -288,7 +316,7 @@ export class GatewayClient extends LoopBase {
       job,
       action,
       triggers,
-      runners,
+      runners: runners.filter((runner) => runner.readyAt !== null),
     });
 
     for (const runner of runners) {
@@ -296,26 +324,36 @@ export class GatewayClient extends LoopBase {
         continue;
       }
 
-      const channel = createChannel(getConfigOption("GRPC_ENDPOINT"));
+      const tokenResult = await createOauth2Token(
+        getOAuthAudienceRunnerApi(runner.id),
+      );
+
+      const auth: GrpcAuth = {
+        jwt: tokenResult.token,
+        expiresAt: tokenResult.expiresAt,
+        refreshAt: tokenResult.refreshAt,
+        metadata: Metadata({
+          Authorization: `Bearer ${tokenResult.token}`,
+        }),
+      };
+
+      const channel = createChannel(
+        // TODO: this
+        `http://${"192.168.10.200"}:${runner.properties?.runnerApiPort}`,
+      );
       const client = createClientFactory().create(
         RunnerAPIDefinition,
         channel,
         {
-          "*": async () => {
-            const metadata = new Metadata();
-            const token = await getOauth2Token(
-              getOAuthAudienceRunnerApi(runner.id),
-            );
-
-            metadata.set("Authorization", `Bearer ${token}`);
-
-            return metadata;
+          "*": {
+            metadata: auth.metadata,
           },
         },
       );
 
       this.runnerGrpc.set(runner.id, {
         jobId: job.id,
+        auth,
         channel,
         client,
       });

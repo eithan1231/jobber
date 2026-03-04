@@ -265,7 +265,7 @@ export async function createRouteOAuthAdmin() {
       path: ["request", "body"],
     });
 
-    const { client, secret } = await serviceClients.createServiceClient({
+    const { client, secret } = await serviceClients.upsertServiceClient({
       name: body.name,
       description: body.description,
 

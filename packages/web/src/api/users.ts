@@ -1,4 +1,5 @@
-import { JobberGenericResponse, JobberPermissions } from "./common";
+import { JobberPermissions } from "@jobber/common/permissions.js";
+import { JobberGenericResponse } from "./common";
 
 export type JobberUser = {
   id: string;
@@ -16,7 +17,7 @@ export const getUsers = async (): Promise<
 };
 
 export const getUser = async (
-  userId: string
+  userId: string,
 ): Promise<JobberGenericResponse<JobberUser>> => {
   const result = await fetch(`/api/users/${userId}`);
 
@@ -26,7 +27,7 @@ export const getUser = async (
 export const createUser = async (
   username: string,
   password: string,
-  permissions: JobberPermissions
+  permissions: JobberPermissions,
 ): Promise<JobberGenericResponse<JobberUser>> => {
   const result = await fetch(`/api/users/`, {
     method: "POST",
@@ -45,7 +46,7 @@ export const updateUser = async (
     username?: string;
     password?: string;
     permissions?: JobberPermissions;
-  }
+  },
 ): Promise<JobberGenericResponse<JobberUser>> => {
   const result = await fetch(`/api/users/${userId}`, {
     method: "PUT",

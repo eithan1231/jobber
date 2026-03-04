@@ -389,7 +389,7 @@ async function main() {
 
   console.log(`[main] Initialising runner manager...`);
   const runnerManager = container.resolve(RunnerManager);
-  // await runnerManager.start();
+  await runnerManager.start();
   console.log(`[main] done.`);
 
   console.log(`[main] Initialising triggers (Cron, MQTT, HTTP)...`);
@@ -424,7 +424,7 @@ async function main() {
   const appInternal = await createInternalHono();
 
   const serverInternal = serve({
-    port: 3000,
+    port: getConfigOption("API_PORT"),
     fetch: appInternal.fetch,
   });
 
@@ -454,7 +454,7 @@ async function main() {
     console.log(`[signalRoutine] done.`);
 
     console.log(`[signalRoutine] Stopping runner manager.`);
-    // await runnerManager.stop();
+    await runnerManager.stop();
     console.log(`[signalRoutine] done.`);
 
     console.log("[signalRoutine] Stopping gRPC server.");

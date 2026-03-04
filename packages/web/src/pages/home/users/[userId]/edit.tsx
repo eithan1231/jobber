@@ -1,10 +1,10 @@
 import { MouseEvent, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { JobberPermissions } from "../../../../api/common";
 import { updateUser } from "../../../../api/users";
 import { HomePageComponent } from "../../../../components/home-page-component";
 import { PermissionGuardComponent } from "../../../../components/permission-guard";
 import { useUser } from "../../../../hooks/use-user";
+import { JobberPermissions } from "@jobber/common/permissions.js";
 
 const Component = () => {
   const userId = useParams().userId ?? "";

@@ -20,13 +20,13 @@ type CachedToken = {
 };
 
 export class RunnerClient extends LoopBase {
-  protected loopDuration = 60 * 1000;
+  protected loopDuration = 10 * 1000;
 
   protected loopStarted = undefined;
   protected loopClosing = undefined;
 
   private cachedToken: CachedToken | null = null;
-  private cachedMetadata = new Metadata();
+  private cachedMetadata = Metadata();
 
   private channel: ChannelImplementation | null = null;
   private client: Client<GeneralAPIDefinition> | null = null;
@@ -43,7 +43,7 @@ export class RunnerClient extends LoopBase {
   }
 
   private async checkClient() {
-    if (this.cachedToken && getUnixTimestamp() < this.cachedToken.expiresAt) {
+    if (this.cachedToken && getUnixTimestamp() < this.cachedToken.renewsAt) {
       return;
     }
 
@@ -148,7 +148,7 @@ export class RunnerClient extends LoopBase {
 
     this.cachedToken = null;
 
-    this.cachedMetadata = new Metadata();
+    this.cachedMetadata = Metadata();
   }
 
   get methods() {
