@@ -1,6 +1,9 @@
 import { eq } from "drizzle-orm";
 import { getDrizzle } from "./index.js";
-import { OauthServiceClientTableInsertType } from "./types.js";
+import {
+  OauthServiceClientTableInsertType,
+  OauthServiceClientTableType,
+} from "./types.js";
 import { oauthServiceClientTable } from "./schema.js";
 
 async function byId(id: string) {
@@ -12,6 +15,14 @@ async function byId(id: string) {
     .then((res) => res.at(0));
 
   return serviceClient;
+}
+
+async function byEnabled() {
+  const serviceClients = await getDrizzle()
+    .select()
+    .from(oauthServiceClientTable)
+    .where(eq(oauthServiceClientTable.enabled, true));
+  return serviceClients;
 }
 
 async function byClientId(clientId: string) {
@@ -58,6 +69,7 @@ async function all() {
 
 export const oauthServiceClientModel = {
   byId,
+  byEnabled,
   byClientId,
   all,
   upsert,

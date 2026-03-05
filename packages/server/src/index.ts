@@ -54,6 +54,7 @@ import {
   UserUsernameSchema,
 } from "./db/types.js";
 import { usersTable } from "./db/schema.js";
+import { OAuthServiceClients } from "./service-clients.js";
 
 export type InternalHonoApp = {
   Variables: {
@@ -368,6 +369,11 @@ async function main() {
   await oauthSigningKeys.start();
   console.log(`[main] done.`);
 
+  console.log("[main] Initialising OAuth Service Clients...");
+  const oauthServiceClients = container.resolve(OAuthServiceClients);
+  oauthServiceClients.start();
+  console.log(`[main] done.`);
+
   // console.log(`[main] Creating internal API token...`);
   // await createApiTokenInternal();
   // console.log(`[main] done.`);
@@ -475,6 +481,10 @@ async function main() {
 
     console.log(`[signalRoutine] Stopping rate limiter...`);
     await rateLimit.stop();
+    console.log(`[signalRoutine] done.`);
+
+    console.log(`[signalRoutine] Stopping OAuth Service Clients...`);
+    await oauthServiceClients.stop();
     console.log(`[signalRoutine] done.`);
 
     console.log(`[signalRoutine] Stopping OAuth Signing Keys...`);

@@ -194,6 +194,7 @@ export async function createRouteOAuthAdmin() {
 
   app.get("/oauth/service-client/", createMiddlewareAuth(), async (c) => {
     const bouncer = c.get("bouncer")!;
+    const hideDisabled = (c.req.query("hide-disabled") ?? "true") === "true";
 
     if (!bouncer.canReadOauthServiceClientGenerally()) {
       return c.json(
@@ -202,7 +203,9 @@ export async function createRouteOAuthAdmin() {
       );
     }
 
-    const serviceClients = await oauthServiceClientModel.all();
+    const serviceClients = hideDisabled
+      ? await oauthServiceClientModel.byEnabled()
+      : await oauthServiceClientModel.all();
 
     const result = serviceClients
       .filter((client) => bouncer.canReadOauthServiceClient(client))

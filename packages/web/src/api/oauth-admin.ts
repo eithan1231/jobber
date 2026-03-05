@@ -94,10 +94,12 @@ export const createOAuthSigningKey = async (payload: {
   return result.json();
 };
 
-export const getOAuthServiceClients = async (): Promise<
-  JobberGenericResponse<JobberOAuthServiceClient[]>
-> => {
-  const result = await fetch(`/api/oauth/service-client/`);
+export const getOAuthServiceClients = async (
+  hideDisabled = true,
+): Promise<JobberGenericResponse<JobberOAuthServiceClient[]>> => {
+  const result = await fetch(
+    `/api/oauth/service-client/?hide-disabled=${hideDisabled ? "true" : "false"}`,
+  );
 
   return result.json();
 };
