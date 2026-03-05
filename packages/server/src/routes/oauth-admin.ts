@@ -4,8 +4,10 @@ import { container } from "tsyringe";
 import { z } from "zod";
 import { oauthServiceClientModel } from "~/db/oauth-service-client.js";
 import { oauthSigningKeyModel } from "~/db/oauth-signing-key.js";
-import { OauthServiceClientTableType } from "~/db/schema/oauth-service-client.js";
-import { OauthSigningKeyTableType } from "~/db/schema/oauth-signing-key.js";
+import {
+  OauthServiceClientTableType,
+  OauthSigningKeyTableType,
+} from "~/db/types.js";
 import { InternalHonoApp } from "~/index.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { OAuthServiceClients } from "~/service-clients.js";

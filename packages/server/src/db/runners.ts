@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getDrizzle } from "./index.js";
-import { runnersTable, RunnersTableInsertType } from "./schema/runners.js";
+import { RunnersTableInsertType } from "./types.js";
+import { runnersTable } from "./schema.js";
 
 async function byId(id: string) {
   const runner = await getDrizzle()

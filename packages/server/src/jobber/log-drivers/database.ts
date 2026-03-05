@@ -1,6 +1,7 @@
 import { desc, eq, gt, lt, sql } from "drizzle-orm";
 import { getDrizzle } from "~/db/index.js";
-import { logsTable, LogsTableInsertType } from "~/db/schema/logs.js";
+import { logsTable } from "~/db/schema.js";
+import { LogsTableInsertType } from "~/db/types.js";
 import {
   LogDriverBase,
   LogDriverBaseItem,
@@ -73,7 +74,7 @@ export class LogDriverDatabase extends LogDriverBase {
   }
 
   public async query(
-    query: LogDriverBaseQuery
+    query: LogDriverBaseQuery,
   ): Promise<LogDriverBaseQueryItem[]> {
     const page = 1; // TODO: this
 

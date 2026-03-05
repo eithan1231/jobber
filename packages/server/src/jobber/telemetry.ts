@@ -1,8 +1,8 @@
 import { eq, sql } from "drizzle-orm";
 import { singleton } from "tsyringe";
 import { getDrizzle } from "~/db/index.js";
-import { jobsTable } from "~/db/schema/jobs.js";
-import { storeTable } from "~/db/schema/store.js";
+import { jobsTable } from "~/db/schema.js";
+import { storeTable } from "~/db/schema.js";
 import { LoopBase } from "@jobber/common";
 import { gaugeAppInfo, gaugeJobsInfo, gaugeJobStoreCount } from "~/metrics.js";
 import { getUnixTimestamp } from "~/util.js";
@@ -39,7 +39,7 @@ export class Telemetry extends LoopBase {
         arch: process.arch,
         start_time: this.startTime.toString(),
       },
-      1
+      1,
     );
   }
 

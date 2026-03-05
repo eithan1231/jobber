@@ -1,11 +1,11 @@
 import { eq, lt, sql } from "drizzle-orm";
 import { getDrizzle } from "./db/index.js";
-import { lockTable } from "./db/schema/lock.js";
+import { lockTable } from "./db/schema.js";
 import { timeout } from "@jobber/common";
 
 export const acquireLock = async (
   table: string,
-  primaryKey: string
+  primaryKey: string,
 ): Promise<string | null> => {
   try {
     const lockKey = `${table}:${primaryKey}`;
@@ -41,7 +41,7 @@ export const releaseLock = async (lockId: string): Promise<void> => {
 export const withLock = async <T>(
   table: string,
   primaryKey: string,
-  callback: () => Promise<T>
+  callback: () => Promise<T>,
 ): Promise<T> => {
   let lockId: string | null = null;
 

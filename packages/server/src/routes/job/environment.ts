@@ -1,10 +1,8 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { getDrizzle } from "~/db/index.js";
-import {
-  EnvironmentsContextSchemaType,
-  environmentsTable,
-} from "~/db/schema/environments.js";
+import { environmentsTable } from "~/db/schema.js";
+import { EnvironmentsContextSchemaType } from "~/db/types.js";
 import { getUnixTimestamp } from "~/util.js";
 import { jobEnvironmentNameSchema } from "./schemas-common.js";
 import { InternalHonoApp } from "~/index.js";
@@ -61,7 +59,7 @@ export async function createRouteJobEnvironment() {
         success: true,
         data: env,
       });
-    }
+    },
   );
 
   app.post(
@@ -79,7 +77,7 @@ export async function createRouteJobEnvironment() {
 
       const name = await jobEnvironmentNameSchema.parseAsync(
         c.req.param("name"),
-        { path: ["request", "param"] }
+        { path: ["request", "param"] },
       );
 
       const body = await schema.parseAsync(await c.req.parseBody(), {
@@ -95,7 +93,7 @@ export async function createRouteJobEnvironment() {
       if (!bouncer.canWriteJobEnvironment({ jobId: job.id }, name)) {
         return c.json(
           { success: false, message: "Insufficient Permissions" },
-          403
+          403,
         );
       }
 
@@ -132,7 +130,7 @@ export async function createRouteJobEnvironment() {
           message: "ok",
         });
       });
-    }
+    },
   );
 
   app.delete(
@@ -144,7 +142,7 @@ export async function createRouteJobEnvironment() {
 
       const name = await jobEnvironmentNameSchema.parseAsync(
         c.req.param("name"),
-        { path: ["request", "param"] }
+        { path: ["request", "param"] },
       );
 
       const job = await jobModel.byId(jobId);
@@ -156,7 +154,7 @@ export async function createRouteJobEnvironment() {
       if (!bouncer.canDeleteJobEnvironment({ jobId: job.id }, name)) {
         return c.json(
           { success: false, message: "Insufficient Permissions" },
-          403
+          403,
         );
       }
 
@@ -191,7 +189,7 @@ export async function createRouteJobEnvironment() {
           message: "ok",
         });
       });
-    }
+    },
   );
 
   return app;

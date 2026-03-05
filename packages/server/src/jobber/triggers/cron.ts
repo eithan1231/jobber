@@ -5,16 +5,19 @@ import { CronError } from "cron/dist/errors.js";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { inject, singleton } from "tsyringe";
 import { getDrizzle } from "~/db/index.js";
-import { actionsTable, ActionsTableType } from "~/db/schema/actions.js";
-import {
-  jobVersionsTable,
-  JobVersionsTableType,
-} from "~/db/schema/job-versions.js";
-import { jobsTable, JobsTableType } from "~/db/schema/jobs.js";
-import { triggersTable, TriggersTableType } from "~/db/schema/triggers.js";
+import { actionsTable } from "~/db/schema.js";
+import { jobVersionsTable } from "~/db/schema.js";
+import { jobsTable } from "~/db/schema.js";
+import { triggersTable } from "~/db/schema.js";
 import { counterTriggerCron } from "~/metrics.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
 import { RunnerManager } from "../runners/manager.js";
+import {
+  ActionsTableType,
+  JobsTableType,
+  JobVersionsTableType,
+  TriggersTableType,
+} from "~/db/types.js";
 
 type TriggerCronItem = {
   trigger: TriggersTableType;

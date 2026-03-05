@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { getDrizzle } from "~/db/index.js";
-import { jobVersionsTable } from "~/db/schema/job-versions.js";
+import { jobVersionsTable } from "~/db/schema.js";
 import { InternalHonoApp } from "~/index.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { canPerformAction } from "@jobber/common/permissions.js";

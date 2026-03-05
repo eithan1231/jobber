@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { getDrizzle } from "./index.js";
-import { triggersTable } from "./schema/triggers.js";
+import { triggersTable } from "./schema.js";
 
 async function byId(id: string) {
   const trigger = await getDrizzle()

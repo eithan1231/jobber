@@ -1,7 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import { getDrizzle } from "./index.js";
-import { storeTable, StoreTableInsertType } from "./schema/store.js";
 import { getUnixTimestamp } from "~/util.js";
+import { storeTable } from "./schema.js";
+import { StoreTableInsertType } from "./types.js";
 
 async function byId(id: string) {
   const store = await getDrizzle()

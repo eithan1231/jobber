@@ -6,16 +6,10 @@ import { container, inject, singleton } from "tsyringe";
 import { getConfigOption } from "~/config.js";
 import { ENTRYPOINT_NODE } from "~/constants.js";
 import { getDrizzle } from "~/db/index.js";
-import { actionsTable, ActionsTableType } from "~/db/schema/actions.js";
-import {
-  environmentsTable,
-  EnvironmentsTableType,
-} from "~/db/schema/environments.js";
-import {
-  jobVersionsTable,
-  JobVersionsTableType,
-} from "~/db/schema/job-versions.js";
-import { jobsTable, JobsTableType } from "~/db/schema/jobs.js";
+import { actionsTable } from "~/db/schema.js";
+import { environmentsTable } from "~/db/schema.js";
+import { jobVersionsTable } from "~/db/schema.js";
+import { jobsTable } from "~/db/schema.js";
 import {
   getDockerContainers,
   pullDockerImage,
@@ -64,7 +58,13 @@ import {
   getOAuthAudienceGeneralApi,
   getOAuthAudienceRunnerApi,
 } from "@jobber/common/oauth.js";
-import { RunnersTableType } from "~/db/schema/runners.js";
+import {
+  ActionsTableType,
+  EnvironmentsTableType,
+  JobsTableType,
+  JobVersionsTableType,
+  RunnersTableType,
+} from "~/db/types.js";
 
 type CurrentVersionResult = {
   version: JobVersionsTableType;
@@ -74,8 +74,6 @@ type CurrentVersionResult = {
 };
 
 type RunnerManagerItem = {
-  status: "starting" | "ready" | "closing" | "closed";
-
   runnerId: string;
 
   job: JobsTableType;
@@ -196,10 +194,8 @@ export class RunnerManager extends LoopBase {
       ),
     );
 
-    await Promise.all([
-      this.processStartupQueue(),
-      this.processShutdownQueue(),
-    ]);
+    await this.processStartupQueue();
+    await this.processShutdownQueue();
   }
 
   protected async loopStarted(): Promise<void> {
@@ -258,12 +254,9 @@ export class RunnerManager extends LoopBase {
         runner.lastStatus = status;
 
         if (status.status === "READY") {
-          runner.status = "ready";
-          runner.readyAt = getUnixTimestamp();
-
           await runnersModel.update(runner.runnerId, {
             status: "ready",
-            readyAt: new Date(runner.readyAt * 1000),
+            readyAt: new Date(),
           });
         }
       } catch (err) {
@@ -540,12 +533,9 @@ export class RunnerManager extends LoopBase {
             return;
           }
 
-          runner.status = "closing";
-          runner.closingAt = getUnixTimestamp();
-
           await runnersModel.update(runner.runnerId, {
             status: "closing",
-            closingAt: new Date(runner.closingAt * 1000),
+            closingAt: new Date(),
           });
 
           if (item.method === "forceful") {
@@ -614,12 +604,18 @@ export class RunnerManager extends LoopBase {
         );
       }
 
+      const ttl = action.runnerMaxAgeHard ?? action.runnerMaxAge ?? null;
+
       // Create OAuth client
       const serviceClients = container.resolve(OAuthServiceClients);
 
       // TODO: Set Expiry
-      const serviceClientRunner =
-        await serviceClients.getSystemClientForRunner(job);
+      const serviceClientRunner = await serviceClients.getSystemClientForRunner(
+        job,
+
+        // ttl + 60 seconds
+        ttl ? new Date(Date.now() + (ttl + 60) * 1000) : undefined,
+      );
 
       const runnerRecord = await runnersModel.create({
         status: "starting",
@@ -870,8 +866,6 @@ export class RunnerManager extends LoopBase {
       };
 
       this.runners.set(runnerRecord.id, {
-        status: "starting",
-
         runnerId: runnerRecord.id,
 
         job,

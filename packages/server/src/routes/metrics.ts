@@ -3,7 +3,6 @@ import { Hono } from "hono";
 import { register } from "prom-client";
 import { container } from "tsyringe";
 import { getDrizzle } from "~/db/index.js";
-import { jobsTable } from "~/db/schema/jobs.js";
 import { InternalHonoApp } from "~/index.js";
 import { RunnerManager } from "~/jobber/runners/manager.js";
 import { Telemetry } from "~/jobber/telemetry.js";

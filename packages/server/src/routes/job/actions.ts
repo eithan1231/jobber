@@ -1,9 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { getDrizzle } from "~/db/index.js";
-import { actionsTable } from "~/db/schema/actions.js";
-import { jobVersionsTable } from "~/db/schema/job-versions.js";
-import { jobsTable } from "~/db/schema/jobs.js";
+import { actionsTable, jobVersionsTable, jobsTable } from "~/db/schema.js";
 import { InternalHonoApp } from "~/index.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 
@@ -37,15 +35,15 @@ export async function createRouteJobActions() {
         jobsTable,
         and(
           eq(jobsTable.id, actionsTable.jobId),
-          eq(jobsTable.jobVersionId, actionsTable.jobVersionId)
-        )
+          eq(jobsTable.jobVersionId, actionsTable.jobVersionId),
+        ),
       )
       .innerJoin(
         jobVersionsTable,
         and(
           eq(jobVersionsTable.jobId, actionsTable.jobId),
-          eq(jobVersionsTable.id, actionsTable.jobVersionId)
-        )
+          eq(jobVersionsTable.id, actionsTable.jobVersionId),
+        ),
       )
       .where(eq(actionsTable.jobId, jobId));
 
@@ -86,8 +84,8 @@ export async function createRouteJobActions() {
         jobVersionsTable,
         and(
           eq(jobVersionsTable.jobId, actionsTable.jobId),
-          eq(jobVersionsTable.id, actionsTable.jobVersionId)
-        )
+          eq(jobVersionsTable.id, actionsTable.jobVersionId),
+        ),
       )
       .where(eq(actionsTable.jobId, jobId));
 

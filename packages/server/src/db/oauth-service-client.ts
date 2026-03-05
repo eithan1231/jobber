@@ -1,9 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getDrizzle } from "./index.js";
-import {
-  oauthServiceClientTable,
-  OauthServiceClientTableInsertType,
-} from "./schema/oauth-service-client.js";
+import { OauthServiceClientTableInsertType } from "./types.js";
+import { oauthServiceClientTable } from "./schema.js";
 
 async function byId(id: string) {
   const serviceClient = await getDrizzle()

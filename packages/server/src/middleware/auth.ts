@@ -4,9 +4,9 @@ import { getCookie } from "hono/cookie";
 import { Bouncer } from "~/bouncer.js";
 import { USERNAME_ANONYMOUS } from "~/constants.js";
 import { getDrizzle } from "~/db/index.js";
-import { apiTokensTable } from "~/db/schema/api-tokens.js";
-import { sessionsTable } from "~/db/schema/sessions.js";
-import { usersTable } from "~/db/schema/users.js";
+import { apiTokensTable } from "~/db/schema.js";
+import { sessionsTable } from "~/db/schema.js";
+import { usersTable } from "~/db/schema.js";
 import { InternalHonoApp } from "~/index.js";
 
 const extractApiToken = (c: Context<InternalHonoApp>) => {
@@ -49,7 +49,7 @@ export const createMiddlewareAuth = () => {
       if (!result) {
         return c.json(
           { success: false, message: "Insufficient Permissions" },
-          403
+          403,
         );
       }
 
@@ -58,21 +58,21 @@ export const createMiddlewareAuth = () => {
       if (!users.enabled) {
         return c.json(
           { success: false, message: "Insufficient Permissions" },
-          403
+          403,
         );
       }
 
       if (sessions.expires < new Date()) {
         return c.json(
           { success: false, message: "Insufficient Permissions" },
-          403
+          403,
         );
       }
 
       if (sessions.status === "disabled") {
         return c.json(
           { success: false, message: "Insufficient Permissions" },
-          403
+          403,
         );
       }
 
@@ -83,7 +83,7 @@ export const createMiddlewareAuth = () => {
           user: users,
           session: sessions,
           permissions: users.permissions,
-        })
+        }),
       );
 
       return await next();
@@ -102,21 +102,21 @@ export const createMiddlewareAuth = () => {
       if (!apiToken) {
         return c.json(
           { success: false, message: "Insufficient Permissions" },
-          403
+          403,
         );
       }
 
       if (apiToken.expires < new Date()) {
         return c.json(
           { success: false, message: "Insufficient Permissions" },
-          403
+          403,
         );
       }
 
       if (apiToken.status !== "enabled") {
         return c.json(
           { success: false, message: "Insufficient Permissions" },
-          403
+          403,
         );
       }
 
@@ -126,7 +126,7 @@ export const createMiddlewareAuth = () => {
           type: "token",
           token: apiToken,
           permissions: apiToken.permissions,
-        })
+        }),
       );
 
       return await next();
@@ -143,27 +143,27 @@ export const createMiddlewareAuth = () => {
     if (!anonymousUser) {
       return c.json(
         { success: false, message: "Insufficient Permissions" },
-        403
+        403,
       );
     }
 
     if (!anonymousUser.enabled) {
       return c.json(
         { success: false, message: "Insufficient Permissions" },
-        403
+        403,
       );
     }
 
     if (
       !anonymousUser.permissions.some(
-        (permission) => permission.effect === "allow"
+        (permission) => permission.effect === "allow",
       )
     ) {
       // The anonymous user doesn't have any allow permissions, safe to assume they are
       // going to be rejected downstream
       return c.json(
         { success: false, message: "Insufficient Permissions" },
-        403
+        403,
       );
     }
 
@@ -173,7 +173,7 @@ export const createMiddlewareAuth = () => {
         type: "anonymous",
         user: anonymousUser,
         permissions: anonymousUser.permissions,
-      })
+      }),
     );
 
     return await next();

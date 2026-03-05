@@ -2,23 +2,24 @@ import assert from "assert";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { connectAsync, IClientOptions, MqttClient } from "mqtt";
 import { getDrizzle } from "~/db/index.js";
-import { actionsTable, ActionsTableType } from "~/db/schema/actions.js";
-import {
-  environmentsTable,
-  EnvironmentsTableType,
-} from "~/db/schema/environments.js";
-import {
-  jobVersionsTable,
-  JobVersionsTableType,
-} from "~/db/schema/job-versions.js";
-import { jobsTable, JobsTableType } from "~/db/schema/jobs.js";
-import { triggersTable, TriggersTableType } from "~/db/schema/triggers.js";
+import { actionsTable } from "~/db/schema.js";
+import { environmentsTable } from "~/db/schema.js";
+import { jobVersionsTable } from "~/db/schema.js";
+import { jobsTable } from "~/db/schema.js";
+import { triggersTable } from "~/db/schema.js";
 import { LoopBase } from "@jobber/common";
 import { counterTriggerMqtt, counterTriggerMqttPublish } from "~/metrics.js";
 import { createSha1Hash, shortenString } from "~/util.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
 import { RunnerManager } from "../runners/manager.js";
 import { inject, singleton } from "tsyringe";
+import {
+  ActionsTableType,
+  EnvironmentsTableType,
+  JobsTableType,
+  JobVersionsTableType,
+  TriggersTableType,
+} from "~/db/types.js";
 
 type TriggerMqttItem = {
   trigger: TriggersTableType;

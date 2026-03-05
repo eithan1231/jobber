@@ -6,10 +6,12 @@ import { Hono } from "hono";
 import { ReadableStream } from "node:stream/web";
 import { z } from "zod";
 import { getDrizzle } from "~/db/index.js";
-import { actionsTable } from "~/db/schema/actions.js";
-import { jobVersionsTable } from "~/db/schema/job-versions.js";
-import { jobsTable } from "~/db/schema/jobs.js";
-import { triggersTable } from "~/db/schema/triggers.js";
+import {
+  actionsTable,
+  jobVersionsTable,
+  jobsTable,
+  triggersTable,
+} from "~/db/schema.js";
 import { InternalHonoApp } from "~/index.js";
 import { classifyArchiveFile } from "~/jobber/images.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";

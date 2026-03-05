@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getDrizzle } from "./index.js";
-import { actionsTable } from "./schema/actions.js";
+import { actionsTable } from "./schema.js";
 
 async function byId(id: string) {
   const action = await getDrizzle()

@@ -31,11 +31,6 @@ import { actionsModel } from "~/db/actions.js";
 import { jobVersionsModel } from "~/db/job-versions.js";
 import { jobModel } from "~/db/job.js";
 import { runnersModel } from "~/db/runners.js";
-import { ActionsTableType } from "~/db/schema/actions.js";
-import { JobVersionsTableType } from "~/db/schema/job-versions.js";
-import { JobsTableType } from "~/db/schema/jobs.js";
-import { RunnersTableType } from "~/db/schema/runners.js";
-import { TriggersTableType } from "~/db/schema/triggers.js";
 import { storeModel } from "~/db/store.js";
 import { triggersModel } from "~/db/triggers.js";
 import { TriggerMqtt } from "~/jobber/triggers/mqtt.js";
@@ -43,6 +38,13 @@ import { getJobActionArchiveFile } from "~/paths.js";
 import { OAuthServiceClients } from "~/service-clients.js";
 import { OAuthSigningKeys } from "~/signing-keys.js";
 import { getUnixTimestamp } from "~/util.js";
+import {
+  ActionsTableType,
+  JobsTableType,
+  JobVersionsTableType,
+  RunnersTableType,
+  TriggersTableType,
+} from "~/db/types.js";
 
 const authorizedCall = <TRequest, TResponse>(
   callback: (

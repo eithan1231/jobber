@@ -1,13 +1,8 @@
 import { LoopBase } from "@jobber/common";
 import { singleton } from "tsyringe";
-import {
-  OauthServiceClientTableInsertType,
-  OauthServiceClientTableType,
-} from "./db/schema/oauth-service-client.js";
 import { secureRandomBytes } from "./util.js";
 import { genSalt as bcryptGenSalt, hash as bcryptHash } from "bcryptjs";
 import { oauthServiceClientModel } from "./db/oauth-service-client.js";
-import { JobsTableType } from "./db/schema/jobs.js";
 import {
   canOAuthAccessAudience,
   getOAuthAudienceGeneralApi,
@@ -18,6 +13,11 @@ import { createPrivateKey } from "node:crypto";
 import { getConfigOption } from "./config.js";
 import { SignJWT } from "jose";
 import assert from "node:assert";
+import {
+  JobsTableType,
+  OauthServiceClientTableInsertType,
+  OauthServiceClientTableType,
+} from "./db/types.js";
 
 const CLIENT_ID_SYSTEM_CODE = `system-client-core`;
 const SYSTEM_RESERVED_CLIENT_IDS = [CLIENT_ID_SYSTEM_CODE];
@@ -102,13 +102,14 @@ export class OAuthServiceClients extends LoopBase {
   /**
    * Generates a system managed oauth token for runners to authenticate with dependencies
    */
-  public async getSystemClientForRunner(job: JobsTableType) {
+  public async getSystemClientForRunner(job: JobsTableType, expiresAt?: Date) {
     const serviceClientRunner = await this.upsertServiceClient({
       name: `System Client for Runner ${job.jobName} (Runner -> Core)`,
       description: `OAuth Service Client managed by the system for job ${job.jobName}`,
       isSystemManaged: true,
       allowedAudiences: [getOAuthAudienceGeneralApi()],
       allowedScopes: [],
+      expiresAt,
       permissions: [
         {
           // Allow runner to read job info for itself and other runners of the same job

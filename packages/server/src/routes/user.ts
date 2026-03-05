@@ -4,11 +4,8 @@ import { Hono } from "hono";
 import assert from "node:assert";
 import { z } from "zod";
 import { getDrizzle } from "~/db/index.js";
-import {
-  UserPasswordSchema,
-  usersTable,
-  UserUsernameSchema,
-} from "~/db/schema/users.js";
+import { usersTable } from "~/db/schema.js";
+import { UserPasswordSchema, UserUsernameSchema } from "~/db/types.js";
 import { InternalHonoApp } from "~/index.js";
 import { withLock } from "~/lock.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";

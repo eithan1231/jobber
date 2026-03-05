@@ -1,11 +1,11 @@
 import { LoopBase } from "@jobber/common";
 import { singleton } from "tsyringe";
 import { oauthSigningKeyModel } from "./db/oauth-signing-key.js";
-import { OauthSigningKeyTableInsertType } from "./db/schema/oauth-signing-key.js";
 import { generateKeyPair } from "node:crypto";
 import { promisify } from "node:util";
 import { getConfigOption } from "./config.js";
 import { exportJWK, importSPKI } from "jose";
+import { OauthSigningKeyTableInsertType } from "./db/types.js";
 
 const generateKeyPairPromised = promisify(generateKeyPair);
 

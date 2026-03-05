@@ -4,10 +4,12 @@ import { rm } from "node:fs/promises";
 import { z } from "zod";
 import { getDrizzle } from "~/db/index.js";
 import { jobModel } from "~/db/job.js";
-import { actionsTable } from "~/db/schema/actions.js";
-import { jobVersionsTable } from "~/db/schema/job-versions.js";
-import { jobsTable } from "~/db/schema/jobs.js";
-import { logsTable } from "~/db/schema/logs.js";
+import {
+  actionsTable,
+  jobVersionsTable,
+  jobsTable,
+  logsTable,
+} from "~/db/schema.js";
 import { InternalHonoApp } from "~/index.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { getJobActionArchiveFile } from "~/paths.js";

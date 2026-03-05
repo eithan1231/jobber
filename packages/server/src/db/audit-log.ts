@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getDrizzle } from "./index.js";
-import { auditLogTable } from "./schema/audit-log.js";
-import { AuditEntry } from "./schema/audit-log.js";
+import { AuditEntry } from "./types.js";
+import { auditLogTable } from "./schema.js";
 
 async function byId(id: string) {
   const auditLog = await getDrizzle()

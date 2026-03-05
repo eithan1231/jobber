@@ -11,10 +11,10 @@ import {
 } from "drizzle-orm";
 import { getDrizzle } from "./index.js";
 import {
-  oauthSigningKeyTable,
   OauthSigningKeyTableInsertType,
   OauthSigningKeyTableType,
-} from "./schema/oauth-signing-key.js";
+} from "./types.js";
+import { oauthSigningKeyTable } from "./schema.js";
 
 async function byId(id: string) {
   const item = await getDrizzle()

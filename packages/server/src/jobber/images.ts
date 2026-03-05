@@ -5,7 +5,7 @@ import path from "path";
 import * as semver from "semver";
 import { z } from "zod";
 import { getConfigOption } from "~/config.js";
-import { ActionsDockerArgumentsSchema } from "~/db/schema/actions.js";
+import { ActionsDockerArgumentsSchema } from "~/db/types.js";
 import { createToken, fileExists, unzip } from "~/util.js";
 
 export type ImagesEntry = {
@@ -69,7 +69,7 @@ export const getImages = async (): Promise<ImagesEntry[]> => {
 };
 
 const getImageFromArchivePackageJson = (
-  packageJson: ArchivePackageJsonSchemaType
+  packageJson: ArchivePackageJsonSchemaType,
 ): string => {
   if (!packageJson.engines?.node) {
     return getDefaultRuntimeImages().node;
@@ -155,11 +155,11 @@ const archivePackageJsonSchema = z.object({
             clientIdVariable: z.string().optional(),
           }),
         }),
-      ])
+      ]),
     )
     .superRefine((triggers, ctx) => {
       const mqttTriggers = triggers.filter(
-        (trigger) => trigger.type === "mqtt"
+        (trigger) => trigger.type === "mqtt",
       );
 
       if (mqttTriggers.length >= 2) {
@@ -167,7 +167,7 @@ const archivePackageJsonSchema = z.object({
       }
 
       for (const [triggerIndex, trigger] of Object.entries(
-        mqttTriggers.slice(1)
+        mqttTriggers.slice(1),
       )) {
         if (trigger.type === "mqtt") {
           ctx.addIssue({
@@ -183,7 +183,7 @@ const archivePackageJsonSchema = z.object({
       z.object({
         name: z.string(),
         url: z.string().url(),
-      })
+      }),
     )
     .default([]),
 });
@@ -193,7 +193,7 @@ export type ArchivePackageJsonSchemaType = z.infer<
 >;
 
 export const classifyArchiveFile = async (
-  filename: string
+  filename: string,
 ): Promise<
   | null
   | {
@@ -211,7 +211,7 @@ export const classifyArchiveFile = async (
   try {
     const directory = path.join(
       tmpdir(),
-      createToken({ length: 12, prefix: "ArchiveValidation" })
+      createToken({ length: 12, prefix: "ArchiveValidation" }),
     );
 
     cleanupFiles.push(directory);
@@ -230,7 +230,7 @@ export const classifyArchiveFile = async (
 
     if (hasPackageJson) {
       const packageJson = await archivePackageJsonSchema.parseAsync(
-        JSON.parse(await readFile(packageFile, "utf8"))
+        JSON.parse(await readFile(packageFile, "utf8")),
       );
 
       const imageName = getImageFromArchivePackageJson(packageJson);

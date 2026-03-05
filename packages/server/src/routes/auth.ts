@@ -10,12 +10,8 @@ import assert from "node:assert";
 import { z } from "zod";
 import { getConfigOption } from "~/config.js";
 import { getDrizzle } from "~/db/index.js";
-import { sessionsTable } from "~/db/schema/sessions.js";
-import {
-  UserPasswordSchema,
-  usersTable,
-  UserUsernameSchema,
-} from "~/db/schema/users.js";
+import { sessionsTable, usersTable } from "~/db/schema.js";
+import { UserPasswordSchema, UserUsernameSchema } from "~/db/types.js";
 import { InternalHonoApp } from "~/index.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { createMiddlewareResponseTime } from "~/middleware/response-time.js";

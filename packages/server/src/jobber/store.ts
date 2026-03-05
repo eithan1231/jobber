@@ -1,7 +1,7 @@
 import { and, eq, lt } from "drizzle-orm";
 import { singleton } from "tsyringe";
 import { getDrizzle } from "~/db/index.js";
-import { storeTable } from "~/db/schema/store.js";
+import { storeTable } from "~/db/schema.js";
 import { LoopBase } from "@jobber/common";
 import { getUnixTimestamp } from "~/util.js";
 

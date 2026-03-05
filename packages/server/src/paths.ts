@@ -1,7 +1,6 @@
 import path from "path";
 import { PATH_CONFIG } from "./constants.js";
-import { ActionsTableType } from "./db/schema/actions.js";
-import { JobVersionsTableType } from "./db/schema/job-versions.js";
+import { ActionsTableType, JobVersionsTableType } from "./db/types.js";
 import { sanitiseFilename } from "./util.js";
 
 export function getJobActionArchiveDirectory() {

@@ -19,11 +19,6 @@ import { container } from "tsyringe";
 import { ZodError } from "zod";
 
 import { getDrizzle, getPool, runDrizzleMigration } from "./db/index.js";
-import {
-  UserPasswordSchema,
-  usersTable,
-  UserUsernameSchema,
-} from "./db/schema/users.js";
 
 import { PERMISSION_SUPER } from "@jobber/common/permissions.js";
 import { getConfigOption } from "./config.js";
@@ -32,7 +27,6 @@ import { getJobActionArchiveDirectory, getPgDumpDirectory } from "./paths.js";
 
 import { Bouncer } from "./bouncer.js";
 import { USERNAME_ANONYMOUS } from "./constants.js";
-import { JobsTableType } from "./db/schema/jobs.js";
 import { GrpcServer } from "./grpc/index.js";
 import { PgBackup } from "./pg-backup.js";
 import { RateLimit } from "./rate-limit.js";
@@ -54,6 +48,12 @@ import { createRouteOAuthAdmin } from "./routes/oauth-admin.js";
 import { createRouteOAuth } from "./routes/oauth.js";
 import { createRouteUser } from "./routes/user.js";
 import { OAuthSigningKeys } from "./signing-keys.js";
+import {
+  JobsTableType,
+  UserPasswordSchema,
+  UserUsernameSchema,
+} from "./db/types.js";
+import { usersTable } from "./db/schema.js";
 
 export type InternalHonoApp = {
   Variables: {

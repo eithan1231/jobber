@@ -1,6 +1,8 @@
-import { ApiTokensTableType } from "./db/schema/api-tokens.js";
-import { SessionsTableType } from "./db/schema/sessions.js";
-import { UsersTableType } from "./db/schema/users.js";
+import {
+  ApiTokensTableType,
+  SessionsTableType,
+  UsersTableType,
+} from "./db/types.js";
 import { JobberPermissions } from "@jobber/common/permissions.js";
 import { BouncerBase } from "@jobber/common/bouncer-base.js";
 

@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { container } from "tsyringe";
 import { getDrizzle } from "~/db/index.js";
 import { jobModel } from "~/db/job.js";
-import { jobsTable } from "~/db/schema/jobs.js";
+import { jobsTable } from "~/db/schema.js";
 import { InternalHonoApp } from "~/index.js";
 import { RunnerManager } from "~/jobber/runners/manager.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
