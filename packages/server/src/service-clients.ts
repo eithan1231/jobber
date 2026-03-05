@@ -18,6 +18,9 @@ import {
   OauthServiceClientTableInsertType,
   OauthServiceClientTableType,
 } from "./db/types.js";
+import { getDrizzle } from "./db/index.js";
+import { oauthServiceClientTable, runnersTable } from "./db/schema.js";
+import { and, eq, exists } from "drizzle-orm";
 
 const CLIENT_ID_SYSTEM_CODE = `system-client-core`;
 const SYSTEM_RESERVED_CLIENT_IDS = [CLIENT_ID_SYSTEM_CODE];
@@ -38,6 +41,43 @@ export class OAuthServiceClients extends LoopBase {
 
   protected async loopIteration() {
     // await this.validateSigningKeys();
+    await this.disableClosedRunnerServiceClients();
+  }
+
+  private async disableClosedRunnerServiceClients() {
+    // Disable service clients associated with closed runners.
+    const updatedServiceClients = await getDrizzle()
+      .update(oauthServiceClientTable)
+      .set({
+        enabled: false,
+      })
+      .where(
+        and(
+          eq(oauthServiceClientTable.enabled, true),
+          eq(oauthServiceClientTable.isSystemManaged, true),
+          exists(
+            getDrizzle()
+              .select()
+              .from(runnersTable)
+              .where(
+                and(
+                  eq(
+                    runnersTable.oauthServiceClientId,
+                    oauthServiceClientTable.id,
+                  ),
+                  eq(runnersTable.status, "closed"),
+                ),
+              ),
+          ),
+        ),
+      )
+      .returning();
+
+    for (const item of updatedServiceClients) {
+      console.debug(
+        `[OAuthServiceClients/disableClosedRunnerServiceClients] Disabled ServiceClient for closed runner ${item.name}`,
+      );
+    }
   }
 
   public async upsertServiceClient(
@@ -102,14 +142,13 @@ export class OAuthServiceClients extends LoopBase {
   /**
    * Generates a system managed oauth token for runners to authenticate with dependencies
    */
-  public async getSystemClientForRunner(job: JobsTableType, expiresAt?: Date) {
+  public async getSystemClientForRunner(job: JobsTableType) {
     const serviceClientRunner = await this.upsertServiceClient({
       name: `System Client for Runner ${job.jobName} (Runner -> Core)`,
       description: `OAuth Service Client managed by the system for job ${job.jobName}`,
       isSystemManaged: true,
       allowedAudiences: [getOAuthAudienceGeneralApi()],
       allowedScopes: [],
-      expiresAt,
       permissions: [
         {
           // Allow runner to read job info for itself and other runners of the same job

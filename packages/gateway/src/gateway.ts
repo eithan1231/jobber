@@ -340,6 +340,11 @@ export class GatewayClient extends LoopBase {
       const channel = createChannel(
         // TODO: this
         `http://${"192.168.10.200"}:${runner.properties?.runnerApiPort}`,
+        undefined,
+        {
+          "grpc.keepalive_permit_without_calls": 1,
+          "grpc.keepalive_timeout_ms": 30_000,
+        },
       );
       const client = createClientFactory().create(
         RunnerAPIDefinition,
@@ -387,7 +392,17 @@ export class GatewayClient extends LoopBase {
     // TODO: This is slow as shit.
     const host = req.headers["host"];
     const method = req.method;
-    const path = req.url;
+    let path;
+
+    if (req.url) {
+      const pos = req.url.indexOf("?");
+
+      if (pos >= 0) {
+        path = req.url.substring(0, pos);
+      } else {
+        path = req.url;
+      }
+    }
 
     if (!host || !method || !path) {
       return null;

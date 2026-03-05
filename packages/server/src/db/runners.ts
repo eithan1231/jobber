@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { getDrizzle } from "./index.js";
 import { RunnersTableInsertType } from "./types.js";
 import { runnersTable } from "./schema.js";
@@ -12,6 +12,38 @@ async function byId(id: string) {
     .then((res) => res.at(0));
 
   return runner;
+}
+
+async function byStatus(status: RunnersTableInsertType["status"]) {
+  const runners = await getDrizzle()
+    .select()
+    .from(runnersTable)
+    .where(eq(runnersTable.status, status));
+
+  return runners;
+}
+
+async function byStatuses(statuses: RunnersTableInsertType["status"][]) {
+  const runners = await getDrizzle()
+    .select()
+    .from(runnersTable)
+    .where(inArray(runnersTable.status, statuses));
+
+  return runners;
+}
+
+async function byContainerName(containerName: string) {
+  const runners = await getDrizzle()
+    .select()
+    .from(runnersTable)
+    .where(
+      eq(
+        sql`${runnersTable.properties} ->> 'runnerContainerName'`,
+        containerName,
+      ),
+    );
+
+  return runners;
 }
 
 async function all() {
@@ -42,6 +74,9 @@ async function update(id: string, input: Partial<RunnersTableInsertType>) {
 
 export const runnersModel = {
   byId,
+  byStatus,
+  byStatuses,
+  byContainerName,
   all,
   create,
   update,

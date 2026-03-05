@@ -6,7 +6,7 @@ import { container, inject, singleton } from "tsyringe";
 import { getConfigOption } from "~/config.js";
 import { ENTRYPOINT_NODE } from "~/constants.js";
 import { getDrizzle } from "~/db/index.js";
-import { actionsTable } from "~/db/schema.js";
+import { actionsTable, runnersTable } from "~/db/schema.js";
 import { environmentsTable } from "~/db/schema.js";
 import { jobVersionsTable } from "~/db/schema.js";
 import { jobsTable } from "~/db/schema.js";
@@ -43,21 +43,14 @@ import {
   Metadata,
   Status,
 } from "nice-grpc";
-import {
-  RunnerAPIDefinition,
-  RunnerAPIServiceImplementation,
-  StatusResponse,
-} from "@jobber/grpc/runner.js";
+import { RunnerAPIDefinition, StatusResponse } from "@jobber/grpc/runner.js";
 import { jobModel } from "~/db/job.js";
 import { jobVersionsModel } from "~/db/job-versions.js";
 import { actionsModel } from "~/db/actions.js";
 import { environmentModel } from "~/db/environment.js";
 import { runnersModel } from "~/db/runners.js";
 import { OAuthServiceClients } from "~/service-clients.js";
-import {
-  getOAuthAudienceGeneralApi,
-  getOAuthAudienceRunnerApi,
-} from "@jobber/common/oauth.js";
+import { getOAuthAudienceRunnerApi } from "@jobber/common/oauth.js";
 import {
   ActionsTableType,
   EnvironmentsTableType,
@@ -83,7 +76,7 @@ type RunnerManagerItem = {
 
   process: ChildProcessWithoutNullStreams;
 
-  properties?: RunnersTableType["properties"];
+  properties: RunnersTableType["properties"];
 
   // Arguments passed through to the runner
   arguments: {
@@ -137,10 +130,7 @@ export class RunnerManager extends LoopBase {
 
   private queueStartup = Array<RunnerManagerStartupItem>();
 
-  constructor(
-    @inject("LogDriverBase") private logger: LogDriverBase,
-    @inject(Store) private store: Store,
-  ) {
+  constructor(@inject("LogDriverBase") private logger: LogDriverBase) {
     super();
   }
 
@@ -456,8 +446,42 @@ export class RunnerManager extends LoopBase {
   }
 
   private async checkDanglingRunners() {
-    //
+    const runnerRecordsNotClosed = await runnersModel.byStatuses([
+      "starting",
+      "ready",
+      "closing",
+    ]);
+
     const containers = await getDockerContainers();
+
+    for (const runnerRecord of runnerRecordsNotClosed) {
+      const isKnown = this.runners.has(runnerRecord.id);
+
+      if (isKnown) {
+        continue;
+      }
+
+      // Runner not known by manager, check if container exists.
+
+      const container = containers.find(
+        (item) => item.Names === runnerRecord.properties?.runnerContainerName,
+      );
+
+      if (container) {
+        // Managed by other instance????
+        // (multi instances are not currently supported, but lets leave some room for it in the future?).
+        continue;
+      }
+
+      console.warn(
+        `[RunnerManager/checkDanglingRunners] Found dangling runner record ${runnerRecord.id} for job ${runnerRecord.jobId}. Marking as closed...`,
+      );
+
+      await runnersModel.update(runnerRecord.id, {
+        status: "closed",
+        closedAt: new Date(),
+      });
+    }
 
     for (const container of containers) {
       const labels = container.Labels.split(",").map((label) => {
@@ -482,32 +506,18 @@ export class RunnerManager extends LoopBase {
         continue;
       }
 
-      let isRunnerKnown = false;
-
-      for (const runner of this.runners.values()) {
-        if (runner.properties?.runnerContainerName === container.Names) {
-          isRunnerKnown = true;
-          break;
-        }
-      }
-
-      if (isRunnerKnown) {
+      const runner = await runnersModel.byContainerName(container.Names);
+      if (runner) {
+        // Runner is known, even if its closed, it will be cleaned up by the above logic.
         continue;
       }
 
-      // TODO: Possibly regain ownership of the runner?
-
-      console.log(Array.from(this.runners.keys()));
       console.warn(
         `[RunnerManager/checkDanglingRunners] Found dangling runner container ${container.ID} (${container.Names}). Stopping...`,
       );
 
-      // Runner is not known, at least by this manager instance.
-      await stopDockerContainer(container.ID);
-
-      console.warn(
-        `[RunnerManager/checkDanglingRunners] Stopped dangling runner container ${container.ID} (${container.Names}).`,
-      );
+      // throw away error
+      await stopDockerContainer(container.ID).catch((err) => {});
     }
   }
 
@@ -604,18 +614,12 @@ export class RunnerManager extends LoopBase {
         );
       }
 
-      const ttl = action.runnerMaxAgeHard ?? action.runnerMaxAge ?? null;
-
       // Create OAuth client
       const serviceClients = container.resolve(OAuthServiceClients);
 
       // TODO: Set Expiry
-      const serviceClientRunner = await serviceClients.getSystemClientForRunner(
-        job,
-
-        // ttl + 60 seconds
-        ttl ? new Date(Date.now() + (ttl + 60) * 1000) : undefined,
-      );
+      const serviceClientRunner =
+        await serviceClients.getSystemClientForRunner(job);
 
       const runnerRecord = await runnersModel.create({
         status: "starting",
@@ -651,6 +655,7 @@ export class RunnerManager extends LoopBase {
 
       args.push("--label", "jobber=true");
       args.push("--label", `jobber-manager=${getConfigOption("JOBBER_NAME")}`);
+      args.push("--label", `jobber-version=${jobVersion.version}`);
 
       const dockerNetwork = getConfigOption("RUNNER_CONTAINER_DOCKER_NETWORK");
       if (dockerNetwork) {
@@ -792,10 +797,12 @@ export class RunnerManager extends LoopBase {
         `--debug=${runnerParameters.runnerDebug ? "true" : "false"}`,
       );
 
+      // NOTE: !!!! NEVER ENABLE SHELL=TRUE !!!!
       const process = spawn("docker", args, {
         windowsHide: true,
         stdio: "pipe",
       });
+      // NOTE: !!!! NEVER ENABLE SHELL=TRUE !!!!
 
       process.once("exit", async (code) => {
         await runnersModel.update(runnerRecord.id, {

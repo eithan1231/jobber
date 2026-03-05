@@ -129,6 +129,9 @@ export class RunnerClient extends LoopBase {
     this.channel = createChannel(
       this.options.runnerGeneralApiEndpoint,
       ChannelCredentials.createInsecure(),
+      {
+        "grpc.keepalive_permit_without_calls": 1,
+      },
     );
 
     this.client = createClient(GeneralAPIDefinition, this.channel, {

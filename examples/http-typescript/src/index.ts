@@ -5,21 +5,25 @@ type StoreCounter = number;
 export const handler = async (
   request: JobberHandlerRequest,
   response: JobberHandlerResponse,
-  context: JobberHandlerContext
+  context: JobberHandlerContext,
 ) => {
   if (request.type() !== "http") {
     throw new Error("Expecting HTTP request");
+  }
+
+  if (request.query("test")) {
+    return response.json({ hello: "speedy" }, 200);
   }
 
   // console.log("name:", request.name());
 
   await context.setStoreJson(
     "medium-length",
-    "SDGFDHGUDGGUSDGFDHGUDGGUSDGFDHGUDGGU"
+    "SDGFDHGUDGGUSDGFDHGUDGGUSDGFDHGUDGGU",
   );
   await context.setStoreJson(
     "long-length-sdfhkfgasufygasiuyfgweuofygweoyfvewifyvewrifygverygifvegerg",
-    "SDGFDHGUDGGUSDGFDHGUDGGUSDGFDHGUDGGUSDGFDHGUDGGUSDGFDHGUDGGUSDGFDHGUDGGUSDGFDHGUDGGUSDGFDHGUDGGUSDGFDHGUDGGUSDGFDHGUDGGUSDGFDHGUDGGUSDGFDHGUDGGU"
+    "SDGFDHGUDGGUSDGFDHGUDGGUSDGFDHGUDGGUSDGFDHGUDGGUSDGFDHGUDGGUSDGFDHGUDGGUSDGFDHGUDGGUSDGFDHGUDGGUSDGFDHGUDGGUSDGFDHGUDGGUSDGFDHGUDGGUSDGFDHGUDGGU",
   );
 
   await context.setStoreJson("1d expiry", "", {
@@ -46,6 +50,6 @@ export const handler = async (
     {
       count,
     },
-    200
+    200,
   );
 };
