@@ -51,6 +51,7 @@ import { environmentModel } from "~/db/environment.js";
 import { runnersModel } from "~/db/runners.js";
 import { OAuthServiceClients } from "~/service-clients.js";
 import { getOAuthAudienceRunnerApi } from "@jobber/common/oauth.js";
+import { Deferred, deferred } from "@jobber/common/deferred.js";
 import {
   ActionsTableType,
   EnvironmentsTableType,
@@ -103,10 +104,13 @@ type RunnerManagerItem = {
   grpcChannel: Channel | null;
   grpc: Client<RunnerAPIDefinition> | null;
 
+  promiseEvents: {
+    ready: Deferred<void>;
+    closing: Deferred<void>;
+    closed: Deferred<void>;
+  };
+
   createdAt: number;
-  readyAt?: number;
-  closingAt?: number;
-  closedAt?: number;
 };
 
 type RunnerManagerStartupItem = {
@@ -208,14 +212,23 @@ export class RunnerManager extends LoopBase {
       const runner = this.runners.get(runnerId);
 
       if (!runner) {
+        console.warn(
+          `[RunnerManager/updateRunnerStatus] Runner ${runnerId} not found in manager's runner list.`,
+        );
         return;
       }
 
       if (!runner.grpc) {
+        console.warn(
+          `[RunnerManager/updateRunnerStatus] Runner ${runnerId} does not have gRPC client initialized yet.`,
+        );
         return;
       }
 
       if (runner.process.killed) {
+        console.warn(
+          `[RunnerManager/updateRunnerStatus] Runner ${runnerId} process is killed but still in runner list. Removing...`,
+        );
         // Cleanup is handled in process 'exit' event.
         return;
       }
@@ -239,15 +252,19 @@ export class RunnerManager extends LoopBase {
       }
 
       try {
+        const previousStatus = runner.lastStatus?.status;
+
         const status = await runner.grpc.status({});
 
         runner.lastStatus = status;
 
-        if (status.status === "READY") {
+        if (status.status === "READY" && previousStatus !== "READY") {
           await runnersModel.update(runner.runnerId, {
             status: "ready",
             readyAt: new Date(),
           });
+
+          runner.promiseEvents.ready.resolve();
         }
       } catch (err) {
         // When lastStatus is undefined, runner has not started yet. Ignore unavailable errors
@@ -548,6 +565,8 @@ export class RunnerManager extends LoopBase {
             closingAt: new Date(),
           });
 
+          runner.promiseEvents.closing.resolve();
+
           if (item.method === "forceful") {
             runner.process.kill("SIGTERM");
           }
@@ -555,6 +574,8 @@ export class RunnerManager extends LoopBase {
           if (item.method === "graceful") {
             runner.process.kill("SIGKILL");
           }
+
+          await runner.promiseEvents.closed.promise;
         } catch (err) {
           console.error(err);
         }
@@ -810,12 +831,18 @@ export class RunnerManager extends LoopBase {
           closedAt: new Date(),
         });
 
+        const runner = this.runners.get(runnerRecord.id);
+
+        if (!runner) {
+          return;
+        }
+
+        runner.promiseEvents.closed.resolve();
+
         this.runners.delete(runnerRecord.id);
       });
 
       process.stderr.on("data", (buffer: Buffer) => {
-        console.log(buffer.toString());
-
         const chunks = buffer.toString().split("\n");
         for (const chunk of chunks) {
           this.logger.write({
@@ -830,7 +857,6 @@ export class RunnerManager extends LoopBase {
       });
 
       process.stdout.on("data", (buffer: Buffer) => {
-        console.log(buffer.toString());
         const chunks = buffer.toString().split("\n");
         for (const chunk of chunks) {
           this.logger.write({
@@ -872,6 +898,12 @@ export class RunnerManager extends LoopBase {
         runnerPid: process.pid?.toString() ?? "",
       };
 
+      const promiseEvents = {
+        ready: deferred<void>(),
+        closing: deferred<void>(),
+        closed: deferred<void>(),
+      };
+
       this.runners.set(runnerRecord.id, {
         runnerId: runnerRecord.id,
 
@@ -890,12 +922,52 @@ export class RunnerManager extends LoopBase {
         grpcChannel: channel,
         grpc: grpc,
 
+        promiseEvents,
+
         createdAt: getUnixTimestamp(),
       });
 
       await runnersModel.update(runnerRecord.id, {
         properties,
       });
+
+      // A simple hack to wait for runner to be ready, main loop is blocked
+      setImmediate(async () => {
+        for (let i = 0; i < 250; i++) {
+          const runner = this.runners.get(runnerRecord.id);
+
+          if (!runner) {
+            break;
+          }
+
+          if (runner.lastStatus?.status === "READY") {
+            break;
+          }
+
+          await this.updateRunnerStatus(runnerRecord.id);
+
+          // gradually sleep longer, try not to thrash the EventLoop
+          if (i > 200) {
+            await timeout(250);
+          } else if (i > 100) {
+            await timeout(100);
+          } else {
+            await timeout(50);
+          }
+        }
+      });
+
+      // Await until process opens... or fails to open
+      await Promise.any([
+        timeout(120_000), // Timeout after 2 minutes
+        promiseEvents.ready.promise,
+        promiseEvents.closing.promise,
+        promiseEvents.closed.promise,
+      ]);
+
+      console.log(
+        `[RunnerManager/createRunner] Runner for job ${shortenString(job.jobName, 16)} (${shortenString(job.id, 5)}) version ${jobVersion.version} created with runner id ${shortenString(runnerRecord.id, 4)}`,
+      );
     } catch (err) {
       console.error(err);
     }

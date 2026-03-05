@@ -91,33 +91,3 @@ export async function createOauth2Token(audience: string) {
     refreshAt: decoded.exp - 60,
   };
 }
-
-// const oauth2TokenCache = new Map<
-//   string,
-//   { token: string; expiresAt: number }
-// >();
-
-// // TODO: this whole file sucks, rewrite it. And make it reusable for the runner, probs
-// // needs to go into the common package.
-// export async function getOauth2Token(audience: string) {
-//   const cached = oauth2TokenCache.get(audience);
-
-//   if (cached && cached.expiresAt > Date.now() + 60 * 1000) {
-//     return cached.token;
-//   }
-
-//   const token = await createOauth2Token(audience);
-
-//   const payload = decodeJwt(token);
-
-//   if (!payload.exp) {
-//     throw new Error("OIDC token does not contain exp claim");
-//   }
-
-//   oauth2TokenCache.set(audience, {
-//     token,
-//     expiresAt: payload.exp * 1000,
-//   });
-
-//   return token;
-// }

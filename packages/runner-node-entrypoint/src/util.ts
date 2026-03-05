@@ -4,6 +4,10 @@ import { stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+export function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export function getUnixTimestamp() {
   return Math.floor(Date.now() / 1000);
 }

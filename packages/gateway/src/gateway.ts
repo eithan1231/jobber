@@ -13,15 +13,14 @@ import { Item as RunnerItem } from "@jobber/grpc/basics/runner.js";
 import {
   EventHttpRequest,
   EventHttpRequest_Head,
+  RunnerAPIDefinition,
 } from "@jobber/grpc/runner.js";
-import { RunnerAPIDefinition } from "@jobber/grpc/runner.js";
 import { FromTsProtoServiceDefinition } from "nice-grpc/lib/service-definitions/ts-proto.js";
-import { IncomingMessage, Server } from "node:http";
+import { IncomingMessage, Server, ServerResponse } from "node:http";
 import {
   getOAuthAudienceGeneralApi,
   getOAuthAudienceRunnerApi,
 } from "@jobber/common/oauth.js";
-
 import { randomUUID } from "node:crypto";
 import { getConfigOption } from "./config.js";
 import { GeneralAPIDefinition } from "@jobber/grpc/general.js";
@@ -32,11 +31,30 @@ type RunnerClient = RawClient<
   FromTsProtoServiceDefinition<RunnerAPIDefinition>
 >;
 
+type GeneralClient = RawClient<
+  FromTsProtoServiceDefinition<GeneralAPIDefinition>
+>;
+
 type GrpcAuth = {
+  audience: string;
   jwt: string;
   expiresAt: number;
   refreshAt: number;
   metadata: Metadata;
+};
+
+type JobEntry = {
+  job: JobItem;
+  action: ActionItem;
+  triggers: TriggerItem[];
+  runners: RunnerItem[];
+};
+
+type RunnerConnection = {
+  jobId: string;
+  auth: GrpcAuth;
+  channel: Channel;
+  client: RunnerClient;
 };
 
 export class GatewayClient extends LoopBase {
@@ -49,43 +67,29 @@ export class GatewayClient extends LoopBase {
 
   private grpcAuth: GrpcAuth | null = null;
   private grpcChannel: Channel | null = null;
-  private grpcClient: RawClient<
-    FromTsProtoServiceDefinition<GeneralAPIDefinition>
-  > | null = null;
+  private grpcClient: GeneralClient | null = null;
 
-  // Key: job.id
-  private jobs = new Map<
-    string,
-    {
-      job: JobItem;
-      action: ActionItem;
-      triggers: TriggerItem[];
-      runners: RunnerItem[];
-    }
-  >();
+  /** Key: job.id */
+  private jobs = new Map<string, JobEntry>();
 
-  // Key: runner.id
-  private runnerGrpc = new Map<
-    string,
-    {
-      jobId: string;
-      auth: GrpcAuth;
-      channel: Channel;
-      client: RunnerClient;
-    }
-  >();
+  /** Key: runner.id */
+  private runnerGrpc = new Map<string, RunnerConnection>();
 
-  // Key: trigger.id
+  /** Key: trigger.id */
   private triggers = new Map<string, TriggerItem>();
 
   constructor() {
     super();
   }
 
-  protected async loopStarting() {
-    const tokenResult = await createOauth2Token(getOAuthAudienceGeneralApi());
+  // ── OAuth2 token management ───────────────────────────────────
 
-    this.grpcAuth = {
+  private static createAuth(
+    audience: string,
+    tokenResult: { token: string; expiresAt: number; refreshAt: number },
+  ): GrpcAuth {
+    return {
+      audience,
       jwt: tokenResult.token,
       expiresAt: tokenResult.expiresAt,
       refreshAt: tokenResult.refreshAt,
@@ -93,142 +97,243 @@ export class GatewayClient extends LoopBase {
         Authorization: `Bearer ${tokenResult.token}`,
       }),
     };
+  }
+
+  private async refreshAuthIfNeeded(auth: GrpcAuth): Promise<boolean> {
+    if (Date.now() / 1000 < auth.refreshAt) {
+      return false;
+    }
+
+    console.log(
+      `[Gateway] Refreshing OAuth2 token for audience: ${auth.audience}`,
+    );
+    const tokenResult = await createOauth2Token(auth.audience);
+
+    auth.jwt = tokenResult.token;
+    auth.expiresAt = tokenResult.expiresAt;
+    auth.refreshAt = tokenResult.refreshAt;
+    auth.metadata.set("Authorization", `Bearer ${tokenResult.token}`);
+
+    return true;
+  }
+
+  private async refreshRunnerTokens() {
+    for (const connection of this.runnerGrpc.values()) {
+      await this.refreshAuthIfNeeded(connection.auth);
+    }
+  }
+
+  // ── Lifecycle ─────────────────────────────────────────────────
+
+  protected async loopStarting() {
+    const audience = getOAuthAudienceGeneralApi();
+    const tokenResult = await createOauth2Token(audience);
+
+    this.grpcAuth = GatewayClient.createAuth(audience, tokenResult);
 
     this.grpcChannel = createChannel(getConfigOption("GRPC_ENDPOINT"));
     this.grpcClient = createClientFactory().create(
       GeneralAPIDefinition,
       this.grpcChannel,
-      {
-        "*": {
-          metadata: this.grpcAuth.metadata,
-        },
-      },
+      { "*": { metadata: this.grpcAuth.metadata } },
     );
 
     this.server = new Server();
-
     this.server.listen(getConfigOption("PORT"));
+    this.server.on("request", (req, res) => this.handleHttpRequest(req, res));
+  }
 
-    this.server.on("request", async (req, res) => {
-      if (this.status === "neutral") {
-        res.statusCode = 503;
-        res.end("Service Unavailable - Gateway not started");
-        return;
+  protected async loopClosing() {
+    await new Promise((resolve, reject) =>
+      this.server?.close((err) => (err ? reject(err) : resolve(true))),
+    );
+
+    for (const connection of this.runnerGrpc.values()) {
+      connection.channel.close();
+    }
+    this.runnerGrpc.clear();
+    this.triggers.clear();
+    this.jobs.clear();
+
+    this.grpcChannel?.close();
+    this.grpcChannel = null;
+    this.grpcClient = null;
+    this.grpcAuth = null;
+  }
+
+  protected async loopIteration() {
+    assert(this.grpcClient);
+    assert(this.grpcAuth);
+
+    // Refresh tokens if they are approaching expiry
+    await this.refreshAuthIfNeeded(this.grpcAuth);
+    await this.refreshRunnerTokens();
+
+    // Fetch enabled jobs
+    const jobs = (await this.grpcClient.getJobs({})).jobs.filter(
+      (job) => job.status === "ENABLED" && job.versionId,
+    );
+
+    // Remove jobs that no longer exist
+    const activeJobIds = new Set(jobs.map((job) => job.id));
+
+    for (const [id, data] of this.jobs) {
+      if (!activeJobIds.has(id)) {
+        this.handleJobRemoval(data.job);
+      }
+    }
+
+    // Add or update existing jobs
+    await Promise.all(jobs.map((job) => this.handleJobUpdate(job)));
+  }
+
+  // ── Job management ────────────────────────────────────────────
+
+  private async handleJobUpdate(job: JobItem) {
+    assert(this.grpcClient);
+
+    // Fetch triggers, action, and runners in parallel
+    const [{ triggers }, { action }, { runners }] = await Promise.all([
+      this.grpcClient.getJobTriggersLatest({ jobId: job.id }),
+      this.grpcClient.getJobActionLatest({ jobId: job.id }),
+      this.grpcClient.getRunners({
+        jobId: job.id,
+        status: "READY",
+        versionId: job.versionId,
+      }),
+    ]);
+
+    if (!action) {
+      console.log(`[Gateway] Job ${job.id} has no action, skipping`);
+      return;
+    }
+
+    const readyRunners = runners.filter((runner) => runner.readyAt !== null);
+    const previous = this.jobs.get(job.id);
+
+    // Clean up gRPC connections for runners that are no longer active
+    const activeRunnerIds = new Set(readyRunners.map((r) => r.id));
+
+    for (const [runnerId, connection] of this.runnerGrpc) {
+      if (connection.jobId === job.id && !activeRunnerIds.has(runnerId)) {
+        connection.channel.close();
+        this.runnerGrpc.delete(runnerId);
+      }
+    }
+
+    // Create gRPC connections for new runners
+    for (const runner of readyRunners) {
+      if (this.runnerGrpc.has(runner.id)) {
+        continue;
       }
 
-      if (this.status === "stopping") {
-        res.statusCode = 503;
-        res.end("Service Unavailable - Gateway stopping");
-        return;
+      const audience = getOAuthAudienceRunnerApi(runner.id);
+      const tokenResult = await createOauth2Token(audience);
+      const auth = GatewayClient.createAuth(audience, tokenResult);
+
+      const channel = createChannel(
+        `http://${"127.0.0.1"}:${runner.properties?.runnerApiPort}`,
+        undefined,
+        {
+          "grpc.keepalive_permit_without_calls": 1,
+          "grpc.keepalive_timeout_ms": 30_000,
+        },
+      );
+
+      const client = createClientFactory().create(
+        RunnerAPIDefinition,
+        channel,
+        { "*": { metadata: auth.metadata } },
+      );
+
+      this.runnerGrpc.set(runner.id, { jobId: job.id, auth, channel, client });
+    }
+
+    // Remove triggers that no longer exist, then upsert current ones
+    if (previous) {
+      const currentTriggerIds = new Set(triggers.map((t) => t.id));
+
+      for (const old of previous.triggers) {
+        if (!currentTriggerIds.has(old.id)) {
+          this.triggers.delete(old.id);
+        }
       }
+    }
 
-      const route = this.getTriggerByRequest(req);
+    for (const trigger of triggers) {
+      this.triggers.set(trigger.id, trigger);
+    }
 
-      if (!route || !route.http || !this.jobs.has(route.jobId)) {
-        // handle bad gateway error
-        res.statusCode = 502;
-        res.end("Bad Gateway");
-        return;
+    this.jobs.set(job.id, { job, action, triggers, runners: readyRunners });
+  }
+
+  private handleJobRemoval(job: JobItem) {
+    for (const [triggerId, trigger] of this.triggers) {
+      if (trigger.jobId === job.id) {
+        this.triggers.delete(triggerId);
       }
+    }
 
-      const { job, action, triggers, runners } = this.jobs.get(route.jobId)!;
-
-      if (action.runnerMode === "RUN_ONCE") {
-        throw new Error("RUN_ONCE not implemented yet");
+    for (const [runnerId, connection] of this.runnerGrpc) {
+      if (connection.jobId === job.id) {
+        connection.channel.close();
+        this.runnerGrpc.delete(runnerId);
       }
+    }
 
-      let runner: RunnerItem;
+    this.jobs.delete(job.id);
+  }
 
-      if (runners.length === 0) {
-        // TODO: This, this will need to be done. Need to be able to start
-        // runners on demand
+  // ── HTTP request handling ─────────────────────────────────────
 
-        // runner = await this.grpcClient!.createRunner({
-        //   jobId: job.id,
-        //   versionId: job.versionId,
-        // });
-        // throw new Error("No runners available for job " + job.id);
-        res.statusCode = 502;
-        res.end("Bad Gateway - no runners available for job");
-        return;
-      } else {
-        // select random runner
-        const randomIndex = Math.floor(Math.random() * runners.length);
-        runner = runners[randomIndex];
-      }
+  private async handleHttpRequest(req: IncomingMessage, res: ServerResponse) {
+    if (this.status !== "started") {
+      res.statusCode = 503;
+      res.end(
+        this.status === "stopping"
+          ? "Service Unavailable - Gateway stopping"
+          : "Service Unavailable - Gateway not started",
+      );
+      return;
+    }
 
-      const runnerConnection = this.runnerGrpc.get(runner.id);
-      if (!runnerConnection || !runnerConnection.client) {
-        res.statusCode = 502;
-        res.end("Bad Gateway - Runner connection not found");
-        return;
-      }
+    const trigger = this.matchTrigger(req);
 
-      const requestIterable =
-        async function* (): AsyncIterable<EventHttpRequest> {
-          let headers: EventHttpRequest_Head["headers"] = [];
+    if (!trigger?.http || !this.jobs.has(trigger.jobId)) {
+      res.statusCode = 502;
+      res.end("Bad Gateway");
+      return;
+    }
 
-          for (const [key, value] of Object.entries(req.headers)) {
-            if (Array.isArray(value)) {
-              for (const v of value) {
-                headers.push({ name: key, value: v });
-              }
-            } else {
-              headers.push({ name: key, value: value || "" });
-            }
-          }
+    const entry = this.jobs.get(trigger.jobId)!;
 
-          let path = "";
-          let query = "";
+    if (entry.action.runnerMode === "RUN_ONCE") {
+      res.statusCode = 501;
+      res.end("Not Implemented - RUN_ONCE mode is not yet supported");
+      return;
+    }
 
-          if (req.url) {
-            const [rawPath, rawQuery] = req.url.split("?", 2);
-            path = rawPath;
-            query = rawQuery || "";
-          }
+    if (entry.runners.length === 0) {
+      res.statusCode = 502;
+      res.end("Bad Gateway - No runners available");
+      return;
+    }
 
-          yield {
-            info: {
-              triggerName: route.http?.name!,
-            },
-          };
+    // Select a random runner for basic load distribution
+    const runner =
+      entry.runners[Math.floor(Math.random() * entry.runners.length)];
 
-          yield {
-            head: {
-              id: randomUUID(),
-              scheme: "http", // TODO: this
-              method: req.method || "GET",
-              hostname: req.headers["host"] || "",
-              headers: headers,
-              query: query,
-              path: path,
-            },
-          };
+    const connection = this.runnerGrpc.get(runner.id);
+    if (!connection) {
+      res.statusCode = 502;
+      res.end("Bad Gateway - Runner connection not found");
+      return;
+    }
 
-          let dataSequence = 0;
-
-          for await (const chunk of req) {
-            yield {
-              body: {
-                id: randomUUID(),
-                seq: dataSequence++,
-                data: chunk,
-                end: false,
-              },
-            };
-          }
-
-          yield {
-            body: {
-              id: randomUUID(),
-              seq: dataSequence++,
-              data: new Uint8Array(0),
-              end: true,
-            },
-          };
-        };
-
-      const response = runnerConnection.client.eventHttp(requestIterable());
+    try {
+      const response = connection.client.eventHttp(
+        this.buildHttpRequestStream(req, trigger),
+      );
 
       for await (const event of response) {
         if (event.head) {
@@ -245,194 +350,120 @@ export class GatewayClient extends LoopBase {
           }
         }
       }
-    });
+    } catch (err) {
+      console.error(
+        `[Gateway] Error proxying request to runner ${runner.id}:`,
+        err,
+      );
+
+      if (!res.headersSent) {
+        res.statusCode = 502;
+        res.end("Bad Gateway - Runner error");
+      } else if (!res.writableEnded) {
+        res.end();
+      }
+    }
   }
 
-  protected async loopClosing() {
-    // Await for server to close.
-    await new Promise((resolve, reject) =>
-      this.server?.close((err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(true);
+  private async *buildHttpRequestStream(
+    req: IncomingMessage,
+    trigger: TriggerItem,
+  ): AsyncIterable<EventHttpRequest> {
+    const headers: EventHttpRequest_Head["headers"] = [];
+
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (Array.isArray(value)) {
+        for (const v of value) {
+          headers.push({ name: key, value: v });
         }
-      }),
-    );
-
-    await this.grpcChannel?.close();
-    this.grpcChannel = null;
-    this.grpcClient = null;
-  }
-
-  protected async loopIteration() {
-    if (!this.grpcClient) {
-      throw new Error("GrpcClient not started");
-    }
-
-    // TODO: Check if any tokens need refreshing.
-
-    const jobs = await this.grpcClient
-      .getJobs({})
-      .then((res) =>
-        res.jobs.filter((job) => job.status === "ENABLED" && job.versionId),
-      );
-
-    // Remove jobs that no longer exist
-
-    for (const [id, data] of this.jobs) {
-      if (!jobs.find((job) => job.id === id)) {
-        await this.handleJobRemoval(data.job);
+      } else if (value !== undefined) {
+        headers.push({ name: key, value });
       }
     }
 
-    // Add or update existing jobs
-    await Promise.all(jobs.map(async (job) => this.handleJobUpdate(job)));
-  }
-
-  private async handleJobUpdate(job: JobItem) {
-    assert(this.grpcClient);
-
-    const { triggers } = await this.grpcClient.getJobTriggersLatest({
-      jobId: job.id,
-    });
-
-    const { action } = await this.grpcClient.getJobActionLatest({
-      jobId: job.id,
-    });
-
-    const { runners } = await this.grpcClient.getRunners({
-      jobId: job.id,
-      status: "READY",
-      versionId: job.versionId,
-    });
-
-    if (!action) {
-      console.log(`[Gateway] Job ${job.id} has no action, skipping`);
-      return;
-    }
-
-    this.jobs.set(job.id, {
-      job,
-      action,
-      triggers,
-      runners: runners.filter((runner) => runner.readyAt !== null),
-    });
-
-    for (const runner of runners) {
-      if (this.runnerGrpc.has(runner.id)) {
-        continue;
-      }
-
-      const tokenResult = await createOauth2Token(
-        getOAuthAudienceRunnerApi(runner.id),
-      );
-
-      const auth: GrpcAuth = {
-        jwt: tokenResult.token,
-        expiresAt: tokenResult.expiresAt,
-        refreshAt: tokenResult.refreshAt,
-        metadata: Metadata({
-          Authorization: `Bearer ${tokenResult.token}`,
-        }),
-      };
-
-      const channel = createChannel(
-        // TODO: this
-        `http://${"192.168.10.200"}:${runner.properties?.runnerApiPort}`,
-        undefined,
-        {
-          "grpc.keepalive_permit_without_calls": 1,
-          "grpc.keepalive_timeout_ms": 30_000,
-        },
-      );
-      const client = createClientFactory().create(
-        RunnerAPIDefinition,
-        channel,
-        {
-          "*": {
-            metadata: auth.metadata,
-          },
-        },
-      );
-
-      this.runnerGrpc.set(runner.id, {
-        jobId: job.id,
-        auth,
-        channel,
-        client,
-      });
-    }
-
-    for (const trigger of triggers) {
-      this.triggers.set(trigger.id, trigger);
-    }
-  }
-
-  private async handleJobRemoval(job: JobItem) {
-    for (const [, trigger] of this.triggers) {
-      if (trigger.jobId === job.id) {
-        this.triggers.delete(trigger.id);
-      }
-    }
-
-    for (const [runnerId, runner] of this.runnerGrpc) {
-      if (runner.jobId !== job.id) {
-        continue;
-      }
-
-      runner.channel.close();
-      this.runnerGrpc.delete(runnerId);
-    }
-
-    this.jobs.delete(job.id);
-  }
-
-  private getTriggerByRequest(req: IncomingMessage) {
-    // TODO: This is slow as shit.
-    const host = req.headers["host"];
-    const method = req.method;
-    let path;
+    let path = "";
+    let query = "";
 
     if (req.url) {
-      const pos = req.url.indexOf("?");
-
-      if (pos >= 0) {
-        path = req.url.substring(0, pos);
+      const qPos = req.url.indexOf("?");
+      if (qPos >= 0) {
+        path = req.url.substring(0, qPos);
+        query = req.url.substring(qPos + 1);
       } else {
         path = req.url;
       }
     }
 
-    if (!host || !method || !path) {
+    yield { info: { triggerName: trigger.http!.name ?? "" } };
+
+    yield {
+      head: {
+        id: randomUUID(),
+        scheme: "http",
+        method: req.method || "GET",
+        hostname: req.headers["host"] || "",
+        headers,
+        query,
+        path,
+      },
+    };
+
+    let seq = 0;
+
+    for await (const chunk of req) {
+      yield {
+        body: { id: randomUUID(), seq: seq++, data: chunk, end: false },
+      };
+    }
+
+    yield {
+      body: {
+        id: randomUUID(),
+        seq: seq++,
+        data: new Uint8Array(0),
+        end: true,
+      },
+    };
+  }
+
+  // ── Trigger matching ──────────────────────────────────────────
+
+  private matchTrigger(req: IncomingMessage): TriggerItem | null {
+    const host = req.headers["host"];
+    const method = req.method;
+
+    if (!host || !method || !req.url) {
       return null;
     }
 
-    for (const route of this.triggers.values()) {
-      if (!route.http) {
+    const qPos = req.url.indexOf("?");
+    const path = qPos >= 0 ? req.url.substring(0, qPos) : req.url;
+
+    for (const trigger of this.triggers.values()) {
+      if (!trigger.http) {
         continue;
       }
 
-      if (route.http.hostname && route.http.hostname !== host) {
+      if (trigger.http.hostname && trigger.http.hostname !== host) {
         continue;
       }
 
-      if (route.http.method && route.http.method !== method) {
+      if (trigger.http.method && trigger.http.method !== method) {
         continue;
       }
 
-      if (route.http.path) {
-        if (route.http.path.startsWith("^")) {
-          const regex = new RegExp(route.http.path);
+      if (trigger.http.path) {
+        if (trigger.http.path.startsWith("^")) {
+          const regex = new RegExp(trigger.http.path);
           if (!regex.test(path)) {
             continue;
           }
-        } else if (route.http.path && route.http.path !== path) {
+        } else if (trigger.http.path !== path) {
           continue;
         }
       }
 
-      return route;
+      return trigger;
     }
 
     return null;

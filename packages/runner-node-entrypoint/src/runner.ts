@@ -10,6 +10,7 @@ import { RunnerServer } from "./runner-server.js";
 import { fileExists, getTempFilePath, unzip } from "./util.js";
 import { validatePackageJson } from "./validator.js";
 import { Telemetry } from "./telemetry.js";
+import { deferred, Deferred } from "@jobber/common/deferred.js";
 
 export type RunnerOptions = {
   runnerId: string;
@@ -47,6 +48,13 @@ type RunnerExpectedModule = {
 export class Runner {
   private _status: Status = "pending";
 
+  private _statusPromise: {
+    starting: Deferred<void>;
+    running: Deferred<void>;
+    closing: Deferred<void>;
+    pending: Deferred<void>;
+  };
+
   protected _server: RunnerServer;
 
   protected _client: RunnerClient;
@@ -58,6 +66,13 @@ export class Runner {
   private _module: RunnerExpectedModule | null = null;
 
   constructor(private options: RunnerOptions) {
+    this._statusPromise = {
+      starting: deferred(),
+      running: deferred(),
+      closing: deferred(),
+      pending: deferred(),
+    };
+
     this._telemetry = new Telemetry();
 
     this._client = new RunnerClient(this, options);
@@ -67,6 +82,7 @@ export class Runner {
 
   async start() {
     this._status = "starting";
+    this._statusPromise.starting.resolve();
 
     await this._client.start();
 
@@ -75,16 +91,26 @@ export class Runner {
     await this.bootstrap();
 
     this._status = "running";
+    this._statusPromise.running.resolve();
   }
 
   async stop() {
     this._status = "closing";
+    this._statusPromise.closing.resolve();
 
     await this._server.stop();
 
     await this._client.stop();
 
     this._status = "pending";
+    this._statusPromise.pending.resolve();
+
+    this._statusPromise = {
+      starting: deferred(),
+      running: deferred(),
+      closing: deferred(),
+      pending: deferred(),
+    };
   }
 
   async populateRunnerInfo() {
@@ -220,5 +246,9 @@ export class Runner {
     }
 
     return this.runnerInfo.jobId;
+  }
+
+  public get statusPromises() {
+    return this._statusPromise;
   }
 }

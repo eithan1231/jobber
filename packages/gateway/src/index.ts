@@ -1,12 +1,11 @@
 import "reflect-metadata";
-import { container } from "tsyringe";
 import { GatewayClient } from "./gateway.js";
 
 async function main() {
   console.log("Starting Gateway Management Client...");
 
   console.log("Starting Gateway...");
-  const gateway = container.resolve(GatewayClient);
+  const gateway = new GatewayClient();
   await gateway.start();
   console.log("Gateway Management Client started");
 
