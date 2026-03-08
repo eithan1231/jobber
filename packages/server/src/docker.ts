@@ -77,6 +77,30 @@ export const stopDockerContainer = (id: string): Promise<boolean> => {
   });
 };
 
+export const killDockerContainer = (id: string): Promise<boolean> => {
+  return new Promise((resolve, reject) => {
+    const lines: string[] = [];
+
+    const process = spawn("docker", ["container", "kill", id]);
+
+    process.stdout.on("data", (chunk: Buffer) => {
+      lines.push(chunk.toString());
+    });
+
+    process.once("exit", (code) => {
+      if (code !== 0) {
+        console.error(
+          `[killDockerContainer] Failed to kill container ${id}: ${lines.join(
+            "",
+          )}`,
+        );
+      }
+
+      return resolve(code === 0);
+    });
+  });
+};
+
 export const pullDockerImage = (image: string): Promise<boolean> => {
   return new Promise((resolve, reject) => {
     const lines: string[] = [];

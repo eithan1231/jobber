@@ -1,10 +1,12 @@
-import { LoopBase } from "@jobber/common";
+import { awaitTruthy, LoopBase } from "@jobber/common";
 import {
   Channel,
   createChannel,
   createClientFactory,
   Metadata,
   RawClient,
+  ServerError,
+  Status,
 } from "nice-grpc";
 import { Item as JobItem } from "@jobber/grpc/basics/job.js";
 import { Item as ActionItem } from "@jobber/grpc/basics/action.js";
@@ -26,6 +28,7 @@ import { getConfigOption } from "./config.js";
 import { GeneralAPIDefinition } from "@jobber/grpc/general.js";
 import assert from "node:assert";
 import { createOauth2Token } from "./oauth-client.js";
+import { ConnectivityState } from "@grpc/grpc-js/build/src/connectivity-state.js";
 
 type RunnerClient = RawClient<
   FromTsProtoServiceDefinition<RunnerAPIDefinition>
@@ -58,7 +61,7 @@ type RunnerConnection = {
 };
 
 export class GatewayClient extends LoopBase {
-  protected loopDuration = 1000;
+  protected loopDuration = 500;
 
   protected loopStarted = undefined;
   protected loopClosed = undefined;
@@ -81,8 +84,6 @@ export class GatewayClient extends LoopBase {
   constructor() {
     super();
   }
-
-  // ── OAuth2 token management ───────────────────────────────────
 
   private static createAuth(
     audience: string,
@@ -123,8 +124,6 @@ export class GatewayClient extends LoopBase {
     }
   }
 
-  // ── Lifecycle ─────────────────────────────────────────────────
-
   protected async loopStarting() {
     const audience = getOAuthAudienceGeneralApi();
     const tokenResult = await createOauth2Token(audience);
@@ -137,6 +136,9 @@ export class GatewayClient extends LoopBase {
       this.grpcChannel,
       { "*": { metadata: this.grpcAuth.metadata } },
     );
+
+    // Force a loop iteration to ensure routes are ready
+    await this.loopIteration();
 
     this.server = new Server();
     this.server.listen(getConfigOption("PORT"));
@@ -186,8 +188,6 @@ export class GatewayClient extends LoopBase {
     // Add or update existing jobs
     await Promise.all(jobs.map((job) => this.handleJobUpdate(job)));
   }
-
-  // ── Job management ────────────────────────────────────────────
 
   private async handleJobUpdate(job: JobItem) {
     assert(this.grpcClient);
@@ -284,7 +284,64 @@ export class GatewayClient extends LoopBase {
     this.jobs.delete(job.id);
   }
 
-  // ── HTTP request handling ─────────────────────────────────────
+  private async getRunner(entry: JobEntry) {
+    assert(this.grpcClient);
+
+    let method: "create" | "recycle";
+
+    if (entry.action.runnerMode === "RUN_ONCE") {
+      method = "create";
+    } else if (entry.runners.length === 0) {
+      method = "create";
+    } else {
+      method = "recycle";
+    }
+
+    if (method === "create") {
+      try {
+        const { runner } = await this.grpcClient.createRunner({
+          jobId: entry.job.id,
+          actionId: entry.action.id,
+          versionId: entry.job.versionId,
+        });
+
+        if (!runner) {
+          return null;
+        }
+
+        await awaitTruthy(async () => {
+          const grpc = this.runnerGrpc.get(runner.id);
+          if (!grpc) {
+            return false;
+          }
+
+          const state = grpc.channel.getConnectivityState(true);
+          return state === ConnectivityState.READY;
+        }, 30_000);
+
+        return runner;
+      } catch (err) {
+        if (err instanceof ServerError) {
+          console.warn(
+            `[Gateway] Failed to create RUN_ONCE runner for job ${entry.job.id}: ${err.message}`,
+          );
+
+          return null;
+        }
+
+        throw err;
+      }
+    }
+
+    if (method === "recycle") {
+      const runner =
+        entry.runners[Math.floor(Math.random() * entry.runners.length)];
+
+      return runner;
+    }
+
+    throw new Error(`Unsupported runner mode: ${entry.action.runnerMode}`);
+  }
 
   private async handleHttpRequest(req: IncomingMessage, res: ServerResponse) {
     if (this.status !== "started") {
@@ -307,21 +364,13 @@ export class GatewayClient extends LoopBase {
 
     const entry = this.jobs.get(trigger.jobId)!;
 
-    if (entry.action.runnerMode === "RUN_ONCE") {
-      res.statusCode = 501;
-      res.end("Not Implemented - RUN_ONCE mode is not yet supported");
-      return;
-    }
+    const runner = await this.getRunner(entry);
 
-    if (entry.runners.length === 0) {
+    if (!runner) {
       res.statusCode = 502;
-      res.end("Bad Gateway - No runners available");
+      res.end("Bad Gateway - No runner available");
       return;
     }
-
-    // Select a random runner for basic load distribution
-    const runner =
-      entry.runners[Math.floor(Math.random() * entry.runners.length)];
 
     const connection = this.runnerGrpc.get(runner.id);
     if (!connection) {
@@ -425,8 +474,6 @@ export class GatewayClient extends LoopBase {
       },
     };
   }
-
-  // ── Trigger matching ──────────────────────────────────────────
 
   private matchTrigger(req: IncomingMessage): TriggerItem | null {
     const host = req.headers["host"];

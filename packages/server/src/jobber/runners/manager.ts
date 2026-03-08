@@ -1,39 +1,6 @@
 import assert from "assert";
 import { ChildProcessWithoutNullStreams, spawn } from "child_process";
 import { and, eq, isNotNull } from "drizzle-orm";
-import { container, inject, singleton } from "tsyringe";
-
-import { getConfigOption } from "~/config.js";
-import { ENTRYPOINT_NODE } from "~/constants.js";
-import { getDrizzle } from "~/db/index.js";
-import { actionsTable, runnersTable } from "~/db/schema.js";
-import { environmentsTable } from "~/db/schema.js";
-import { jobVersionsTable } from "~/db/schema.js";
-import { jobsTable } from "~/db/schema.js";
-import {
-  getDockerContainers,
-  pullDockerImage,
-  stopDockerContainer,
-} from "~/docker.js";
-import { LoopBase, awaitTruthy, timeout } from "@jobber/common";
-import {
-  counterRunnerRequests,
-  gaugeActiveRunners,
-  histogramJobManagerLoopDuration,
-  histogramRunnerRequestDuration,
-  histogramRunnerShutdownDuration,
-  histogramRunnerStartupDuration,
-} from "~/metrics.js";
-import {
-  createBenchmark,
-  createToken,
-  getUnixTimestamp,
-  sanitiseSafeCharacters,
-  shortenString,
-} from "~/util.js";
-import { getImage, getImages } from "../images.js";
-import { LogDriverBase } from "../log-drivers/abstract.js";
-import { Store } from "../store.js";
 import {
   Channel,
   Client,
@@ -43,15 +10,26 @@ import {
   Metadata,
   Status,
 } from "nice-grpc";
+import { inject, singleton } from "tsyringe";
+
+import { LoopBase, timeout } from "@jobber/common";
+import { Deferred, deferred } from "@jobber/common/deferred.js";
+import { getOAuthAudienceRunnerApi } from "@jobber/common/oauth.js";
 import { RunnerAPIDefinition, StatusResponse } from "@jobber/grpc/runner.js";
-import { jobModel } from "~/db/job.js";
-import { jobVersionsModel } from "~/db/job-versions.js";
+import { getConfigOption } from "~/config.js";
+import { ENTRYPOINT_NODE } from "~/constants.js";
 import { actionsModel } from "~/db/actions.js";
 import { environmentModel } from "~/db/environment.js";
+import { getDrizzle } from "~/db/index.js";
+import { jobVersionsModel } from "~/db/job-versions.js";
+import { jobModel } from "~/db/job.js";
 import { runnersModel } from "~/db/runners.js";
-import { OAuthServiceClients } from "~/service-clients.js";
-import { getOAuthAudienceRunnerApi } from "@jobber/common/oauth.js";
-import { Deferred, deferred } from "@jobber/common/deferred.js";
+import {
+  actionsTable,
+  environmentsTable,
+  jobsTable,
+  jobVersionsTable,
+} from "~/db/schema.js";
 import {
   ActionsTableType,
   EnvironmentsTableType,
@@ -59,6 +37,20 @@ import {
   JobVersionsTableType,
   RunnersTableType,
 } from "~/db/types.js";
+import {
+  getDockerContainers,
+  killDockerContainer,
+  stopDockerContainer,
+} from "~/docker.js";
+import { OAuthServiceClients } from "~/service-clients.js";
+import {
+  createToken,
+  getUnixTimestamp,
+  sanitiseSafeCharacters,
+  shortenString,
+} from "~/util.js";
+import { getImage } from "../images.js";
+import { LogDriverBase } from "../log-drivers/abstract.js";
 
 type CurrentVersionResult = {
   version: JobVersionsTableType;
@@ -473,7 +465,6 @@ export class RunnerManager extends LoopBase {
     ]);
 
     const containers = await getDockerContainers();
-    const closedRunnersContainerName = new Set();
 
     await Promise.all(
       runnerRecordsNotClosed.map(async (runnerRecord) => {
@@ -492,50 +483,53 @@ export class RunnerManager extends LoopBase {
           closedAt: new Date(),
         });
 
-        if (runnerRecord.properties?.runnerContainerName) {
-          closedRunnersContainerName.add(
-            runnerRecord.properties.runnerContainerName,
-          );
+        const container = containers.find(
+          (container) =>
+            container.Names === runnerRecord.properties?.runnerContainerName,
+        );
+
+        if (container) {
+          await stopDockerContainer(container.ID).catch((err) => {});
         }
       }),
     );
 
-    await Promise.all(
-      containers.map(async (container) => {
-        const labels = container.Labels.split(",").map((label) => {
-          const parts = label.split("=", 2);
+    // await Promise.all(
+    //   containers.map(async (container) => {
+    //     const labels = container.Labels.split(",").map((label) => {
+    //       const parts = label.split("=", 2);
 
-          return {
-            key: parts.at(0) ?? "",
-            value: parts.at(1) ?? "",
-          };
-        });
+    //       return {
+    //         key: parts.at(0) ?? "",
+    //         value: parts.at(1) ?? "",
+    //       };
+    //     });
 
-        const isJobber = labels.find(
-          ({ key, value }) => key === "jobber" && value === "true",
-        );
+    //     const isJobber = labels.find(
+    //       ({ key, value }) => key === "jobber" && value === "true",
+    //     );
 
-        const isOwned = labels.find(
-          ({ key, value }) =>
-            key === "jobber-manager" &&
-            value === getConfigOption("JOBBER_NAME"),
-        );
+    //     const isOwned = labels.find(
+    //       ({ key, value }) =>
+    //         key === "jobber-manager" &&
+    //         value === getConfigOption("JOBBER_NAME"),
+    //     );
 
-        if (!isJobber || !isOwned) {
-          return;
-        }
+    //     if (!isJobber || !isOwned) {
+    //       return;
+    //     }
 
-        if (!closedRunnersContainerName.has(container.Names)) {
-          return;
-        }
+    //     if (!closedRunnersContainerName.has(container.Names)) {
+    //       return;
+    //     }
 
-        console.warn(
-          `[RunnerManager/checkDanglingRunners] Found dangling runner container ${container.ID} (${container.Names}). Stopping...`,
-        );
+    //     console.warn(
+    //       `[RunnerManager/checkDanglingRunners] Found dangling runner container ${container.ID} (${container.Names}). Stopping...`,
+    //     );
 
-        await stopDockerContainer(container.ID).catch((err) => {});
-      }),
-    );
+    //     await stopDockerContainer(container.ID).catch((err) => {});
+    //   }),
+    // );
   }
 
   private async processStartupQueue() {
@@ -568,11 +562,21 @@ export class RunnerManager extends LoopBase {
           runner.promiseEvents.closing.resolve();
 
           if (item.method === "forceful") {
-            runner.process.kill("SIGTERM");
-          }
-
-          if (item.method === "graceful") {
-            runner.process.kill("SIGKILL");
+            if (runner.properties?.runnerContainerName) {
+              await killDockerContainer(
+                runner.properties?.runnerContainerName,
+              ).catch((err) => {});
+            }
+          } else if (item.method === "graceful") {
+            if (runner.properties?.runnerContainerName) {
+              await stopDockerContainer(
+                runner.properties?.runnerContainerName,
+              ).catch((err) => {});
+            }
+          } else {
+            console.warn(
+              `[RunnerManager/processShutdownQueue] Unknown shutdown method ${item.method} for runner ${item.runnerId}. Defaulting to graceful.`,
+            );
           }
 
           await runner.promiseEvents.closed.promise;
@@ -581,6 +585,13 @@ export class RunnerManager extends LoopBase {
         }
       }),
     );
+  }
+
+  public shutdownRunner(runnerId: string, forceful: boolean = false) {
+    this.queueShutdown.push({
+      runnerId,
+      method: forceful ? "forceful" : "graceful",
+    });
   }
 
   public async createRunner(jobId: string): Promise<string | null> {
@@ -971,5 +982,13 @@ export class RunnerManager extends LoopBase {
 
       return null;
     }
+  }
+
+  public async requestRunner(jobId: string) {
+    // migrate createRunner to be private, and have this one be public. We just need a way to have it await a successful start of a runner.
+    // Also need to validate maxRunners to ensure we never exceed said threshold
+    // this.queueStartup({
+    //   jobId,
+    // });
   }
 }

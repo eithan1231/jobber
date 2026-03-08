@@ -1,4 +1,4 @@
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, or, sql } from "drizzle-orm";
 import { getDrizzle } from "./index.js";
 import { RunnersTableInsertType } from "./types.js";
 import { runnersTable } from "./schema.js";
@@ -28,6 +28,29 @@ async function byStatuses(statuses: RunnersTableInsertType["status"][]) {
     .select()
     .from(runnersTable)
     .where(inArray(runnersTable.status, statuses));
+
+  return runners;
+}
+
+async function byJobId(jobId: string, specialFilter: boolean = false) {
+  const conditions: any = [eq(runnersTable.jobId, jobId)];
+
+  if (specialFilter) {
+    conditions.push(
+      or(
+        inArray(runnersTable.status, ["closing", "ready", "starting"]),
+        and(
+          eq(runnersTable.status, "closed"),
+          gt(runnersTable.closedAt, sql`now() - interval '5 minutes'`),
+        ),
+      ),
+    );
+  }
+
+  const runners = await getDrizzle()
+    .select()
+    .from(runnersTable)
+    .where(and(...conditions));
 
   return runners;
 }
@@ -76,6 +99,7 @@ export const runnersModel = {
   byId,
   byStatus,
   byStatuses,
+  byJobId,
   byContainerName,
   all,
   create,

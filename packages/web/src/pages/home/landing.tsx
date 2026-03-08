@@ -32,10 +32,10 @@ const Component = () => {
     totalJobs === 0
       ? "idle"
       : enabledJobs > 0 && totalRunners > 0
-      ? "healthy"
-      : enabledJobs > 0 && totalRunners === 0
-      ? "degraded"
-      : "idle";
+        ? "healthy"
+        : enabledJobs > 0 && totalRunners === 0
+          ? "degraded"
+          : "idle";
 
   const healthConfig = {
     healthy: {
@@ -233,7 +233,7 @@ const Component = () => {
                     <tr key={job.id} className="hover:bg-gray-50 transition">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <a
-                          href={`/job/${job.id}`}
+                          href={`/home/job/${job.id}`}
                           className="text-sm font-medium text-blue-600 hover:text-blue-800"
                         >
                           {job.jobName}
@@ -257,7 +257,7 @@ const Component = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                         <a
-                          href={`/job/${job.id}`}
+                          href={`/home/job/${job.id}`}
                           className="text-blue-600 hover:text-blue-800 font-medium"
                         >
                           View Details →

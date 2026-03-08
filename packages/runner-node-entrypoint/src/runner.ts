@@ -98,9 +98,22 @@ export class Runner {
     this._status = "closing";
     this._statusPromise.closing.resolve();
 
+    if (this.options.runnerDebug) {
+      console.info("Shutting down gRPC server...");
+    }
+
     await this._server.stop();
 
+    if (this.options.runnerDebug) {
+      console.info("gRPC server shut down successfully.");
+      console.info("Shutting down gRPC client...");
+    }
+
     await this._client.stop();
+
+    if (this.options.runnerDebug) {
+      console.info("gRPC client shut down successfully.");
+    }
 
     this._status = "pending";
     this._statusPromise.pending.resolve();

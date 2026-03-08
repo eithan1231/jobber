@@ -44,7 +44,15 @@ const main = async () => {
   await runner.start();
 
   const shutdown = async () => {
+    if (runnerDebug) {
+      console.info("Shutdown procedure started...");
+    }
+
     await runner.stop();
+
+    if (runnerDebug) {
+      console.info("Shutdown procedure completed");
+    }
 
     process.exit(0);
   };
