@@ -200,6 +200,17 @@ export interface PublishMqttMessageRequest {
 export interface PublishMqttMessageResponse {
 }
 
+/** createRunner * */
+export interface CreateRunnerRequest {
+  jobId: string;
+  versionId: string;
+  actionId: string;
+}
+
+export interface CreateRunnerResponse {
+  runner: Item4 | undefined;
+}
+
 function createBaseJobRequest(): JobRequest {
   return { jobId: "" };
 }
@@ -2612,6 +2623,158 @@ export const PublishMqttMessageResponse: MessageFns<PublishMqttMessageResponse> 
   },
 };
 
+function createBaseCreateRunnerRequest(): CreateRunnerRequest {
+  return { jobId: "", versionId: "", actionId: "" };
+}
+
+export const CreateRunnerRequest: MessageFns<CreateRunnerRequest> = {
+  encode(message: CreateRunnerRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.jobId !== "") {
+      writer.uint32(10).string(message.jobId);
+    }
+    if (message.versionId !== "") {
+      writer.uint32(18).string(message.versionId);
+    }
+    if (message.actionId !== "") {
+      writer.uint32(26).string(message.actionId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateRunnerRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseCreateRunnerRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.jobId = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.versionId = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.actionId = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): CreateRunnerRequest {
+    return {
+      jobId: isSet(object.jobId) ? globalThis.String(object.jobId) : "",
+      versionId: isSet(object.versionId) ? globalThis.String(object.versionId) : "",
+      actionId: isSet(object.actionId) ? globalThis.String(object.actionId) : "",
+    };
+  },
+
+  toJSON(message: CreateRunnerRequest): unknown {
+    const obj: any = {};
+    if (message.jobId !== "") {
+      obj.jobId = message.jobId;
+    }
+    if (message.versionId !== "") {
+      obj.versionId = message.versionId;
+    }
+    if (message.actionId !== "") {
+      obj.actionId = message.actionId;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<CreateRunnerRequest>): CreateRunnerRequest {
+    return CreateRunnerRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<CreateRunnerRequest>): CreateRunnerRequest {
+    const message = createBaseCreateRunnerRequest();
+    message.jobId = object.jobId ?? "";
+    message.versionId = object.versionId ?? "";
+    message.actionId = object.actionId ?? "";
+    return message;
+  },
+};
+
+function createBaseCreateRunnerResponse(): CreateRunnerResponse {
+  return { runner: undefined };
+}
+
+export const CreateRunnerResponse: MessageFns<CreateRunnerResponse> = {
+  encode(message: CreateRunnerResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.runner !== undefined) {
+      Item4.encode(message.runner, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateRunnerResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseCreateRunnerResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.runner = Item4.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): CreateRunnerResponse {
+    return { runner: isSet(object.runner) ? Item4.fromJSON(object.runner) : undefined };
+  },
+
+  toJSON(message: CreateRunnerResponse): unknown {
+    const obj: any = {};
+    if (message.runner !== undefined) {
+      obj.runner = Item4.toJSON(message.runner);
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<CreateRunnerResponse>): CreateRunnerResponse {
+    return CreateRunnerResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<CreateRunnerResponse>): CreateRunnerResponse {
+    const message = createBaseCreateRunnerResponse();
+    message.runner = (object.runner !== undefined && object.runner !== null)
+      ? Item4.fromPartial(object.runner)
+      : undefined;
+    return message;
+  },
+};
+
 export type GeneralAPIDefinition = typeof GeneralAPIDefinition;
 export const GeneralAPIDefinition = {
   name: "GeneralAPI",
@@ -2762,6 +2925,14 @@ export const GeneralAPIDefinition = {
       responseStream: false,
       options: {},
     },
+    createRunner: {
+      name: "createRunner",
+      requestType: CreateRunnerRequest,
+      requestStream: false,
+      responseType: CreateRunnerResponse,
+      responseStream: false,
+      options: {},
+    },
   },
 } as const;
 
@@ -2827,6 +2998,10 @@ export interface GeneralAPIServiceImplementation<CallContextExt = {}> {
     request: PublishMqttMessageRequest,
     context: CallContext & CallContextExt,
   ): Promise<DeepPartial<PublishMqttMessageResponse>>;
+  createRunner(
+    request: CreateRunnerRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<CreateRunnerResponse>>;
 }
 
 export interface GeneralAPIClient<CallOptionsExt = {}> {
@@ -2891,6 +3066,10 @@ export interface GeneralAPIClient<CallOptionsExt = {}> {
     request: DeepPartial<PublishMqttMessageRequest>,
     options?: CallOptions & CallOptionsExt,
   ): Promise<PublishMqttMessageResponse>;
+  createRunner(
+    request: DeepPartial<CreateRunnerRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<CreateRunnerResponse>;
 }
 
 function bytesFromBase64(b64: string): Uint8Array {

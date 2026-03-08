@@ -63,6 +63,11 @@ export const PERMISSION_GATEWAY: JobberPermissions = [
   },
   {
     effect: "allow",
+    resource: "special/job/*/create-runner",
+    actions: ["write"],
+  },
+  {
+    effect: "allow",
     resource: "job/*/runners",
     actions: ["read"],
   },

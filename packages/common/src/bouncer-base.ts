@@ -272,4 +272,12 @@ export class BouncerBase {
   public canInvokeRunnerScheduleEvent(job: { id: string }): boolean {
     return this.can(`special/job/${job.id}/invoke-schedule-event`, "write");
   }
+
+  /**
+   * Used by gateway
+   * SPECIAL: This enables services such as the gateway, to spawn runners for run-once jobs.
+   */
+  public canCreateRunner(job: { id: string }): boolean {
+    return this.can(`special/job/${job.id}/create-runner`, "write");
+  }
 }

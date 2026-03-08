@@ -21,7 +21,13 @@ export const getDockerContainers = (): Promise<GetDockerContainers> => {
   return new Promise((resolve, reject) => {
     const lines: string[] = [];
 
-    const process = spawn("docker", ["container", "ls", "--format", "json"]);
+    const process = spawn("docker", [
+      "container",
+      "ls",
+      "--no-trunc",
+      "--format",
+      "json",
+    ]);
 
     process.stdout.on("data", (chunk: Buffer) => {
       lines.push(chunk.toString());
@@ -34,14 +40,14 @@ export const getDockerContainers = (): Promise<GetDockerContainers> => {
         return reject(
           new Error("Failed to get Docker Containers!", {
             cause: output,
-          })
+          }),
         );
       }
 
       resolve(
         output
           .filter((index) => !!index)
-          .map((outputLine) => JSON.parse(outputLine))
+          .map((outputLine) => JSON.parse(outputLine)),
       );
     });
   });
@@ -61,8 +67,8 @@ export const stopDockerContainer = (id: string): Promise<boolean> => {
       if (code !== 0) {
         console.error(
           `[stopDockerContainer] Failed to stop container ${id}: ${lines.join(
-            ""
-          )}`
+            "",
+          )}`,
         );
       }
 
@@ -84,7 +90,7 @@ export const pullDockerImage = (image: string): Promise<boolean> => {
     process.once("exit", (code) => {
       if (code !== 0) {
         console.error(
-          `[pullDockerImage] Failed to pull image ${image}: ${lines.join("")}`
+          `[pullDockerImage] Failed to pull image ${image}: ${lines.join("")}`,
         );
       }
 
@@ -107,8 +113,8 @@ export const pauseDockerContainer = (id: string): Promise<boolean> => {
       if (code !== 0) {
         console.error(
           `[pauseDockerContainer] Failed to pause container ${id}: ${lines.join(
-            ""
-          )}`
+            "",
+          )}`,
         );
       }
 
@@ -131,8 +137,8 @@ export const unpauseDockerContainer = (id: string): Promise<boolean> => {
       if (code !== 0) {
         console.error(
           `[unpauseDockerContainer] Failed to unpause container ${id}: ${lines.join(
-            ""
-          )}`
+            "",
+          )}`,
         );
       }
 

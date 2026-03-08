@@ -134,7 +134,10 @@ export class RunnerManager extends LoopBase {
 
   private queueStartup = Array<RunnerManagerStartupItem>();
 
-  constructor(@inject("LogDriverBase") private logger: LogDriverBase) {
+  constructor(
+    @inject("LogDriverBase") private logger: LogDriverBase,
+    @inject(OAuthServiceClients) private serviceClients: OAuthServiceClients,
+  ) {
     super();
   }
 
@@ -238,9 +241,8 @@ export class RunnerManager extends LoopBase {
         getUnixTimestamp() > runner.grpcTokenExpiry - 60
       ) {
         // Token is expired or about to expire in the next 60 seconds, generate a new one
-        const serviceClients = container.resolve(OAuthServiceClients);
 
-        const tokenResult = await serviceClients.generateTokenForServer(
+        const tokenResult = await this.serviceClients.generateTokenForServer(
           getOAuthAudienceRunnerApi(runnerId),
         );
 
@@ -463,6 +465,7 @@ export class RunnerManager extends LoopBase {
   }
 
   private async checkDanglingRunners() {
+    // TODO: Cleanup this
     const runnerRecordsNotClosed = await runnersModel.byStatuses([
       "starting",
       "ready",
@@ -470,72 +473,69 @@ export class RunnerManager extends LoopBase {
     ]);
 
     const containers = await getDockerContainers();
+    const closedRunnersContainerName = new Set();
 
-    for (const runnerRecord of runnerRecordsNotClosed) {
-      const isKnown = this.runners.has(runnerRecord.id);
+    await Promise.all(
+      runnerRecordsNotClosed.map(async (runnerRecord) => {
+        const isKnown = this.runners.has(runnerRecord.id);
 
-      if (isKnown) {
-        continue;
-      }
+        if (isKnown) {
+          return;
+        }
 
-      // Runner not known by manager, check if container exists.
+        console.warn(
+          `[RunnerManager/checkDanglingRunners] Found dangling runner record ${runnerRecord.id} for job ${runnerRecord.jobId}. Marking as closed...`,
+        );
 
-      const container = containers.find(
-        (item) => item.Names === runnerRecord.properties?.runnerContainerName,
-      );
+        await runnersModel.update(runnerRecord.id, {
+          status: "closed",
+          closedAt: new Date(),
+        });
 
-      if (container) {
-        // Managed by other instance????
-        // (multi instances are not currently supported, but lets leave some room for it in the future?).
-        continue;
-      }
+        if (runnerRecord.properties?.runnerContainerName) {
+          closedRunnersContainerName.add(
+            runnerRecord.properties.runnerContainerName,
+          );
+        }
+      }),
+    );
 
-      console.warn(
-        `[RunnerManager/checkDanglingRunners] Found dangling runner record ${runnerRecord.id} for job ${runnerRecord.jobId}. Marking as closed...`,
-      );
+    await Promise.all(
+      containers.map(async (container) => {
+        const labels = container.Labels.split(",").map((label) => {
+          const parts = label.split("=", 2);
 
-      await runnersModel.update(runnerRecord.id, {
-        status: "closed",
-        closedAt: new Date(),
-      });
-    }
+          return {
+            key: parts.at(0) ?? "",
+            value: parts.at(1) ?? "",
+          };
+        });
 
-    for (const container of containers) {
-      const labels = container.Labels.split(",").map((label) => {
-        const parts = label.split("=", 2);
+        const isJobber = labels.find(
+          ({ key, value }) => key === "jobber" && value === "true",
+        );
 
-        return {
-          key: parts.at(0) ?? "",
-          value: parts.at(1) ?? "",
-        };
-      });
+        const isOwned = labels.find(
+          ({ key, value }) =>
+            key === "jobber-manager" &&
+            value === getConfigOption("JOBBER_NAME"),
+        );
 
-      const isJobber = labels.find(
-        ({ key, value }) => key === "jobber" && value === "true",
-      );
+        if (!isJobber || !isOwned) {
+          return;
+        }
 
-      const isOwned = labels.find(
-        ({ key, value }) =>
-          key === "jobber-manager" && value === getConfigOption("JOBBER_NAME"),
-      );
+        if (!closedRunnersContainerName.has(container.Names)) {
+          return;
+        }
 
-      if (!isJobber || !isOwned) {
-        continue;
-      }
+        console.warn(
+          `[RunnerManager/checkDanglingRunners] Found dangling runner container ${container.ID} (${container.Names}). Stopping...`,
+        );
 
-      const runner = await runnersModel.byContainerName(container.Names);
-      if (runner) {
-        // Runner is known, even if its closed, it will be cleaned up by the above logic.
-        continue;
-      }
-
-      console.warn(
-        `[RunnerManager/checkDanglingRunners] Found dangling runner container ${container.ID} (${container.Names}). Stopping...`,
-      );
-
-      // throw away error
-      await stopDockerContainer(container.ID).catch((err) => {});
-    }
+        await stopDockerContainer(container.ID).catch((err) => {});
+      }),
+    );
   }
 
   private async processStartupQueue() {
@@ -583,7 +583,7 @@ export class RunnerManager extends LoopBase {
     );
   }
 
-  private async createRunner(jobId: string) {
+  public async createRunner(jobId: string): Promise<string | null> {
     try {
       const job = await jobModel.byId(jobId);
 
@@ -592,7 +592,7 @@ export class RunnerManager extends LoopBase {
           `[RunnerManager/createRunner] Failed to create runner for job ${jobId} - job not found`,
         );
 
-        return;
+        return null;
       }
 
       if (!job.jobVersionId) {
@@ -600,7 +600,7 @@ export class RunnerManager extends LoopBase {
           `[RunnerManager/createRunner] Failed to create runner for job ${jobId} - job version not found`,
         );
 
-        return;
+        return null;
       }
 
       const jobVersion = await jobVersionsModel.byId(job.jobVersionId);
@@ -618,7 +618,7 @@ export class RunnerManager extends LoopBase {
           `[RunnerManager/createRunner] Failed to create runner for job ${jobId} - image ${action.runnerImage} not found`,
         );
 
-        return;
+        return null;
       }
 
       if (image.status === "disabled") {
@@ -626,7 +626,7 @@ export class RunnerManager extends LoopBase {
           `[RunnerManager/createRunner] Failed to create runner for job ${jobId} - image ${action.runnerImage} is disabled`,
         );
 
-        return;
+        return null;
       }
 
       if (image.status === "deprecated") {
@@ -635,12 +635,8 @@ export class RunnerManager extends LoopBase {
         );
       }
 
-      // Create OAuth client
-      const serviceClients = container.resolve(OAuthServiceClients);
-
-      // TODO: Set Expiry
       const serviceClientRunner =
-        await serviceClients.getSystemClientForRunner(job);
+        await this.serviceClients.getSystemClientForRunner(job);
 
       const runnerRecord = await runnersModel.create({
         status: "starting",
@@ -656,7 +652,7 @@ export class RunnerManager extends LoopBase {
           `[RunnerManager/createRunner] Failed to create runner for job ${jobId} - failed to create runner record in database`,
         );
 
-        return;
+        return null;
       }
 
       const containerName = createToken({
@@ -870,7 +866,7 @@ export class RunnerManager extends LoopBase {
         }
       });
 
-      const tokenResult = await serviceClients.generateTokenForServer(
+      const tokenResult = await this.serviceClients.generateTokenForServer(
         getOAuthAudienceRunnerApi(runnerRecord.id),
       );
 
@@ -968,8 +964,12 @@ export class RunnerManager extends LoopBase {
       console.log(
         `[RunnerManager/createRunner] Runner for job ${shortenString(job.jobName, 16)} (${shortenString(job.id, 5)}) version ${jobVersion.version} created with runner id ${shortenString(runnerRecord.id, 4)}`,
       );
+
+      return runnerRecord.id;
     } catch (err) {
       console.error(err);
+
+      return null;
     }
   }
 }

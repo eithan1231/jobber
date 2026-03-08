@@ -27,7 +27,7 @@ import { getJobActionArchiveDirectory, getPgDumpDirectory } from "./paths.js";
 
 import { Bouncer } from "./bouncer.js";
 import { USERNAME_ANONYMOUS } from "./constants.js";
-import { GrpcServer } from "./grpc/index.js";
+import { GrpcServer } from "./grpc/grpc-server.js";
 import { PgBackup } from "./pg-backup.js";
 import { RateLimit } from "./rate-limit.js";
 import { createRouteApiTokens } from "./routes/api-tokens.js";
