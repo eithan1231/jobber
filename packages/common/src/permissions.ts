@@ -58,12 +58,17 @@ export const PERMISSION_GATEWAY: JobberPermissions = [
   },
   {
     effect: "allow",
+    resource: "templates",
+    actions: ["read"],
+  },
+  {
+    effect: "allow",
     resource: "special/job/*/invoke-http-event",
     actions: ["write"],
   },
   {
     effect: "allow",
-    resource: "special/job/*/create-runner",
+    resource: "special/job/*/create-soft-runner",
     actions: ["write"],
   },
   {

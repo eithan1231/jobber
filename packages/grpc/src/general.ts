@@ -211,6 +211,14 @@ export interface CreateSoftRunnerResponse {
   runner: Item4 | undefined;
 }
 
+/** getTemplates * */
+export interface TemplatesRequest {
+}
+
+export interface TemplatesResponse {
+  templateBadGateway: string;
+}
+
 function createBaseJobRequest(): JobRequest {
   return { jobId: "" };
 }
@@ -2775,6 +2783,107 @@ export const CreateSoftRunnerResponse: MessageFns<CreateSoftRunnerResponse> = {
   },
 };
 
+function createBaseTemplatesRequest(): TemplatesRequest {
+  return {};
+}
+
+export const TemplatesRequest: MessageFns<TemplatesRequest> = {
+  encode(_: TemplatesRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): TemplatesRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseTemplatesRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): TemplatesRequest {
+    return {};
+  },
+
+  toJSON(_: TemplatesRequest): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create(base?: DeepPartial<TemplatesRequest>): TemplatesRequest {
+    return TemplatesRequest.fromPartial(base ?? {});
+  },
+  fromPartial(_: DeepPartial<TemplatesRequest>): TemplatesRequest {
+    const message = createBaseTemplatesRequest();
+    return message;
+  },
+};
+
+function createBaseTemplatesResponse(): TemplatesResponse {
+  return { templateBadGateway: "" };
+}
+
+export const TemplatesResponse: MessageFns<TemplatesResponse> = {
+  encode(message: TemplatesResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.templateBadGateway !== "") {
+      writer.uint32(10).string(message.templateBadGateway);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): TemplatesResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseTemplatesResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.templateBadGateway = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): TemplatesResponse {
+    return { templateBadGateway: isSet(object.templateBadGateway) ? globalThis.String(object.templateBadGateway) : "" };
+  },
+
+  toJSON(message: TemplatesResponse): unknown {
+    const obj: any = {};
+    if (message.templateBadGateway !== "") {
+      obj.templateBadGateway = message.templateBadGateway;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<TemplatesResponse>): TemplatesResponse {
+    return TemplatesResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<TemplatesResponse>): TemplatesResponse {
+    const message = createBaseTemplatesResponse();
+    message.templateBadGateway = object.templateBadGateway ?? "";
+    return message;
+  },
+};
+
 export type GeneralAPIDefinition = typeof GeneralAPIDefinition;
 export const GeneralAPIDefinition = {
   name: "GeneralAPI",
@@ -2933,6 +3042,14 @@ export const GeneralAPIDefinition = {
       responseStream: false,
       options: {},
     },
+    getTemplates: {
+      name: "getTemplates",
+      requestType: TemplatesRequest,
+      requestStream: false,
+      responseType: TemplatesResponse,
+      responseStream: false,
+      options: {},
+    },
   },
 } as const;
 
@@ -3002,6 +3119,10 @@ export interface GeneralAPIServiceImplementation<CallContextExt = {}> {
     request: CreateSoftRunnerRequest,
     context: CallContext & CallContextExt,
   ): Promise<DeepPartial<CreateSoftRunnerResponse>>;
+  getTemplates(
+    request: TemplatesRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<TemplatesResponse>>;
 }
 
 export interface GeneralAPIClient<CallOptionsExt = {}> {
@@ -3070,6 +3191,10 @@ export interface GeneralAPIClient<CallOptionsExt = {}> {
     request: DeepPartial<CreateSoftRunnerRequest>,
     options?: CallOptions & CallOptionsExt,
   ): Promise<CreateSoftRunnerResponse>;
+  getTemplates(
+    request: DeepPartial<TemplatesRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<TemplatesResponse>;
 }
 
 function bytesFromBase64(b64: string): Uint8Array {

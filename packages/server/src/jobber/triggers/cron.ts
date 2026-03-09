@@ -9,7 +9,6 @@ import { actionsTable } from "~/db/schema.js";
 import { jobVersionsTable } from "~/db/schema.js";
 import { jobsTable } from "~/db/schema.js";
 import { triggersTable } from "~/db/schema.js";
-import { counterTriggerCron } from "~/metrics.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
 import { RunnerManager } from "../runners/manager.js";
 import {
@@ -18,6 +17,7 @@ import {
   JobVersionsTableType,
   TriggersTableType,
 } from "~/db/types.js";
+import { EventScheduleResponse_Status } from "@jobber/grpc/runner.js";
 
 type TriggerCronItem = {
   trigger: TriggersTableType;
@@ -235,6 +235,35 @@ export class TriggerCron extends LoopBase {
       trigger.scheduledAt = trigger.cron.sendAt().toMillis();
 
       assert(trigger.trigger.context.type === "schedule");
+
+      const runnerId = await this.runnerManager.getRunner(trigger.job.id);
+
+      if (!runnerId) {
+        console.log(
+          `[TriggerCron/loopCheckTriggers] No available runner for job ${trigger.job.id} and trigger ${trigger.trigger.id}`,
+        );
+
+        continue;
+      }
+
+      this.runnerManager
+        .eventSchedule(runnerId, {
+          context: {
+            triggerName: trigger.trigger.context.name ?? "",
+          },
+          id: trigger.trigger.id,
+          name: trigger.trigger.context.name ?? "",
+        })
+        .then((response) => {
+          if (response.status !== EventScheduleResponse_Status.ACCEPTED) {
+            console.log(
+              `[TriggerCron/loopCheckTriggers] Runner ${runnerId} rejected schedule event for trigger ${trigger.trigger.id} on job ${trigger.job.id} with status ${EventScheduleResponse_Status[response.status]}`,
+            );
+          }
+        })
+        .catch((err) => {
+          console.error(err);
+        });
 
       // this.runnerManager
       //   .sendHandleRequest(trigger.version, trigger.job, trigger.action, {

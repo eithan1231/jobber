@@ -15,7 +15,14 @@ import { inject, singleton } from "tsyringe";
 import { LoopBase, timeout } from "@jobber/common";
 import { Deferred, deferred } from "@jobber/common/deferred.js";
 import { getOAuthAudienceRunnerApi } from "@jobber/common/oauth.js";
-import { RunnerAPIDefinition, StatusResponse } from "@jobber/grpc/runner.js";
+import {
+  EventMqttRequest,
+  EventMqttResponse,
+  EventScheduleRequest,
+  EventScheduleResponse,
+  RunnerAPIDefinition,
+  StatusResponse,
+} from "@jobber/grpc/runner.js";
 import { getConfigOption } from "~/config.js";
 import { ENTRYPOINT_NODE } from "~/constants.js";
 import { actionsModel } from "~/db/actions.js";
@@ -1057,6 +1064,54 @@ export class RunnerManager extends LoopBase {
         runnerId,
         method: forceful ? "forceful" : "graceful",
       });
+    }
+  }
+
+  public async eventSchedule(
+    runnerId: string,
+    trigger: EventScheduleRequest,
+  ): Promise<EventScheduleResponse> {
+    const runner = this.runners.get(runnerId);
+
+    if (!runner) {
+      throw new Error(`Runner ${runnerId} not found`);
+    }
+
+    if (!runner.grpc) {
+      throw new Error(`Runner ${runnerId} gRPC client not initialized`);
+    }
+
+    try {
+      const response = await runner.grpc.eventSchedule(trigger);
+
+      return response;
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }
+  }
+
+  public async eventMqtt(
+    runnerId: string,
+    trigger: EventMqttRequest,
+  ): Promise<EventMqttResponse> {
+    const runner = this.runners.get(runnerId);
+
+    if (!runner) {
+      throw new Error(`Runner ${runnerId} not found`);
+    }
+
+    if (!runner.grpc) {
+      throw new Error(`Runner ${runnerId} gRPC client not initialized`);
+    }
+
+    try {
+      const response = await runner.grpc.eventMqtt(trigger);
+
+      return response;
+    } catch (err) {
+      console.error(err);
+      throw err;
     }
   }
 }

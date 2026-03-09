@@ -15,7 +15,7 @@ export const createSoftRunner: ServiceImplementation<GeneralAPIDefinition>["crea
       throw new ServerError(Status.NOT_FOUND, "Job not found");
     }
 
-    if (bouncer.canCreateRunner(job)) {
+    if (!bouncer.canCreateSoftRunner(job)) {
       throw new ServerError(Status.PERMISSION_DENIED, "Permission denied");
     }
 

@@ -40,6 +40,8 @@ service GeneralAPI {
   rpc publishMqttMessage(PublishMqttMessageRequest) returns (PublishMqttMessageResponse);
 
   rpc createSoftRunner(CreateSoftRunnerRequest) returns (CreateSoftRunnerResponse);
+
+  rpc getTemplates (TemplatesRequest) returns (TemplatesResponse);
 }
 
 /** getJob **/
@@ -227,4 +229,13 @@ message CreateSoftRunnerRequest {
 }
 message CreateSoftRunnerResponse {
   Runner.Item runner = 1;
+}
+
+
+/** getTemplates **/
+message TemplatesRequest {}
+message TemplatesResponse {
+  string templateBadGateway = 1;
+
+  reserved 2 to 20;
 }

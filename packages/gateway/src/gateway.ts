@@ -1,6 +1,7 @@
 import { awaitTruthy, LoopBase } from "@jobber/common";
 import {
   Channel,
+  ClientError,
   createChannel,
   createClientFactory,
   Metadata,
@@ -80,6 +81,9 @@ export class GatewayClient extends LoopBase {
 
   /** Key: trigger.id */
   private triggers = new Map<string, TriggerItem>();
+
+  /** Key: template name */
+  private templates = new Map<"bad-gateway", string>();
 
   constructor() {
     super();
@@ -187,6 +191,9 @@ export class GatewayClient extends LoopBase {
 
     // Add or update existing jobs
     await Promise.all(jobs.map((job) => this.handleJobUpdate(job)));
+
+    // fetch templates
+    await this.handleFetchTemplates();
   }
 
   private async handleJobUpdate(job: JobItem) {
@@ -284,20 +291,20 @@ export class GatewayClient extends LoopBase {
     this.jobs.delete(job.id);
   }
 
+  private async handleFetchTemplates() {
+    if (!this.grpcClient) {
+      return;
+    }
+
+    const templates = await this.grpcClient.getTemplates({});
+
+    this.templates.set("bad-gateway", templates.templateBadGateway);
+  }
+
   private async getRunner(entry: JobEntry) {
     assert(this.grpcClient);
 
-    let method: "soft-create" | "recycle";
-
-    if (entry.action.runnerMode === "RUN_ONCE") {
-      method = "soft-create";
-    } else if (entry.runners.length === 0) {
-      method = "soft-create";
-    } else {
-      method = "recycle";
-    }
-
-    if (method === "recycle") {
+    if (entry.action.runnerMode === "STANDARD" && entry.runners.length >= 1) {
       const runner =
         entry.runners[Math.floor(Math.random() * entry.runners.length)];
 
@@ -309,58 +316,48 @@ export class GatewayClient extends LoopBase {
           return runner;
         }
       }
-
-      // This branch is reached when the runner has no valid gRPC channel. This can happen when the runner shuts-down, and the gateway has not yet updated its runners index.
-      method = "soft-create";
     }
 
-    if (method === "soft-create") {
-      try {
-        const { runner } = await this.grpcClient.createSoftRunner({
-          jobId: entry.job.id,
-          actionId: entry.action.id,
-          versionId: entry.job.versionId,
-        });
+    try {
+      const { runner } = await this.grpcClient.createSoftRunner({
+        jobId: entry.job.id,
+        actionId: entry.action.id,
+        versionId: entry.job.versionId,
+      });
 
-        if (!runner) {
-          return null;
-        }
-
-        await awaitTruthy(async () => {
-          const grpc = this.runnerGrpc.get(runner.id);
-          if (!grpc) {
-            return false;
-          }
-
-          const state = grpc.channel.getConnectivityState(true);
-          return state === ConnectivityState.READY;
-        }, 30_000);
-
-        return runner;
-      } catch (err) {
-        if (err instanceof ServerError) {
-          console.warn(
-            `[Gateway] Failed to create RUN_ONCE runner for job ${entry.job.id}: ${err.message}`,
-          );
-
-          return null;
-        }
-
-        throw err;
+      if (!runner) {
+        return null;
       }
-    }
 
-    throw new Error(`Unsupported runner mode: ${entry.action.runnerMode}`);
+      await awaitTruthy(async () => {
+        const grpc = this.runnerGrpc.get(runner.id);
+        if (!grpc) {
+          return false;
+        }
+
+        const state = grpc.channel.getConnectivityState(true);
+        return state === ConnectivityState.READY;
+      }, 30_000);
+
+      return runner;
+    } catch (err) {
+      if (err instanceof ClientError) {
+        console.warn(
+          `Failed to create soft-create runner for job ${entry.job.id}: ${err.message}`,
+        );
+
+        return null;
+      }
+
+      throw err;
+    }
   }
 
   private async handleHttpRequest(req: IncomingMessage, res: ServerResponse) {
     if (this.status !== "started") {
       res.statusCode = 503;
-      res.end(
-        this.status === "stopping"
-          ? "Service Unavailable - Gateway stopping"
-          : "Service Unavailable - Gateway not started",
-      );
+      res.setHeader("Content-Type", "text/html");
+      res.end(this.templates.get("bad-gateway"));
       return;
     }
 
@@ -368,7 +365,8 @@ export class GatewayClient extends LoopBase {
 
     if (!trigger?.http || !this.jobs.has(trigger.jobId)) {
       res.statusCode = 502;
-      res.end("Bad Gateway");
+      res.setHeader("Content-Type", "text/html");
+      res.end(this.templates.get("bad-gateway"));
       return;
     }
 
@@ -378,14 +376,16 @@ export class GatewayClient extends LoopBase {
 
     if (!runner) {
       res.statusCode = 502;
-      res.end("Bad Gateway - No runner available");
+      res.setHeader("Content-Type", "text/html");
+      res.end(this.templates.get("bad-gateway"));
       return;
     }
 
     const connection = this.runnerGrpc.get(runner.id);
     if (!connection) {
       res.statusCode = 502;
-      res.end("Bad Gateway - Runner connection not found");
+      res.setHeader("Content-Type", "text/html");
+      res.end(this.templates.get("bad-gateway"));
       return;
     }
 
@@ -417,7 +417,8 @@ export class GatewayClient extends LoopBase {
 
       if (!res.headersSent) {
         res.statusCode = 502;
-        res.end("Bad Gateway - Runner error");
+        res.setHeader("Content-Type", "text/html");
+        res.end(this.templates.get("bad-gateway"));
       } else if (!res.writableEnded) {
         res.end();
       }

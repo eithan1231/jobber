@@ -29,6 +29,7 @@ import { getJobs } from "./methods/get-jobs.js";
 import { getRunner } from "./methods/get-runner.js";
 import { getRunners } from "./methods/get-runners.js";
 import { getStoreItem } from "./methods/get-store-item.js";
+import { getTemplates } from "./methods/get-templates.js";
 import { publishMqttMessage } from "./methods/publish-mqtt-message.js";
 import { setStoreItem } from "./methods/set-store-item.js";
 
@@ -70,6 +71,8 @@ const generalApiDefinition: ServiceImplementation<GeneralAPIDefinition> = {
   deleteStoreItem: deleteStoreItem,
 
   publishMqttMessage: publishMqttMessage,
+
+  getTemplates: getTemplates,
 };
 
 @singleton()

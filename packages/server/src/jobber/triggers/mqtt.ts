@@ -8,7 +8,6 @@ import { jobVersionsTable } from "~/db/schema.js";
 import { jobsTable } from "~/db/schema.js";
 import { triggersTable } from "~/db/schema.js";
 import { LoopBase } from "@jobber/common";
-import { counterTriggerMqtt, counterTriggerMqttPublish } from "~/metrics.js";
 import { createSha1Hash, shortenString } from "~/util.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
 import { RunnerManager } from "../runners/manager.js";
@@ -20,6 +19,7 @@ import {
   JobVersionsTableType,
   TriggersTableType,
 } from "~/db/types.js";
+import { EventMqttResponse_Status } from "@jobber/grpc/runner.js";
 
 type TriggerMqttItem = {
   trigger: TriggersTableType;
@@ -409,7 +409,34 @@ export class TriggerMqtt extends LoopBase {
         created: new Date(),
       });
 
-      return;
+      const runnerId = await this.runnerManager.getRunner(triggerItem.job.id);
+
+      if (!runnerId) {
+        console.log(
+          `[TriggerMqtt/onMqttMessage] No available runner for job ${triggerItem.job.id} and trigger ${triggerItem.trigger.id}`,
+        );
+
+        return;
+      }
+
+      this.runnerManager
+        .eventMqtt(runnerId, {
+          context: {
+            triggerName: triggerItem.trigger.context.name ?? "",
+          },
+          topic: topic,
+          payload: payload,
+        })
+        .then((response) => {
+          if (response.status !== EventMqttResponse_Status.ACCEPTED) {
+            console.log(
+              `[TriggerMqtt/onMqttMessage] Runner ${runnerId} rejected schedule event for trigger ${triggerItem.trigger.id} on job ${triggerItem.job.id} with status ${EventMqttResponse_Status[response.status]}`,
+            );
+          }
+        })
+        .catch((err) => {
+          console.error(err);
+        });
 
       // const handleResponse = await this.runnerManager.sendHandleRequest(
       //   triggerItem.version,

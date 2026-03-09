@@ -234,6 +234,10 @@ export class BouncerBase {
     return this.can(`oauth/signing-key/${signingKey.id}`, "delete");
   }
 
+  public canReadTemplatesGenerally() {
+    return this.can(`templates`, "read");
+  }
+
   /**
    * SPECIAL: This is a special case to allow runners to publish MQTT messages
    */
@@ -277,7 +281,7 @@ export class BouncerBase {
    * Used by gateway
    * SPECIAL: This enables services such as the gateway, to spawn runners for run-once jobs.
    */
-  public canCreateRunner(job: { id: string }): boolean {
-    return this.can(`special/job/${job.id}/create-runner`, "write");
+  public canCreateSoftRunner(job: { id: string }): boolean {
+    return this.can(`special/job/${job.id}/create-soft-runner`, "write");
   }
 }
