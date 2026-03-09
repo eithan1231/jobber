@@ -1,7 +1,8 @@
-import { and, eq, gt, inArray, or, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, or, SQL, sql, SQLWrapper } from "drizzle-orm";
 import { getDrizzle } from "./index.js";
 import { RunnersTableInsertType } from "./types.js";
 import { runnersTable } from "./schema.js";
+import assert from "node:assert";
 
 async function byId(id: string) {
   const runner = await getDrizzle()
@@ -32,19 +33,48 @@ async function byStatuses(statuses: RunnersTableInsertType["status"][]) {
   return runners;
 }
 
-async function byJobId(jobId: string, specialFilter: boolean = false) {
-  const conditions: any = [eq(runnersTable.jobId, jobId)];
+async function byJobId(
+  jobId: string,
+  filter: {
+    /**
+     * If true, only returns statuses that are ready or starting.
+     */
+    specialActiveIshOnly?: boolean;
+  } = {},
+) {
+  const conditions: SQL[] = [eq(runnersTable.jobId, jobId)];
+
+  if (filter.specialActiveIshOnly) {
+    const condition = inArray(runnersTable.status, ["ready", "starting"]);
+
+    assert(condition);
+
+    conditions.push(condition);
+  }
+
+  const runners = await getDrizzle()
+    .select()
+    .from(runnersTable)
+    .where(and(...conditions));
+
+  return runners;
+}
+
+async function byJobIdSpecial(jobId: string, specialFilter: boolean = false) {
+  const conditions: SQL[] = [eq(runnersTable.jobId, jobId)];
 
   if (specialFilter) {
-    conditions.push(
-      or(
-        inArray(runnersTable.status, ["closing", "ready", "starting"]),
-        and(
-          eq(runnersTable.status, "closed"),
-          gt(runnersTable.closedAt, sql`now() - interval '5 minutes'`),
-        ),
+    const condition = or(
+      inArray(runnersTable.status, ["closing", "ready", "starting"]),
+      and(
+        eq(runnersTable.status, "closed"),
+        gt(runnersTable.closedAt, sql`now() - interval '5 minutes'`),
       ),
     );
+
+    assert(condition);
+
+    conditions.push(condition);
   }
 
   const runners = await getDrizzle()
@@ -100,6 +130,7 @@ export const runnersModel = {
   byStatus,
   byStatuses,
   byJobId,
+  byJobIdSpecial,
   byContainerName,
   all,
   create,

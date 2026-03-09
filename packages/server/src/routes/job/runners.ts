@@ -32,7 +32,7 @@ export async function createRouteJobRunners() {
       );
     }
 
-    const runners = await runnersModel.byJobId(jobId, true);
+    const runners = await runnersModel.byJobIdSpecial(jobId, true);
 
     return c.json({
       success: true,
@@ -71,7 +71,7 @@ export async function createRouteJobRunners() {
         );
       }
 
-      runnerManager.shutdownRunner(runnerId, !!queryShutdownForcefully);
+      runnerManager.shutdownQueueAdd(runnerId, !!queryShutdownForcefully);
 
       return c.json(
         {

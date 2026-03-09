@@ -107,6 +107,8 @@ type RunnerManagerItem = {
 
 type RunnerManagerStartupItem = {
   jobId: string;
+
+  startupPromise: Deferred<string | null>;
 };
 
 type RunnerManagerShutdownItem = {
@@ -193,10 +195,7 @@ export class RunnerManager extends LoopBase {
 
   protected async loopClosed(): Promise<void> {
     for (const runner of this.runners.values()) {
-      this.queueShutdown.push({
-        runnerId: runner.arguments.runnerId,
-        method: "graceful",
-      });
+      await this.shutdownQueueAdd(runner.runnerId, false);
     }
 
     await this.processShutdownQueue();
@@ -295,10 +294,7 @@ export class RunnerManager extends LoopBase {
     if (!currentVersion) {
       // Send shutdown - job no longer has a version attached to it.
 
-      this.queueShutdown.push({
-        runnerId,
-        method: "graceful",
-      });
+      this.shutdownQueueAdd(runner.runnerId, false);
 
       return;
     }
@@ -307,10 +303,7 @@ export class RunnerManager extends LoopBase {
     if (runner.jobVersion.id !== currentVersion.version.id) {
       // Send shutdown
 
-      this.queueShutdown.push({
-        runnerId,
-        method: "graceful",
-      });
+      this.shutdownQueueAdd(runner.runnerId, false);
 
       return;
     }
@@ -322,10 +315,7 @@ export class RunnerManager extends LoopBase {
     ) {
       // Send shutdown
 
-      this.queueShutdown.push({
-        runnerId,
-        method: "graceful",
-      });
+      this.shutdownQueueAdd(runner.runnerId, false);
 
       return;
     }
@@ -337,10 +327,7 @@ export class RunnerManager extends LoopBase {
     ) {
       // Send shutdown
 
-      this.queueShutdown.push({
-        runnerId,
-        method: "forceful",
-      });
+      this.shutdownQueueAdd(runnerId, true);
 
       return;
     }
@@ -354,10 +341,7 @@ export class RunnerManager extends LoopBase {
     ) {
       // Send shutdown
 
-      this.queueShutdown.push({
-        runnerId,
-        method: "graceful",
-      });
+      this.shutdownQueueAdd(runner.runnerId, false);
 
       return;
     }
@@ -366,10 +350,7 @@ export class RunnerManager extends LoopBase {
     if (!runner.environment && currentVersion.environment) {
       // Send shutdown - environment added
 
-      this.queueShutdown.push({
-        runnerId,
-        method: "graceful",
-      });
+      this.shutdownQueueAdd(runner.runnerId, false);
 
       return;
     }
@@ -378,10 +359,7 @@ export class RunnerManager extends LoopBase {
     if (runner.environment && !currentVersion.environment) {
       // Send shutdown - environment removed
 
-      this.queueShutdown.push({
-        runnerId,
-        method: "graceful",
-      });
+      this.shutdownQueueAdd(runner.runnerId, false);
 
       return;
     }
@@ -394,10 +372,7 @@ export class RunnerManager extends LoopBase {
     ) {
       // Send shutdown - environment modified
 
-      this.queueShutdown.push({
-        runnerId,
-        method: "graceful",
-      });
+      this.shutdownQueueAdd(runner.runnerId, false);
 
       return;
     }
@@ -449,9 +424,7 @@ export class RunnerManager extends LoopBase {
 
     if (spawnQuantity > 0) {
       for (let i = 0; i < spawnQuantity; i++) {
-        this.queueStartup.push({
-          jobId: job.id,
-        });
+        this.startupQueueAdd(job.id);
       }
     }
   }
@@ -535,9 +508,49 @@ export class RunnerManager extends LoopBase {
   private async processStartupQueue() {
     const queue = this.queueStartup.splice(0, this.queueStartup.length);
 
+    // Group queue by jobId to avoid race conditions
+    const queueByJobId: Record<string, RunnerManagerStartupItem[]> = {};
+
+    for (const item of queue) {
+      if (queueByJobId[item.jobId]) {
+        queueByJobId[item.jobId].push(item);
+      } else {
+        queueByJobId[item.jobId] = [item];
+      }
+    }
+
     await Promise.all(
-      queue.map(async (item) => {
-        await this.createRunner(item.jobId);
+      Object.entries(queueByJobId).map(async ([jobId, jobQueue]) => {
+        const [runnersActive, action] = await Promise.all([
+          runnersModel.byJobId(jobId, {
+            specialActiveIshOnly: true,
+          }),
+          actionsModel.byJobIdLatest(jobId),
+        ]);
+
+        const runnerMaxCount = action?.runnerMaxCount ?? Infinity;
+        const runnerCurrentCount = runnersActive.length;
+
+        let spawnAmount = jobQueue.length;
+
+        if (spawnAmount + runnerCurrentCount >= runnerMaxCount) {
+          spawnAmount = runnerMaxCount - runnerCurrentCount;
+        }
+
+        const itemsForStartup = jobQueue.slice(0, spawnAmount);
+        const itemsForRequeue = jobQueue.slice(spawnAmount);
+
+        for (const item of itemsForRequeue) {
+          this.queueStartup.push(item);
+        }
+
+        await Promise.all(
+          itemsForStartup.map(async (item) => {
+            const result = await this.createRunner(item.jobId);
+
+            item.startupPromise.resolve(result);
+          }),
+        );
       }),
     );
   }
@@ -587,14 +600,7 @@ export class RunnerManager extends LoopBase {
     );
   }
 
-  public shutdownRunner(runnerId: string, forceful: boolean = false) {
-    this.queueShutdown.push({
-      runnerId,
-      method: forceful ? "forceful" : "graceful",
-    });
-  }
-
-  public async createRunner(jobId: string): Promise<string | null> {
+  private async createRunner(jobId: string): Promise<string | null> {
     try {
       const job = await jobModel.byId(jobId);
 
@@ -984,11 +990,73 @@ export class RunnerManager extends LoopBase {
     }
   }
 
-  public async requestRunner(jobId: string) {
-    // migrate createRunner to be private, and have this one be public. We just need a way to have it await a successful start of a runner.
-    // Also need to validate maxRunners to ensure we never exceed said threshold
-    // this.queueStartup({
-    //   jobId,
-    // });
+  public startupQueueAdd(jobId: string) {
+    const startupPromise = deferred<string | null>();
+
+    this.queueStartup.push({
+      jobId,
+      startupPromise,
+    });
+
+    return startupPromise.promise;
+  }
+
+  /**
+   * Gets a runner. If its a RUN_ONCE runner, it will return a new runner.
+   * If its a runner compatible with a standard mode, it will return any available.
+   */
+  public async getRunner(jobId: string): Promise<string | null> {
+    const action = await actionsModel.byJobIdLatest(jobId);
+
+    if (!action) {
+      return null;
+    }
+
+    if (action.runnerMode === "run-once") {
+      return this.startupQueueAdd(jobId);
+    }
+
+    if (action.runnerMode === "standard") {
+      const runners = await runnersModel.byJobId(jobId, {
+        specialActiveIshOnly: true,
+      });
+
+      if (runners.length >= 1) {
+        // yolo the first one back, should probs make it random but ohwell
+        return runners[0].id;
+      }
+
+      const existingQueueItem = this.queueStartup.find(
+        (item) => item.jobId === action.jobId,
+      );
+
+      if (existingQueueItem) {
+        // avoid requeueing a standard request, this will remove the risk of a huge backlog of
+        // runners.. in theory. Who knows, race conditions can be painful. Worst case this becomes
+        // a DOS vector.
+        // TODO: When e2e tests are figured out, add a test for this.
+        return existingQueueItem.startupPromise.promise;
+      }
+
+      // no runner found, start new one.
+      return this.startupQueueAdd(jobId);
+    }
+
+    return null;
+  }
+
+  public shutdownQueueAdd(runnerId: string, forceful: boolean = false) {
+    const queueItem = this.queueShutdown.find(
+      (item) => item.runnerId === runnerId,
+    );
+
+    if (queueItem) {
+      queueItem.method = forceful ? "forceful" : "graceful";
+    } else {
+      this.queueShutdown.push({
+        runnerId,
+        method: forceful ? "forceful" : "graceful",
+      });
+    }
   }
 }

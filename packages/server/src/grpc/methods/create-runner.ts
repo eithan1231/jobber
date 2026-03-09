@@ -21,7 +21,7 @@ export const createRunner: ServiceImplementation<GeneralAPIDefinition>["createRu
 
     const manager = container.resolve(RunnerManager);
 
-    const runnerId = await manager.createRunner(job.id);
+    const runnerId = await manager.getRunner(job.id);
 
     if (!runnerId) {
       throw new ServerError(Status.INTERNAL, "Failed to create runner");
