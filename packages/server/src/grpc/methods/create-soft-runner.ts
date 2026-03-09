@@ -7,7 +7,7 @@ import { RunnerManager } from "~/jobber/runners/manager.js";
 import { mapGrpcJobRunner } from "../grpc-maps.js";
 import { authorizedCall } from "../util.js";
 
-export const createRunner: ServiceImplementation<GeneralAPIDefinition>["createRunner"] =
+export const createSoftRunner: ServiceImplementation<GeneralAPIDefinition>["createSoftRunner"] =
   authorizedCall(async (request, _context, bouncer) => {
     const job = await jobModel.byId(request.jobId);
 

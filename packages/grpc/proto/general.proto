@@ -39,7 +39,7 @@ service GeneralAPI {
   // This will likely be migrated to its own service similar to the GatewayAPI
   rpc publishMqttMessage(PublishMqttMessageRequest) returns (PublishMqttMessageResponse);
 
-  rpc createRunner(CreateRunnerRequest) returns (CreateRunnerResponse);
+  rpc createSoftRunner(CreateSoftRunnerRequest) returns (CreateSoftRunnerResponse);
 }
 
 /** getJob **/
@@ -220,11 +220,11 @@ message PublishMqttMessageResponse {}
 
 
 /** createRunner **/
-message CreateRunnerRequest {
+message CreateSoftRunnerRequest {
   string jobId = 1;
   string versionId = 2;
   string actionId = 3;
 }
-message CreateRunnerResponse {
+message CreateSoftRunnerResponse {
   Runner.Item runner = 1;
 }

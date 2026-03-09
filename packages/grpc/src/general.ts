@@ -201,13 +201,13 @@ export interface PublishMqttMessageResponse {
 }
 
 /** createRunner * */
-export interface CreateRunnerRequest {
+export interface CreateSoftRunnerRequest {
   jobId: string;
   versionId: string;
   actionId: string;
 }
 
-export interface CreateRunnerResponse {
+export interface CreateSoftRunnerResponse {
   runner: Item4 | undefined;
 }
 
@@ -2623,12 +2623,12 @@ export const PublishMqttMessageResponse: MessageFns<PublishMqttMessageResponse> 
   },
 };
 
-function createBaseCreateRunnerRequest(): CreateRunnerRequest {
+function createBaseCreateSoftRunnerRequest(): CreateSoftRunnerRequest {
   return { jobId: "", versionId: "", actionId: "" };
 }
 
-export const CreateRunnerRequest: MessageFns<CreateRunnerRequest> = {
-  encode(message: CreateRunnerRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const CreateSoftRunnerRequest: MessageFns<CreateSoftRunnerRequest> = {
+  encode(message: CreateSoftRunnerRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.jobId !== "") {
       writer.uint32(10).string(message.jobId);
     }
@@ -2641,10 +2641,10 @@ export const CreateRunnerRequest: MessageFns<CreateRunnerRequest> = {
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): CreateRunnerRequest {
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateSoftRunnerRequest {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseCreateRunnerRequest();
+    const message = createBaseCreateSoftRunnerRequest();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -2681,7 +2681,7 @@ export const CreateRunnerRequest: MessageFns<CreateRunnerRequest> = {
     return message;
   },
 
-  fromJSON(object: any): CreateRunnerRequest {
+  fromJSON(object: any): CreateSoftRunnerRequest {
     return {
       jobId: isSet(object.jobId) ? globalThis.String(object.jobId) : "",
       versionId: isSet(object.versionId) ? globalThis.String(object.versionId) : "",
@@ -2689,7 +2689,7 @@ export const CreateRunnerRequest: MessageFns<CreateRunnerRequest> = {
     };
   },
 
-  toJSON(message: CreateRunnerRequest): unknown {
+  toJSON(message: CreateSoftRunnerRequest): unknown {
     const obj: any = {};
     if (message.jobId !== "") {
       obj.jobId = message.jobId;
@@ -2703,11 +2703,11 @@ export const CreateRunnerRequest: MessageFns<CreateRunnerRequest> = {
     return obj;
   },
 
-  create(base?: DeepPartial<CreateRunnerRequest>): CreateRunnerRequest {
-    return CreateRunnerRequest.fromPartial(base ?? {});
+  create(base?: DeepPartial<CreateSoftRunnerRequest>): CreateSoftRunnerRequest {
+    return CreateSoftRunnerRequest.fromPartial(base ?? {});
   },
-  fromPartial(object: DeepPartial<CreateRunnerRequest>): CreateRunnerRequest {
-    const message = createBaseCreateRunnerRequest();
+  fromPartial(object: DeepPartial<CreateSoftRunnerRequest>): CreateSoftRunnerRequest {
+    const message = createBaseCreateSoftRunnerRequest();
     message.jobId = object.jobId ?? "";
     message.versionId = object.versionId ?? "";
     message.actionId = object.actionId ?? "";
@@ -2715,22 +2715,22 @@ export const CreateRunnerRequest: MessageFns<CreateRunnerRequest> = {
   },
 };
 
-function createBaseCreateRunnerResponse(): CreateRunnerResponse {
+function createBaseCreateSoftRunnerResponse(): CreateSoftRunnerResponse {
   return { runner: undefined };
 }
 
-export const CreateRunnerResponse: MessageFns<CreateRunnerResponse> = {
-  encode(message: CreateRunnerResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const CreateSoftRunnerResponse: MessageFns<CreateSoftRunnerResponse> = {
+  encode(message: CreateSoftRunnerResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.runner !== undefined) {
       Item4.encode(message.runner, writer.uint32(10).fork()).join();
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): CreateRunnerResponse {
+  decode(input: BinaryReader | Uint8Array, length?: number): CreateSoftRunnerResponse {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseCreateRunnerResponse();
+    const message = createBaseCreateSoftRunnerResponse();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -2751,11 +2751,11 @@ export const CreateRunnerResponse: MessageFns<CreateRunnerResponse> = {
     return message;
   },
 
-  fromJSON(object: any): CreateRunnerResponse {
+  fromJSON(object: any): CreateSoftRunnerResponse {
     return { runner: isSet(object.runner) ? Item4.fromJSON(object.runner) : undefined };
   },
 
-  toJSON(message: CreateRunnerResponse): unknown {
+  toJSON(message: CreateSoftRunnerResponse): unknown {
     const obj: any = {};
     if (message.runner !== undefined) {
       obj.runner = Item4.toJSON(message.runner);
@@ -2763,11 +2763,11 @@ export const CreateRunnerResponse: MessageFns<CreateRunnerResponse> = {
     return obj;
   },
 
-  create(base?: DeepPartial<CreateRunnerResponse>): CreateRunnerResponse {
-    return CreateRunnerResponse.fromPartial(base ?? {});
+  create(base?: DeepPartial<CreateSoftRunnerResponse>): CreateSoftRunnerResponse {
+    return CreateSoftRunnerResponse.fromPartial(base ?? {});
   },
-  fromPartial(object: DeepPartial<CreateRunnerResponse>): CreateRunnerResponse {
-    const message = createBaseCreateRunnerResponse();
+  fromPartial(object: DeepPartial<CreateSoftRunnerResponse>): CreateSoftRunnerResponse {
+    const message = createBaseCreateSoftRunnerResponse();
     message.runner = (object.runner !== undefined && object.runner !== null)
       ? Item4.fromPartial(object.runner)
       : undefined;
@@ -2925,11 +2925,11 @@ export const GeneralAPIDefinition = {
       responseStream: false,
       options: {},
     },
-    createRunner: {
-      name: "createRunner",
-      requestType: CreateRunnerRequest,
+    createSoftRunner: {
+      name: "createSoftRunner",
+      requestType: CreateSoftRunnerRequest,
       requestStream: false,
-      responseType: CreateRunnerResponse,
+      responseType: CreateSoftRunnerResponse,
       responseStream: false,
       options: {},
     },
@@ -2998,10 +2998,10 @@ export interface GeneralAPIServiceImplementation<CallContextExt = {}> {
     request: PublishMqttMessageRequest,
     context: CallContext & CallContextExt,
   ): Promise<DeepPartial<PublishMqttMessageResponse>>;
-  createRunner(
-    request: CreateRunnerRequest,
+  createSoftRunner(
+    request: CreateSoftRunnerRequest,
     context: CallContext & CallContextExt,
-  ): Promise<DeepPartial<CreateRunnerResponse>>;
+  ): Promise<DeepPartial<CreateSoftRunnerResponse>>;
 }
 
 export interface GeneralAPIClient<CallOptionsExt = {}> {
@@ -3066,10 +3066,10 @@ export interface GeneralAPIClient<CallOptionsExt = {}> {
     request: DeepPartial<PublishMqttMessageRequest>,
     options?: CallOptions & CallOptionsExt,
   ): Promise<PublishMqttMessageResponse>;
-  createRunner(
-    request: DeepPartial<CreateRunnerRequest>,
+  createSoftRunner(
+    request: DeepPartial<CreateSoftRunnerRequest>,
     options?: CallOptions & CallOptionsExt,
-  ): Promise<CreateRunnerResponse>;
+  ): Promise<CreateSoftRunnerResponse>;
 }
 
 function bytesFromBase64(b64: string): Uint8Array {

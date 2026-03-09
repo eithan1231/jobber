@@ -287,19 +287,36 @@ export class GatewayClient extends LoopBase {
   private async getRunner(entry: JobEntry) {
     assert(this.grpcClient);
 
-    let method: "create" | "recycle";
+    let method: "soft-create" | "recycle";
 
     if (entry.action.runnerMode === "RUN_ONCE") {
-      method = "create";
+      method = "soft-create";
     } else if (entry.runners.length === 0) {
-      method = "create";
+      method = "soft-create";
     } else {
       method = "recycle";
     }
 
-    if (method === "create") {
+    if (method === "recycle") {
+      const runner =
+        entry.runners[Math.floor(Math.random() * entry.runners.length)];
+
+      const grpc = this.runnerGrpc.get(runner.id);
+      if (grpc) {
+        const state = grpc.channel.getConnectivityState(true);
+
+        if (state === ConnectivityState.READY) {
+          return runner;
+        }
+      }
+
+      // This branch is reached when the runner has no valid gRPC channel. This can happen when the runner shuts-down, and the gateway has not yet updated its runners index.
+      method = "soft-create";
+    }
+
+    if (method === "soft-create") {
       try {
-        const { runner } = await this.grpcClient.createRunner({
+        const { runner } = await this.grpcClient.createSoftRunner({
           jobId: entry.job.id,
           actionId: entry.action.id,
           versionId: entry.job.versionId,
@@ -331,13 +348,6 @@ export class GatewayClient extends LoopBase {
 
         throw err;
       }
-    }
-
-    if (method === "recycle") {
-      const runner =
-        entry.runners[Math.floor(Math.random() * entry.runners.length)];
-
-      return runner;
     }
 
     throw new Error(`Unsupported runner mode: ${entry.action.runnerMode}`);

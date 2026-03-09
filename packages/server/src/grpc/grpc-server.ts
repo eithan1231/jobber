@@ -12,7 +12,7 @@ import { GeneralAPIDefinition } from "@jobber/grpc/general.js";
 
 import { getConfigOption } from "~/config.js";
 
-import { createRunner } from "./methods/create-runner.js";
+import { createSoftRunner } from "./methods/create-soft-runner.js";
 import { deleteStoreItem } from "./methods/delete-store-item.js";
 import { getJobActionLatest } from "./methods/get-job-action-latest.js";
 import { getJobAction } from "./methods/get-job-action.js";
@@ -61,7 +61,7 @@ const generalApiDefinition: ServiceImplementation<GeneralAPIDefinition> = {
 
   getRunners: getRunners,
 
-  createRunner: createRunner,
+  createSoftRunner: createSoftRunner,
 
   getStoreItem: getStoreItem,
 
