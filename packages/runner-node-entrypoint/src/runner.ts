@@ -11,21 +11,7 @@ import { fileExists, getTempFilePath, unzip } from "./util.js";
 import { validatePackageJson } from "./validator.js";
 import { Telemetry } from "./telemetry.js";
 import { deferred, Deferred } from "@jobber/common/deferred.js";
-
-export type RunnerOptions = {
-  runnerId: string;
-  runnerClientId: string;
-  runnerClientSecret: string;
-  runnerGeneralApiEndpoint: string;
-
-  runnerOAuthTokenEndpoint: string;
-  runnerOAuthJwksEndpoint: string;
-  runnerOAuthIssuer: string;
-
-  runnerApiPort: number;
-
-  runnerDebug: boolean;
-};
+import { RunnerOptions } from "./options.js";
 
 type Status = "pending" | "starting" | "running" | "closing";
 

@@ -1,56 +1,34 @@
+import { getOptions } from "./options.js";
 import { Runner } from "./runner.js";
-import { getArgument } from "./util.js";
 
 const main = async () => {
-  const runnerId = getArgument("runner-id");
-  const runnerClientId = getArgument("client-id");
-  const runnerClientSecret = getArgument("client-secret");
-  const runnerGeneralApiEndpoint = getArgument("general-api-endpoint");
-  const runnerOAuthTokenEndpoint = getArgument("oauth-token-endpoint");
-  const runnerOAuthJwksEndpoint = getArgument("oauth-jwks-endpoint");
-  const runnerOAuthIssuer = getArgument("oauth-issuer");
-  const runnerApiPort = Number(getArgument("port"));
+  const options = getOptions();
 
-  const runnerDebug = ["true", "yes", "ok", "y"].includes(
-    getArgument("debug").toLowerCase(),
-  );
-
-  if (runnerDebug) {
+  if (options.runnerDebug) {
     console.log("[main] Starting runner with the following configuration:");
-    console.log(`  Runner Identifier: ${runnerId}`);
-    console.log(`  Runner Client ID: ${runnerClientId}`);
+    console.log(`  Runner Identifier: ${options.runnerId}`);
+    console.log(`  Runner Client ID: ${options.runnerClientId}`);
     console.log(
-      `  Runner Client Secret: ${"*".repeat(runnerClientSecret.length)}`,
+      `  Runner Client Secret: ${"*".repeat(options.runnerClientSecret.length)}`,
     );
-    console.log(`  Runner General API: ${runnerGeneralApiEndpoint}`);
-    console.log(`  Runner Debug Mode: ${runnerDebug ? "Enabled" : "Disabled"}`);
+    console.log(`  Runner General API: ${options.runnerGeneralApiEndpoint}`);
+    console.log(
+      `  Runner Debug Mode: ${options.runnerDebug ? "Enabled" : "Disabled"}`,
+    );
   }
 
-  const runner = new Runner({
-    runnerId,
-    runnerClientId,
-    runnerClientSecret,
-    runnerGeneralApiEndpoint,
-
-    runnerOAuthTokenEndpoint,
-    runnerOAuthJwksEndpoint,
-    runnerOAuthIssuer,
-
-    runnerApiPort,
-
-    runnerDebug,
-  });
+  const runner = new Runner(options);
 
   await runner.start();
 
   const shutdown = async () => {
-    if (runnerDebug) {
+    if (options.runnerDebug) {
       console.info("Shutdown procedure started...");
     }
 
     await runner.stop();
 
-    if (runnerDebug) {
+    if (options.runnerDebug) {
       console.info("Shutdown procedure completed");
     }
 

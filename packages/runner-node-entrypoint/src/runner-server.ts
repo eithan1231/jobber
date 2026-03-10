@@ -18,8 +18,9 @@ import { LegacyContextRequest } from "./context/legacy-request.js";
 import { LegacyContextResponse } from "./context/legacy-response.js";
 import { MqttContext } from "./context/mqtt.js";
 import { ScheduleContext } from "./context/schedule.js";
-import { Runner, RunnerOptions } from "./runner.js";
+import { Runner } from "./runner.js";
 import { getOAuthAudienceRunnerApi } from "@jobber/common/oauth.js";
+import { RunnerOptions } from "./options.js";
 
 export class RunnerServer {
   private jwks: ReturnType<typeof createRemoteJWKSet>;

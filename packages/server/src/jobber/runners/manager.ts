@@ -23,6 +23,7 @@ import {
   RunnerAPIDefinition,
   StatusResponse,
 } from "@jobber/grpc/runner.js";
+import { unlink, writeFile } from "fs/promises";
 import { getConfigOption } from "~/config.js";
 import { ENTRYPOINT_NODE } from "~/constants.js";
 import { actionsModel } from "~/db/actions.js";
@@ -49,6 +50,7 @@ import {
   killDockerContainer,
   stopDockerContainer,
 } from "~/docker.js";
+import { getRunnerEnvFile } from "~/paths.js";
 import { OAuthServiceClients } from "~/service-clients.js";
 import {
   createToken,
@@ -608,6 +610,8 @@ export class RunnerManager extends LoopBase {
   }
 
   private async createRunner(jobId: string): Promise<string | null> {
+    let cleanupFiles: string[] = [];
+
     try {
       const job = await jobModel.byId(jobId);
 
@@ -686,13 +690,28 @@ export class RunnerManager extends LoopBase {
         ),
       });
 
+      const portRandomised = Math.floor(Math.random() * 10000) + 2000;
+
+      const runnerParameters: RunnerManagerItem["arguments"] = {
+        runnerId: runnerRecord.id,
+
+        runnerClientId: serviceClientRunner.client?.clientId ?? "",
+        runnerClientSecret: serviceClientRunner.secret,
+        runnerGeneralApiEndpoint: `http://${getConfigOption("MANAGER_HOST")}:${getConfigOption("MANAGER_GRPC_PORT")}`,
+
+        runnerOAuthTokenEndpoint: `http://${getConfigOption("MANAGER_HOST")}:${getConfigOption("API_PORT")}/oauth/token`,
+        runnerOAuthJwksEndpoint: `http://${getConfigOption("MANAGER_HOST")}:${getConfigOption("API_PORT")}/.well-known/jwks.json`,
+        runnerOAuthIssuer: getConfigOption("OAUTH_ISSUER"),
+
+        runnerApiPort: portRandomised,
+
+        runnerDebug: getConfigOption("DEBUG_RUNNER"),
+      };
+
       const args: string[] = [];
 
-      const removeMePort =
-        Math.floor(Math.random() * (10000 - 5000 + 1)) + 5000;
-
       args.push("run", "--rm", "--name", containerName);
-      args.push("-p", `${removeMePort}:${removeMePort}`); // TODO: remove, was for testing
+      args.push("-p", `${portRandomised}:${portRandomised}`); // TODO: remove, was for testing
 
       args.push("--label", "jobber=true");
       args.push("--label", `jobber-manager=${getConfigOption("JOBBER_NAME")}`);
@@ -703,11 +722,38 @@ export class RunnerManager extends LoopBase {
         args.push("--network", dockerNetwork);
       }
 
+      const environmentFileLines: string[] = [
+        `# Job ${JSON.stringify(job.jobName)}`,
+        "",
+        "# System Defined Environment Variables - DO NOT MODIFY",
+        `RUNNER_ID=${runnerParameters.runnerId}`,
+        `RUNNER_CLIENT_ID=${runnerParameters.runnerClientId}`,
+        `RUNNER_CLIENT_SECRET=${runnerParameters.runnerClientSecret}`,
+        `RUNNER_GENERAL_API_ENDPOINT=${runnerParameters.runnerGeneralApiEndpoint}`,
+        `RUNNER_OAUTH_TOKEN_ENDPOINT=${runnerParameters.runnerOAuthTokenEndpoint}`,
+        `RUNNER_OAUTH_JWKS_ENDPOINT=${runnerParameters.runnerOAuthJwksEndpoint}`,
+        `RUNNER_OAUTH_ISSUER=${runnerParameters.runnerOAuthIssuer}`,
+        `RUNNER_API_PORT=${runnerParameters.runnerApiPort}`,
+        `RUNNER_DEBUG=${runnerParameters.runnerDebug ? "true" : "false"}`,
+      ];
+
       if (environment) {
+        environmentFileLines.push("");
+        environmentFileLines.push("");
+        environmentFileLines.push(`# User defined environment variables`);
         for (const [name, { value }] of Object.entries(environment.context)) {
-          args.push("--env", `${name}=${value}`);
+          environmentFileLines.push(
+            `${name.toUpperCase()}=${JSON.stringify(value)}`,
+          );
         }
       }
+
+      // TODO: if fails, fallback to the old insecure strategy
+      const environmentFilePath = getRunnerEnvFile(runnerRecord);
+      await writeFile(environmentFilePath, environmentFileLines.join("\n"));
+      cleanupFiles.push(environmentFilePath);
+
+      args.push("--env-file", environmentFilePath);
 
       const actionArgumentsEnabled = getConfigOption(
         "RUNNER_ALLOW_DOCKER_ARGUMENT_TYPES",
@@ -807,35 +853,20 @@ export class RunnerManager extends LoopBase {
         });
       }
 
-      const runnerParameters: RunnerManagerItem["arguments"] = {
-        runnerId: runnerRecord.id,
-
-        runnerClientId: serviceClientRunner.client?.clientId ?? "",
-        runnerClientSecret: serviceClientRunner.secret,
-        runnerGeneralApiEndpoint: `http://${getConfigOption("MANAGER_HOST")}:${getConfigOption("MANAGER_GRPC_PORT")}`,
-
-        runnerOAuthTokenEndpoint: `http://${getConfigOption("MANAGER_HOST")}:${getConfigOption("API_PORT")}/oauth/token`,
-        runnerOAuthJwksEndpoint: `http://${getConfigOption("MANAGER_HOST")}:${getConfigOption("API_PORT")}/.well-known/jwks.json`,
-        runnerOAuthIssuer: getConfigOption("OAUTH_ISSUER"),
-
-        runnerApiPort: removeMePort,
-
-        runnerDebug: getConfigOption("DEBUG_RUNNER"),
-      };
-
       args.push(
         image.imageUrl,
         "node",
         ENTRYPOINT_NODE,
-        `--runner-id=${runnerParameters.runnerId}`,
-        `--client-id=${runnerParameters.runnerClientId}`,
-        `--client-secret=${runnerParameters.runnerClientSecret}`,
-        `--general-api-endpoint=${runnerParameters.runnerGeneralApiEndpoint}`,
-        `--oauth-token-endpoint=${runnerParameters.runnerOAuthTokenEndpoint}`,
-        `--oauth-jwks-endpoint=${runnerParameters.runnerOAuthJwksEndpoint}`,
-        `--oauth-issuer=${runnerParameters.runnerOAuthIssuer}`,
-        `--port=${runnerParameters.runnerApiPort}`,
-        `--debug=${runnerParameters.runnerDebug ? "true" : "false"}`,
+        // TODO: if environment file fails, fallback to this.
+        // `--runner-id=${runnerParameters.runnerId}`,
+        // `--client-id=${runnerParameters.runnerClientId}`,
+        // `--client-secret=${runnerParameters.runnerClientSecret}`,
+        // `--general-api-endpoint=${runnerParameters.runnerGeneralApiEndpoint}`,
+        // `--oauth-token-endpoint=${runnerParameters.runnerOAuthTokenEndpoint}`,
+        // `--oauth-jwks-endpoint=${runnerParameters.runnerOAuthJwksEndpoint}`,
+        // `--oauth-issuer=${runnerParameters.runnerOAuthIssuer}`,
+        // `--port=${runnerParameters.runnerApiPort}`,
+        // `--debug=${runnerParameters.runnerDebug ? "true" : "false"}`,
       );
 
       // NOTE: !!!! NEVER ENABLE SHELL=TRUE !!!!
@@ -994,6 +1025,10 @@ export class RunnerManager extends LoopBase {
       console.error(err);
 
       return null;
+    } finally {
+      for (const filePath of cleanupFiles) {
+        await unlink(filePath).catch(() => {});
+      }
     }
   }
 

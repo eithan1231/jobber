@@ -12,16 +12,6 @@ export function getUnixTimestamp() {
   return Math.floor(Date.now() / 1000);
 }
 
-export function getArgument(name: string): string {
-  const arg = process.argv.find((arg) => arg.startsWith(`--${name}=`));
-
-  if (!arg) {
-    throw new Error(`Argument --${name} is required`);
-  }
-
-  return arg.split("=", 2)[1];
-}
-
 export function getTempFilePath({
   prefix = "jobber",
   extension = ".tmp",

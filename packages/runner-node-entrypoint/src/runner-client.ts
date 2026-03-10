@@ -8,8 +8,9 @@ import {
   createClient,
   Metadata,
 } from "nice-grpc";
-import { Runner, RunnerOptions } from "./runner.js";
+import { Runner } from "./runner.js";
 import { getUnixTimestamp } from "./util.js";
+import { RunnerOptions } from "./options.js";
 
 type CachedToken = {
   accessToken: string;
@@ -20,7 +21,7 @@ type CachedToken = {
 };
 
 export class RunnerClient extends LoopBase {
-  protected loopDuration = 10 * 1000;
+  protected loopDuration = 10_000;
 
   protected loopStarted = undefined;
   protected loopClosing = undefined;

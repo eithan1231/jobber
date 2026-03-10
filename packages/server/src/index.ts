@@ -13,8 +13,6 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { genSalt as bcryptGenSalt, hash as bcryptHash } from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { StatusCode } from "hono/utils/http-status";
-import { mkdir, readFile } from "node:fs/promises";
 import { container } from "tsyringe";
 import { ZodError } from "zod";
 
@@ -23,10 +21,16 @@ import { getDrizzle, getPool, runDrizzleMigration } from "./db/index.js";
 import { PERMISSION_SUPER } from "@jobber/common/permissions.js";
 import { getConfigOption } from "./config.js";
 import { cleanupLocks } from "./lock.js";
-import { getJobActionArchiveDirectory, getPgDumpDirectory } from "./paths.js";
+import { ensureDirectoriesExist } from "./paths.js";
 
 import { Bouncer } from "./bouncer.js";
 import { USERNAME_ANONYMOUS } from "./constants.js";
+import { usersTable } from "./db/schema.js";
+import {
+  JobsTableType,
+  UserPasswordSchema,
+  UserUsernameSchema,
+} from "./db/types.js";
 import { GrpcServer } from "./grpc/grpc-server.js";
 import { PgBackup } from "./pg-backup.js";
 import { RateLimit } from "./rate-limit.js";
@@ -47,14 +51,8 @@ import { createRouteMetrics } from "./routes/metrics.js";
 import { createRouteOAuthAdmin } from "./routes/oauth-admin.js";
 import { createRouteOAuth } from "./routes/oauth.js";
 import { createRouteUser } from "./routes/user.js";
-import { OAuthSigningKeys } from "./signing-keys.js";
-import {
-  JobsTableType,
-  UserPasswordSchema,
-  UserUsernameSchema,
-} from "./db/types.js";
-import { usersTable } from "./db/schema.js";
 import { OAuthServiceClients } from "./service-clients.js";
+import { OAuthSigningKeys } from "./signing-keys.js";
 
 export type InternalHonoApp = {
   Variables: {
@@ -335,12 +333,7 @@ async function main() {
   }
 
   console.log(`[main] Creating directories...`);
-  await mkdir(getJobActionArchiveDirectory(), {
-    recursive: true,
-  });
-  await mkdir(getPgDumpDirectory(), {
-    recursive: true,
-  });
+  ensureDirectoriesExist();
   console.log(`[main] done.`);
   console.log(`[main] Starting db lock cleanup...`);
   await cleanupLocks();

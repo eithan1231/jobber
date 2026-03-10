@@ -20,6 +20,7 @@ services:
       - "jobber-db"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/jobber-env:/tmp/jobber-env
       - jobber-data:/app/config
     environment:
       DATABASE_URL: postgresql://pg-user:pg-pass@jobber-db/database

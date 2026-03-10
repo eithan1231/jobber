@@ -14,14 +14,6 @@ export const ConfigurationOptionsSchema = z.object({
   STARTUP_USERNAME: z.string().optional().default("admin"),
   STARTUP_PASSWORD: z.string().optional().default("Password1!"),
 
-  // API_TOKEN_INTERNAL: z
-  //   .string()
-  //   .length(apiTokensTable.token._.length)
-  //   .optional(),
-  // API_TOKEN_INTERNAL_FLAG: z
-  //   .enum(["gateway-permissions", "none"])
-  //   .default("none"),
-
   AUTH_PUBLIC_REGISTRATION_ENABLED: z
     .string()
     .transform((val) => val.toLowerCase() === "true")
