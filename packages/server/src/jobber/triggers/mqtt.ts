@@ -409,18 +409,8 @@ export class TriggerMqtt extends LoopBase {
         created: new Date(),
       });
 
-      const runnerId = await this.runnerManager.getRunner(triggerItem.job.id);
-
-      if (!runnerId) {
-        console.log(
-          `[TriggerMqtt/onMqttMessage] No available runner for job ${triggerItem.job.id} and trigger ${triggerItem.trigger.id}`,
-        );
-
-        return;
-      }
-
       this.runnerManager
-        .eventMqtt(runnerId, {
+        .eventMqtt(triggerItem.job.id, {
           context: {
             triggerName: triggerItem.trigger.context.name ?? "",
           },
@@ -430,7 +420,7 @@ export class TriggerMqtt extends LoopBase {
         .then((response) => {
           if (response.status !== EventMqttResponse_Status.ACCEPTED) {
             console.log(
-              `[TriggerMqtt/onMqttMessage] Runner ${runnerId} rejected schedule event for trigger ${triggerItem.trigger.id} on job ${triggerItem.job.id} with status ${EventMqttResponse_Status[response.status]}`,
+              `[TriggerMqtt/onMqttMessage] Runner rejected MQTT event for trigger ${triggerItem.trigger.id} on job ${triggerItem.job.id} with status ${EventMqttResponse_Status[response.status]}`,
             );
           }
         })

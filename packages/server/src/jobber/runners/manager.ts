@@ -60,6 +60,7 @@ import {
 } from "~/util.js";
 import { getImage } from "../images.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
+import { connectivityState } from "@grpc/grpc-js";
 
 type CurrentVersionResult = {
   version: JobVersionsTableType;
@@ -1064,8 +1065,33 @@ export class RunnerManager extends LoopBase {
       });
 
       if (runners.length >= 1) {
-        // yolo the first one back, should probs make it random but ohwell
-        return runners[0].id;
+        const availableRunners = [...runners];
+
+        while (availableRunners.length > 0) {
+          const runner = availableRunners
+            .splice(Math.floor(Math.random() * availableRunners.length), 1)
+            .at(0);
+
+          if (!runner) {
+            continue;
+          }
+
+          const managerRunner = this.runners.get(runner.id);
+
+          if (!managerRunner || !managerRunner.grpcChannel) {
+            continue;
+          }
+
+          const status = managerRunner.grpcChannel.getConnectivityState(true);
+
+          if (
+            status === connectivityState.READY ||
+            status === connectivityState.IDLE ||
+            status === connectivityState.CONNECTING
+          ) {
+            return runner.id;
+          }
+        }
       }
 
       const existingQueueItem = this.queueStartup.find(
@@ -1103,9 +1129,15 @@ export class RunnerManager extends LoopBase {
   }
 
   public async eventSchedule(
-    runnerId: string,
+    jobId: string,
     trigger: EventScheduleRequest,
   ): Promise<EventScheduleResponse> {
+    const runnerId = await this.getRunner(jobId);
+
+    if (!runnerId) {
+      throw new Error(`No runner available for job ${jobId}`);
+    }
+
     const runner = this.runners.get(runnerId);
 
     if (!runner) {
@@ -1127,9 +1159,15 @@ export class RunnerManager extends LoopBase {
   }
 
   public async eventMqtt(
-    runnerId: string,
+    jobId: string,
     trigger: EventMqttRequest,
   ): Promise<EventMqttResponse> {
+    const runnerId = await this.getRunner(jobId);
+
+    if (!runnerId) {
+      throw new Error(`No runner available for job ${jobId}`);
+    }
+
     const runner = this.runners.get(runnerId);
 
     if (!runner) {

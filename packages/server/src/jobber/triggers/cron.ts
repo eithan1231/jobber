@@ -236,18 +236,8 @@ export class TriggerCron extends LoopBase {
 
       assert(trigger.trigger.context.type === "schedule");
 
-      const runnerId = await this.runnerManager.getRunner(trigger.job.id);
-
-      if (!runnerId) {
-        console.log(
-          `[TriggerCron/loopCheckTriggers] No available runner for job ${trigger.job.id} and trigger ${trigger.trigger.id}`,
-        );
-
-        continue;
-      }
-
       this.runnerManager
-        .eventSchedule(runnerId, {
+        .eventSchedule(trigger.job.id, {
           context: {
             triggerName: trigger.trigger.context.name ?? "",
           },
@@ -257,7 +247,7 @@ export class TriggerCron extends LoopBase {
         .then((response) => {
           if (response.status !== EventScheduleResponse_Status.ACCEPTED) {
             console.log(
-              `[TriggerCron/loopCheckTriggers] Runner ${runnerId} rejected schedule event for trigger ${trigger.trigger.id} on job ${trigger.job.id} with status ${EventScheduleResponse_Status[response.status]}`,
+              `[TriggerCron/loopCheckTriggers] Failed to send schedule event for trigger ${trigger.trigger.id} on job ${trigger.job.id}: ${response.status}`,
             );
           }
         })
