@@ -1,5 +1,5 @@
 {
-  "name": "mqtt-typescript",
+  "name": "mqtt-typescript-legacy",
   "version": "0.0.9",
   "description": "Jobber Example for MQTT in TypeScript",
   "main": "./dist/index.js",

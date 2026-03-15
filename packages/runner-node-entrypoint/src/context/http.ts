@@ -108,7 +108,7 @@ class HttpContextRequest {
     }
 
     const headers = this.eventHttpHead.headers.filter(
-      (h) => h.name.toLowerCase() !== name.toLowerCase(),
+      (h) => h.name.toLowerCase() === name.toLowerCase(),
     );
 
     if (headers.length === 0) {
@@ -264,7 +264,7 @@ class HttpContextResponse {
     this.headersFlushed = true;
     this.flushHeadersPromise.resolve();
 
-    this.header("Content-Type", "application/json");
+    this.headers.set("Content-Type", "application/json");
     this.stream.write(JSON.stringify(data));
     this.stream.end();
   }
@@ -273,7 +273,7 @@ class HttpContextResponse {
     this.headersFlushed = true;
     this.flushHeadersPromise.resolve();
 
-    this.header("Content-Type", "text/plain");
+    this.headers.set("Content-Type", "text/plain");
     this.stream.write(data);
     this.stream.end();
   }
@@ -282,7 +282,7 @@ class HttpContextResponse {
     this.headersFlushed = true;
     this.flushHeadersPromise.resolve();
 
-    this.header("Content-Type", "text/html");
+    this.headers.set("Content-Type", "text/html");
     this.stream.write(data);
     this.stream.end();
   }

@@ -1,20 +1,16 @@
-import { canOAuthAccessAudience } from "@jobber/common/oauth.js";
 import bcrypt from "bcryptjs";
 import { Hono } from "hono";
-import { SignJWT } from "jose";
-import { createPrivateKey } from "node:crypto";
 import { container } from "tsyringe";
 import { z } from "zod";
 import { getConfigOption } from "~/config.js";
 import { auditLogsModel } from "~/db/audit-log.js";
 import { oauthServiceClientModel } from "~/db/oauth-service-client.js";
-import { oauthSigningKeyModel } from "~/db/oauth-signing-key.js";
 import { InternalHonoApp } from "~/index.js";
 import { createMiddlewareResponseTime } from "~/middleware/response-time.js";
 import { RateLimit } from "~/rate-limit.js";
 import { OAuthServiceClients } from "~/service-clients.js";
 import { OAuthSigningKeys } from "~/signing-keys.js";
-import { createBenchmark } from "~/util.js";
+import { getAbsoluteUrl } from "~/util.js";
 
 export async function createRouteOAuth() {
   const rateLimit = container.resolve(RateLimit);
@@ -26,8 +22,8 @@ export async function createRouteOAuth() {
   app.get("/.well-known/openid-configuration", async (c) => {
     return c.json({
       issuer: getConfigOption("OAUTH_ISSUER"),
-      token_endpoint: `${getConfigOption("API_URL")}/oauth/token`,
-      jwks_uri: `${getConfigOption("API_URL")}/.well-known/jwks.json`,
+      token_endpoint: getAbsoluteUrl(c, "/oauth/token"),
+      jwks_uri: getAbsoluteUrl(c, "/.well-known/jwks.json"),
       token_endpoint_auth_methods_supported: ["client_secret_basic"],
     });
   });
@@ -126,7 +122,22 @@ export async function createRouteOAuth() {
       return c.json({ error: "invalid_client" }, 401);
     }
 
-    if (serviceClient.metadata.type !== "client_secret_basic") {
+    let isSecretValid = false;
+
+    if (serviceClient.metadata.type === "client_secret_basic") {
+      const clientSecretDecoded = Buffer.from(
+        body.client_secret,
+        "base64",
+      ).toString("ascii");
+
+      isSecretValid = await bcrypt.compare(
+        clientSecretDecoded,
+        serviceClient.metadata.clientSecretHashed,
+      );
+    } else if (serviceClient.metadata.type === "client_secret_basic_insecure") {
+      isSecretValid =
+        body.client_secret === serviceClient.metadata.clientSecret;
+    } else {
       rateLimit.increment(rateLimitKeys.clientIdFail(body.client_id));
 
       await auditLogsModel.createServiceClientLog(serviceClient.id, {
@@ -137,16 +148,6 @@ export async function createRouteOAuth() {
 
       return c.json({ error: "invalid_client" }, 401);
     }
-
-    const clientSecretDecoded = Buffer.from(
-      body.client_secret,
-      "base64",
-    ).toString("ascii");
-
-    const isSecretValid = await bcrypt.compare(
-      clientSecretDecoded,
-      serviceClient.metadata.clientSecretHashed,
-    );
 
     if (!isSecretValid) {
       rateLimit.increment(rateLimitKeys.clientIdFail(body.client_id));

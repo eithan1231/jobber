@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getDrizzle } from "./index.js";
 import { usersTable } from "./schema.js";
+import { UsersTableInsertType } from "./types.js";
 
 async function byId(id: string) {
   const user = await getDrizzle()
@@ -24,7 +25,12 @@ async function byUsername(username: string) {
   return user;
 }
 
+async function update(id: string, data: Partial<UsersTableInsertType>) {
+  await getDrizzle().update(usersTable).set(data).where(eq(usersTable.id, id));
+}
+
 export const userModel = {
   byId,
   byUsername,
+  update,
 };

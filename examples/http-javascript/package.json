@@ -1,0 +1,29 @@
+{
+  "name": "http-javascript",
+  "version": "1.0.0",
+  "description": "HTTP Javascript Example",
+  "license": "SEE LICENSE IN ../../",
+  "author": "Eithan",
+  "type": "module",
+  "main": "./src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "action": {
+    "runnerAsynchronous": true,
+    "runnerMinCount": 1,
+    "runnerMaxCount": 1,
+    "runnerMaxAge": 30,
+    "runnerMaxIdleAge": 30,
+    "runnerMaxAgeHard": 60,
+    "runnerMode": "standard"
+  },
+  "triggers": [
+    {
+      "type": "http",
+      "name": "http-javascript-trigger",
+      "path": "/http-javascript",
+      "method": "GET"
+    }
+  ]
+}

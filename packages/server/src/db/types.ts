@@ -22,6 +22,11 @@ type ServiceClientMetadataClientSecretBasic = {
   clientSecretHashed: string;
 };
 
+type ServiceClientMetadataClientSecretBasicInsecure = {
+  type: "client_secret_basic_insecure";
+  clientSecret: string;
+};
+
 type ServiceClientMetadataPrivateKeyJwt = {
   type: "private_key_jwt";
   publicKey: string;
@@ -29,7 +34,8 @@ type ServiceClientMetadataPrivateKeyJwt = {
 
 export type ServiceClientMetadata =
   | ServiceClientMetadataClientSecretBasic
-  | ServiceClientMetadataPrivateKeyJwt;
+  | ServiceClientMetadataPrivateKeyJwt
+  | ServiceClientMetadataClientSecretBasicInsecure;
 
 export const EnvironmentsContextSchema = z.record(
   z.string(),

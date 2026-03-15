@@ -18,14 +18,16 @@ npm run build
 # Archive essential files
 zip -rv archive.zip ./package.json ./dist ./src ./node_modules
 
+# Get base url argument from argument, defaults to localhost:3000
+BASE_URL=${1:-http://localhost:3000}
+
 # Upload to Jobber
 curl \
   --silent \
   --show-error \
   --request POST \
-  --url 'http://localhost:3000/api/job/publish/' \
+  --url "$BASE_URL/api/job/publish/" \
   --header 'content-type: multipart/form-data' \
-  --header 'Authorization: Bearer eab549247662024701c92a1cdd4af07c45d8ebcd5acf73be0f7a242926a03e266ff174' \
   --form 'archive=@archive.zip;type=application/zip'
 
 rm archive.zip

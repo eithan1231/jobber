@@ -1,6 +1,7 @@
 import { awaitTruthy, LoopBase } from "@jobber/common";
 import {
   Channel,
+  ChannelCredentials,
   ClientError,
   createChannel,
   createClientFactory,
@@ -134,7 +135,10 @@ export class GatewayClient extends LoopBase {
 
     this.grpcAuth = GatewayClient.createAuth(audience, tokenResult);
 
-    this.grpcChannel = createChannel(getConfigOption("GRPC_ENDPOINT"));
+    this.grpcChannel = createChannel(
+      getConfigOption("GRPC_ENDPOINT"),
+      ChannelCredentials.createInsecure(),
+    );
     this.grpcClient = createClientFactory().create(
       GeneralAPIDefinition,
       this.grpcChannel,
@@ -239,8 +243,8 @@ export class GatewayClient extends LoopBase {
       const auth = GatewayClient.createAuth(audience, tokenResult);
 
       const channel = createChannel(
-        `http://${"127.0.0.1"}:${runner.properties?.runnerApiPort}`,
-        undefined,
+        `http://${runner.properties?.runnerContainerName}:${runner.properties?.runnerApiPort}`,
+        ChannelCredentials.createInsecure(),
         {
           "grpc.keepalive_permit_without_calls": 1,
           "grpc.keepalive_timeout_ms": 30_000,

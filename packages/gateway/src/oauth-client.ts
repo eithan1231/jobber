@@ -64,6 +64,10 @@ export async function createOauth2Token(audience: string) {
   });
 
   if (!response.ok) {
+    console.error(
+      `Client credentials request failed ${response.status}: ${await response.text()}`,
+    );
+
     throw new Error(
       `Failed to fetch OIDC token: ${response.status} ${response.statusText}`,
     );

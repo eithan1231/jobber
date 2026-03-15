@@ -32,6 +32,8 @@ import { getStoreItem } from "./methods/get-store-item.js";
 import { getTemplates } from "./methods/get-templates.js";
 import { publishMqttMessage } from "./methods/publish-mqtt-message.js";
 import { setStoreItem } from "./methods/set-store-item.js";
+import { fileExists } from "~/util.js";
+import path from "node:path";
 
 const generalApiDefinition: ServiceImplementation<GeneralAPIDefinition> = {
   getJob: getJob,
@@ -89,12 +91,19 @@ export class GrpcServer extends LoopBase {
 
     this.server.add(GeneralAPIDefinition, generalApiDefinition);
 
-    this.server.add(
-      ServerReflectionService,
-      ServerReflection(await readFile("../grpc/src/protoset.bin"), [
-        GeneralAPIDefinition.fullName,
-      ]),
+    const filenameProtoset = path.join(
+      process.cwd(),
+      "../grpc/src/protoset.bin",
     );
+
+    if (await fileExists(filenameProtoset)) {
+      this.server.add(
+        ServerReflectionService,
+        ServerReflection(await readFile(filenameProtoset), [
+          GeneralAPIDefinition.fullName,
+        ]),
+      );
+    }
 
     await this.server.listen(
       `${getConfigOption("MANAGER_GRPC_BIND_ADDRESS")}:${getConfigOption(

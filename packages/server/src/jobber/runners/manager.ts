@@ -60,7 +60,7 @@ import {
 } from "~/util.js";
 import { getImage } from "../images.js";
 import { LogDriverBase } from "../log-drivers/abstract.js";
-import { connectivityState } from "@grpc/grpc-js";
+import { ChannelCredentials, connectivityState } from "@grpc/grpc-js";
 
 type CurrentVersionResult = {
   version: JobVersionsTableType;
@@ -698,10 +698,10 @@ export class RunnerManager extends LoopBase {
 
         runnerClientId: serviceClientRunner.client?.clientId ?? "",
         runnerClientSecret: serviceClientRunner.secret,
-        runnerGeneralApiEndpoint: `http://${getConfigOption("MANAGER_HOST")}:${getConfigOption("MANAGER_GRPC_PORT")}`,
+        runnerGeneralApiEndpoint: `http://${getConfigOption("MANAGER_GRPC_HOST")}:${getConfigOption("MANAGER_GRPC_PORT")}`,
 
-        runnerOAuthTokenEndpoint: `http://${getConfigOption("MANAGER_HOST")}:${getConfigOption("API_PORT")}/oauth/token`,
-        runnerOAuthJwksEndpoint: `http://${getConfigOption("MANAGER_HOST")}:${getConfigOption("API_PORT")}/.well-known/jwks.json`,
+        runnerOAuthTokenEndpoint: `http://${getConfigOption("MANAGER_GRPC_HOST")}:${getConfigOption("API_PORT")}/oauth/token`,
+        runnerOAuthJwksEndpoint: `http://${getConfigOption("MANAGER_GRPC_HOST")}:${getConfigOption("API_PORT")}/.well-known/jwks.json`,
         runnerOAuthIssuer: getConfigOption("OAUTH_ISSUER"),
 
         runnerApiPort: portRandomised,
@@ -930,12 +930,13 @@ export class RunnerManager extends LoopBase {
         Authorization: `Bearer ${tokenResult.jwt}`,
       });
 
-      // const channel = createChannel(
-      //   `${containerName}:${properties.runnerApiPort}`,
-      // );
       const channel = createChannel(
-        `192.168.10.200:${runnerParameters.runnerApiPort}`,
+        `${containerName}:${runnerParameters.runnerApiPort}`,
+        ChannelCredentials.createInsecure(),
       );
+      // const channel = createChannel(
+      //   `192.168.10.200:${runnerParameters.runnerApiPort}`,
+      // );
       const grpc = createClientFactory().create(RunnerAPIDefinition, channel, {
         "*": {
           metadata,

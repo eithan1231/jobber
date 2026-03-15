@@ -27,7 +27,9 @@ FROM base AS build
 COPY . /repo
 WORKDIR /repo
 
-RUN pnpm install --frozen-lockfile \
+RUN apt update \
+  && apt install protobuf-compiler --no-install-recommends -y \
+  && pnpm install --frozen-lockfile \
   && pnpm run -r build \
   && pnpm --prod --filter=@jobber/server --node-linker hoisted deploy /app \
   && mkdir /app/public/ \

@@ -35,6 +35,7 @@ import { GrpcServer } from "./grpc/grpc-server.js";
 import { PgBackup } from "./pg-backup.js";
 import { RateLimit } from "./rate-limit.js";
 import { createRouteApiTokens } from "./routes/api-tokens.js";
+import { createRouteAuditLog } from "./routes/audit-log.js";
 import { createRouteAuth } from "./routes/auth.js";
 import { createRouteConfig } from "./routes/config.js";
 import { createRouteJobActions } from "./routes/job/actions.js";
@@ -51,6 +52,7 @@ import { createRouteMetrics } from "./routes/metrics.js";
 import { createRouteOAuthAdmin } from "./routes/oauth-admin.js";
 import { createRouteOAuth } from "./routes/oauth.js";
 import { createRouteUser } from "./routes/user.js";
+import { seedsRun } from "./seeding/index.js";
 import { OAuthServiceClients } from "./service-clients.js";
 import { OAuthSigningKeys } from "./signing-keys.js";
 
@@ -110,21 +112,22 @@ async function createInternalHono() {
   });
 
   app.route("/api/", await createRouteApiTokens());
+  app.route("/api/", await createRouteAuditLog());
   app.route("/api/", await createRouteAuth());
-  app.route("/api/", await createRouteUser());
+  app.route("/api/", await createRouteConfig());
+  app.route("/api/", await createRouteJob());
   app.route("/api/", await createRouteJobActions());
   app.route("/api/", await createRouteJobEnvironment());
-  app.route("/api/", await createRouteJob());
-  app.route("/api/", await createRouteJobRunners());
-  app.route("/api/", await createRouteJobMetrics());
   app.route("/api/", await createRouteJobLogs());
+  app.route("/api/", await createRouteJobMetrics());
   app.route("/api/", await createRouteJobPublish());
+  app.route("/api/", await createRouteJobRunners());
   app.route("/api/", await createRouteJobStore());
   app.route("/api/", await createRouteJobTriggers());
-  app.route("/api/", await createRouteConfig());
-  app.route("/api/", await createRouteVersions());
   app.route("/api/", await createRouteMetrics());
   app.route("/api/", await createRouteOAuthAdmin());
+  app.route("/api/", await createRouteUser());
+  app.route("/api/", await createRouteVersions());
 
   // Not within /api/ for compliance with OAuth 2.0 best practices.
   app.route("/", await createRouteOAuth());
@@ -426,6 +429,12 @@ async function main() {
     port: getConfigOption("API_PORT"),
     fetch: appInternal.fetch,
   });
+
+  console.log(`[main] done.`);
+
+  console.log(`[main] Running seeds...`);
+  await seedsRun();
+  console.log(`[main] done.`);
 
   serverInternal.once("listening", () => {
     console.log("[main] API Internal now listening");

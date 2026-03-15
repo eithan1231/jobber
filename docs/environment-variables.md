@@ -28,7 +28,7 @@ This document describes all environment variables used to configure Jobber.
 - `MANAGER_PORT` - Port for the runner-manager server  
   **Default:** `5211`
 
-- `MANAGER_HOST` - Host address for the runner-manager server  
+- `MANAGER_GRPC_HOST` - Host address for the runner-manager server  
   **Default:** `hostname()`
 
 ## Authentication
@@ -58,7 +58,7 @@ This document describes all environment variables used to configure Jobber.
   **Default:** eithan1231/runner-node-20:latest
 
 - `RUNNER_CONTAINER_DOCKER_NETWORK` - Docker network for runner containers  
-  **Note:** Must have access to `MANAGER_HOST`
+  **Note:** Must have access to `MANAGER_GRPC_HOST`
 
 - `RUNNER_ALLOW_DOCKER_ARGUMENT_TYPES` - Permitted Docker argument types for projects  
   **Values:** `volumes`, `networks`, `labels`, `memoryLimit`, `directPassthroughArguments`  

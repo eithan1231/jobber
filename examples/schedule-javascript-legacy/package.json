@@ -1,5 +1,5 @@
 {
-  "name": "schedule-javascript",
+  "name": "schedule-javascript-legacy",
   "version": "0.0.1",
   "description": "Jobber Example, Javascript Schedule",
   "main": "./src/index.js",

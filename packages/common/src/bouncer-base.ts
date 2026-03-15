@@ -238,6 +238,10 @@ export class BouncerBase {
     return this.can(`templates`, "read");
   }
 
+  public canReadAuditLogGenerally() {
+    return this.can(`audit-log`, "read");
+  }
+
   /**
    * SPECIAL: This is a special case to allow runners to publish MQTT messages
    */

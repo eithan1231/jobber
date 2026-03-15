@@ -15,43 +15,45 @@ export type ImagesEntry = {
   imageUrl: string;
 } & ({ runtime: "node" } | { runtime: "python" });
 
-const images: Array<ImagesEntry> = [
-  {
-    name: "node24",
-    status: "active",
-    runtime: "node",
-    version: "v24",
-    imageUrl: getConfigOption("RUNNER_IMAGE_NODE24_URL"),
-  },
-  {
-    name: "node22",
-    status: "active",
-    runtime: "node",
-    version: "v22",
-    imageUrl: getConfigOption("RUNNER_IMAGE_NODE22_URL"),
-  },
-  {
-    name: "node20",
-    status: "active",
-    runtime: "node",
-    version: "v20",
-    imageUrl: getConfigOption("RUNNER_IMAGE_NODE20_URL"),
-  },
-  {
-    name: "python3",
-    status: "disabled",
-    runtime: "python",
-    version: "v3",
-    imageUrl: "",
-  },
-  {
-    name: "python2",
-    status: "disabled",
-    runtime: "python",
-    version: "v2",
-    imageUrl: "",
-  },
-];
+const getInternalImages = (): ImagesEntry[] => {
+  return [
+    {
+      name: "node24",
+      status: "active",
+      runtime: "node",
+      version: "v24",
+      imageUrl: getConfigOption("RUNNER_IMAGE_NODE24_URL"),
+    },
+    {
+      name: "node22",
+      status: "active",
+      runtime: "node",
+      version: "v22",
+      imageUrl: getConfigOption("RUNNER_IMAGE_NODE22_URL"),
+    },
+    {
+      name: "node20",
+      status: "active",
+      runtime: "node",
+      version: "v20",
+      imageUrl: getConfigOption("RUNNER_IMAGE_NODE20_URL"),
+    },
+    {
+      name: "python3",
+      status: "disabled",
+      runtime: "python",
+      version: "v3",
+      imageUrl: "",
+    },
+    {
+      name: "python2",
+      status: "disabled",
+      runtime: "python",
+      version: "v2",
+      imageUrl: "",
+    },
+  ];
+};
 
 const defaultRuntimeImages = {
   node: "node24",
@@ -61,11 +63,11 @@ const defaultRuntimeImages = {
 export const getDefaultRuntimeImages = () => defaultRuntimeImages;
 
 export const getImage = async (name: string): Promise<ImagesEntry | null> => {
-  return images.find((image) => image.name === name) ?? null;
+  return getInternalImages().find((image) => image.name === name) ?? null;
 };
 
 export const getImages = async (): Promise<ImagesEntry[]> => {
-  return images;
+  return getInternalImages();
 };
 
 const getImageFromArchivePackageJson = (
@@ -75,7 +77,7 @@ const getImageFromArchivePackageJson = (
     return getDefaultRuntimeImages().node;
   }
 
-  for (const image of images) {
+  for (const image of getInternalImages()) {
     if (image.runtime !== "node") {
       continue;
     }
@@ -241,7 +243,9 @@ export const classifyArchiveFile = async (
         return null;
       }
 
-      const image = images.find((index) => index.name === imageName);
+      const image = getInternalImages().find(
+        (index) => index.name === imageName,
+      );
 
       assert(image);
       assert(image.runtime === "node");

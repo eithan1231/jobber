@@ -2,10 +2,12 @@ import { spawn } from "child_process";
 import { hash, randomBytes } from "crypto";
 import { createReadStream } from "fs";
 import { stat } from "fs/promises";
+import { Context } from "hono";
 import { tmpdir } from "os";
 import path from "path";
 import { Readable, Writable } from "stream";
 import { ReadableStream } from "stream/web";
+import { getConfigOption } from "./config.js";
 
 export const getUnixTimestamp = () => Math.round(Date.now() / 1000);
 
@@ -23,13 +25,13 @@ export const sanitiseSafeCharacters = (name: string) => {
 export const unzip = (
   source: string,
   destination: string,
-  timeout: number = 60
+  timeout: number = 60,
 ) => {
   return new Promise((resolve, reject) => {
     console.log(
       `[unzip] Extracting, source ${presentablePath(
-        source
-      )} destination ${presentablePath(destination)}`
+        source,
+      )} destination ${presentablePath(destination)}`,
     );
 
     const logs: string[] = [];
@@ -54,7 +56,7 @@ export const unzip = (
       ],
       {
         stdio: "pipe",
-      }
+      },
     );
 
     proc.stderr.on("data", (data) => logs.push(data.toString()));
@@ -108,7 +110,7 @@ export const getTmpFile = ({ extension = "", length = 16 }) => {
 
 export const handleReadableStreamPipe = (
   source: ReadableStream,
-  destination: Writable
+  destination: Writable,
 ) => {
   return new Promise((resolve, reject) => {
     let resolved = false;
@@ -177,7 +179,7 @@ export const fileExists = async (filename: string) => {
 export const createToken = (options: { prefix?: string; length?: number }) => {
   if (options.prefix) {
     return `${options.prefix}-${secureRandomBytes(
-      options.length ?? 16
+      options.length ?? 16,
     ).toString("hex")}`;
   }
 
@@ -187,7 +189,7 @@ export const createToken = (options: { prefix?: string; length?: number }) => {
 export const shortenString = (input: string, maxLength = 20) => {
   if (input.length > maxLength) {
     return `${input.substring(0, maxLength - 5)}...${input.substring(
-      input.length - 5
+      input.length - 5,
     )}`;
   }
 
@@ -213,7 +215,7 @@ export const presentablePath = (path: string) => {
 
 export const readFileLines = (
   filename: string,
-  callbackLine: (line: string) => void
+  callbackLine: (line: string) => void,
 ) => {
   return new Promise((resolve, reject) => {
     const stream = createReadStream(filename);
@@ -258,4 +260,23 @@ export const secureRandomBytes = (length: number) => {
   const result = new Uint8Array(length);
   crypto.getRandomValues(result);
   return Buffer.from(result);
+};
+
+export const getAbsoluteUrl = (c: Context, path: string) => {
+  const proto = c.req.header("x-forwarded-proto") || "http";
+  const host = c.req.header("x-forwarded-host") || c.req.header("host");
+
+  if (!host) {
+    throw new Error("Unable to determine host for absolute url");
+  }
+
+  if (getConfigOption("ALLOWED_HOSTS").length >= 1) {
+    const allowedHosts = getConfigOption("ALLOWED_HOSTS");
+
+    if (!allowedHosts.includes(host.toLowerCase())) {
+      throw new Error(`Host ${host} is not in allowed hosts list`);
+    }
+  }
+
+  return `${proto}://${host}${path}`;
 };

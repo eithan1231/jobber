@@ -1,5 +1,5 @@
 {
-  "name": "http-typescript",
+  "name": "http-typescript-legacy",
   "version": "0.0.10",
   "description": "Jobber Example, Typescript HTTP Demo",
   "main": "./dist/index.js",

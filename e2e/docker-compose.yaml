@@ -1,0 +1,105 @@
+networks:
+  internal:
+    driver: bridge
+  runner:
+    driver: bridge
+  mqtt-network:
+    driver: bridge
+
+name: "jobber-test"
+
+services:
+  postgres:
+    image: postgres:14
+    restart: unless-stopped
+    networks:
+      - internal
+    environment:
+      - POSTGRES_USER=jobber-username
+      - POSTGRES_PASSWORD=jobber-password
+      - POSTGRES_DB=jobber-database
+
+  mqtt:
+    image: emqx/nanomq:0.24.6-slim
+    restart: unless-stopped
+    networks:
+      - mqtt-network
+    volumes:
+      - ./config/nanomq.conf:/etc/nanomq.conf:ro
+
+  server:
+    depends_on:
+      - postgres
+      - mqtt
+    labels:
+      - "jobber-discovery=server"
+    image: jobber-e2e-server
+    build:
+      context: ../
+      dockerfile: docker/server.Dockerfile
+    restart: unless-stopped
+    ports:
+      - 5000:5000
+    networks:
+      - internal
+      - runner
+    volumes:
+      - /tmp/jobber-env:/tmp/jobber-env
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      SECRET_PASSPHRASE: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+      JOBBER_NAME: "JobberE2E"
+
+      ALLOWED_HOSTS: "localhost,localhost:5000,127.0.0.1:5000,server:5000"
+
+      DATABASE_URL: "postgresql://jobber-username:jobber-password@postgres:5432/jobber-database"
+
+      ALLOW_PUBLIC_REGISTRATION: "true"
+      AUTH_PUBLIC_LOGIN_ENABLED: "true"
+
+      OAUTH_ISSUER: "http://localhost:5000"
+
+      DEBUG_HTTP: "true"
+      DEBUG_RUNNER: "true"
+
+      API_PORT: "5000"
+
+      MANAGER_GRPC_PORT: "5001"
+      MANAGER_GRPC_HOST: "server"
+
+      # "{compose_name}_{network_name}" is the convention for compose networks
+      RUNNER_CONTAINER_DOCKER_NETWORK: "jobber-test_runner"
+      RUNNER_ALLOW_DOCKER_ARGUMENT_TYPES: "volumes,networks,labels,memoryLimit,directPassthroughArguments"
+      RUNNER_ALLOW_ARGUMENT_DIRECT_PASSTHROUGH: "true"
+
+      RUNNER_IMAGE_NODE20_URL: "jobber-e2e-runner:20-latest"
+      RUNNER_IMAGE_NODE22_URL: "jobber-e2e-runner:22-latest"
+      RUNNER_IMAGE_NODE24_URL: "jobber-e2e-runner:24-latest"
+
+      # Seed data required for e2e tests
+      # NOTE: This will be INSECURE! Do not use this format for production!
+      SEED: '{"oauth-clients": {"clientId": "e2e-client", "clientSecret": "secret-secret-secret-secret-secret"}, "api-tokens": [{"token": "super-power-anonymous-token", "permissions": { "type": "all" }}]}'
+
+  gateway:
+    depends_on:
+      - server
+    image: jobber-e2e-gateway
+    build:
+      context: ../
+      dockerfile: docker/gateway.Dockerfile
+    restart: unless-stopped
+    networks:
+      - runner
+    environment:
+      PORT: "5002"
+
+      GRPC_ENDPOINT: "https://server:5001"
+
+      OIDC_ISSUER_URL: "http://localhost:5000"
+      OIDC_DISCOVERY_URL: "http://server:5000/.well-known/openid-configuration"
+
+      OAUTH_CLIENT_ID: "e2e-client"
+      OAUTH_CLIENT_SECRET: "secret-secret-secret-secret-secret"
+    ports:
+      - 5002:5002

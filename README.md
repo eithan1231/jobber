@@ -38,7 +38,7 @@ The objective of this project is to provide nothing more than a basic interface 
 - `DATABASE_URL` Postgres connection URL. Example: `postgresql://user:pass@host/db`
 - `JOBBER_NAME` The name of your jobber instance, should be unique per host.
 - `MANAGER_PORT` Port that runner-manager server operates on. Default: 5211
-- `MANAGER_HOST` Host that runner-manager server operates on. Default: hostname()
+- `MANAGER_GRPC_HOST` Host that runner-manager server operates on. Default: hostname()
 - `STARTUP_USERNAME` The administrator account username. Created at every startup. Has full permissions. If you change this after a previous start, it will create a NEW account, not update the previous account.
 - `STARTUP_PASSWORD` The administrator account password.
 <hr>

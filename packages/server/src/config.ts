@@ -1,5 +1,6 @@
 import { hostname } from "os";
 import { z } from "zod";
+import { getSeedSchema } from "./seeding/index.js";
 
 export const ConfigurationOptionsSchema = z.object({
   SECRET_PASSPHRASE: z.string().min(32).max(512),
@@ -14,6 +15,14 @@ export const ConfigurationOptionsSchema = z.object({
   STARTUP_USERNAME: z.string().optional().default("admin"),
   STARTUP_PASSWORD: z.string().optional().default("Password1!"),
 
+  SEED: z
+    .string()
+    .default("{}")
+    .transform((val) => {
+      return JSON.parse(val);
+    })
+    .pipe(getSeedSchema()),
+
   AUTH_PUBLIC_REGISTRATION_ENABLED: z
     .string()
     .transform((val) => val.toLowerCase() === "true")
@@ -25,7 +34,12 @@ export const ConfigurationOptionsSchema = z.object({
     .pipe(z.boolean())
     .default("true"),
 
-  API_URL: z.string(),
+  ALLOWED_HOSTS: z
+    .string()
+    .default("")
+    .transform((val) =>
+      val.split(",").map((host) => host.trim().toLowerCase()),
+    ),
 
   OAUTH_ISSUER: z.string().default("http://localhost:5211"),
   OAUTH_SIGNING_KEY_ROTATE_IN_DAYS: z.coerce.number().default(5), // Rotate X days after creation
@@ -53,11 +67,9 @@ export const ConfigurationOptionsSchema = z.object({
 
   API_PORT: z.coerce.number().default(3000),
 
-  // Hostname for the manager, used for runners to connect to.
-  MANAGER_HOST: z.string().default(hostname()),
-
   // GRPC specific config
   MANAGER_GRPC_PORT: z.coerce.number().default(5212),
+  MANAGER_GRPC_HOST: z.string().default(hostname()), // For the runners
   MANAGER_GRPC_BIND_ADDRESS: z.string().default("0.0.0.0"),
 
   RUNNER_IMAGE_NODE24_URL: z
@@ -76,7 +88,7 @@ export const ConfigurationOptionsSchema = z.object({
 
   RUNNER_ALLOW_DOCKER_ARGUMENT_TYPES: z
     .string()
-    .transform((val) => val.split(",").map((type) => type.trim().toLowerCase()))
+    .transform((val) => val.split(",").map((type) => type.trim()))
     .pipe(
       z.array(
         z.enum([
