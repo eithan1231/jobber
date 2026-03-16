@@ -1,0 +1,29 @@
+{
+  "name": "http-javascript-cjs",
+  "version": "1.0.0",
+  "description": "HTTP CommonJS Javascript Example",
+  "license": "SEE LICENSE IN ../../",
+  "author": "Eithan",
+  "type": "commonjs",
+  "main": "./src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "action": {
+    "runnerAsynchronous": true,
+    "runnerMinCount": 1,
+    "runnerMaxCount": 1,
+    "runnerMaxAge": 0,
+    "runnerMaxIdleAge": 0,
+    "runnerMaxAgeHard": 0,
+    "runnerMode": "standard"
+  },
+  "triggers": [
+    {
+      "type": "http",
+      "name": "http-javascript-trigger",
+      "path": "/http-javascript-cjs",
+      "method": "GET"
+    }
+  ]
+}

@@ -12,3 +12,4 @@ sleep 5
 
 # Run tests
 bash e2e/tests/test-runner-basics.sh
+bash e2e/tests/test-common-js.sh
