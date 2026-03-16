@@ -13,3 +13,6 @@ sleep 5
 # Run tests
 bash e2e/tests/test-runner-basics.sh
 bash e2e/tests/test-common-js.sh
+bash e2e/tests/test-run-once.sh
+
+docker compose -f e2e/docker-compose.yaml down

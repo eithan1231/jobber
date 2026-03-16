@@ -476,43 +476,6 @@ export class RunnerManager extends LoopBase {
         }
       }),
     );
-
-    // await Promise.all(
-    //   containers.map(async (container) => {
-    //     const labels = container.Labels.split(",").map((label) => {
-    //       const parts = label.split("=", 2);
-
-    //       return {
-    //         key: parts.at(0) ?? "",
-    //         value: parts.at(1) ?? "",
-    //       };
-    //     });
-
-    //     const isJobber = labels.find(
-    //       ({ key, value }) => key === "jobber" && value === "true",
-    //     );
-
-    //     const isOwned = labels.find(
-    //       ({ key, value }) =>
-    //         key === "jobber-manager" &&
-    //         value === getConfigOption("JOBBER_NAME"),
-    //     );
-
-    //     if (!isJobber || !isOwned) {
-    //       return;
-    //     }
-
-    //     if (!closedRunnersContainerName.has(container.Names)) {
-    //       return;
-    //     }
-
-    //     console.warn(
-    //       `[RunnerManager/checkDanglingRunners] Found dangling runner container ${container.ID} (${container.Names}). Stopping...`,
-    //     );
-
-    //     await stopDockerContainer(container.ID).catch((err) => {});
-    //   }),
-    // );
   }
 
   private async processStartupQueue() {
@@ -686,8 +649,9 @@ export class RunnerManager extends LoopBase {
 
       const containerName = createToken({
         length: 16,
-        prefix: sanitiseSafeCharacters(
-          `runner-${job.jobName}-${jobVersion.version}`,
+        prefix: sanitiseSafeCharacters(`runner-${job.jobName}`).substring(
+          0,
+          20,
         ),
       });
 
@@ -712,7 +676,6 @@ export class RunnerManager extends LoopBase {
       const args: string[] = [];
 
       args.push("run", "--rm", "--name", containerName);
-      args.push("-p", `${portRandomised}:${portRandomised}`); // TODO: remove, was for testing
 
       args.push("--label", "jobber=true");
       args.push("--label", `jobber-manager=${getConfigOption("JOBBER_NAME")}`);
@@ -1142,6 +1105,10 @@ export class RunnerManager extends LoopBase {
     try {
       const response = await runner.grpc.eventSchedule(trigger);
 
+      if (runner.jobAction.runnerMode === "run-once") {
+        this.shutdownQueueAdd(runnerId, false);
+      }
+
       return response;
     } catch (err) {
       console.error(err);
@@ -1171,6 +1138,10 @@ export class RunnerManager extends LoopBase {
 
     try {
       const response = await runner.grpc.eventMqtt(trigger);
+
+      if (runner.jobAction.runnerMode === "run-once") {
+        this.shutdownQueueAdd(runnerId, false);
+      }
 
       return response;
     } catch (err) {

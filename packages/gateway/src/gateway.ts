@@ -457,6 +457,10 @@ export class GatewayClient extends LoopBase {
       } else if (!res.writableEnded) {
         res.end();
       }
+    } finally {
+      if (entry.action.runnerMode === "RUN_ONCE") {
+        await this.grpcClient?.deleteRunner({ runnerId: runner.id });
+      }
     }
   }
 

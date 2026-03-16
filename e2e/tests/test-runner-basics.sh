@@ -63,10 +63,3 @@ else
   echo "Actual response: $HANG_RESPONSE"
   exit 1
 fi
-
-
-echo ""
-echo ""
-echo "All tests passed!"
-
-exit 0

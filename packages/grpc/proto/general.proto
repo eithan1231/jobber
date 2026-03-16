@@ -30,6 +30,7 @@ service GeneralAPI {
 
   rpc getRunner(RunnerRequest) returns (RunnerResponse);
   rpc getRunners(RunnersRequest) returns (RunnersResponse);
+  rpc deleteRunner(DeleteRunnerRequest) returns (Base.Empty);
 
   rpc getStoreItem(StoreItemRequest) returns (StoreItemResponse);
   rpc setStoreItem(SetStoreItemRequest) returns (SetStoreItemResponse);
@@ -175,6 +176,12 @@ message RunnersRequest {
 }
 message RunnersResponse {
   repeated Runner.Item runners = 1;
+}
+
+
+/** deleteRunner **/
+message DeleteRunnerRequest {
+  string runnerId = 1;
 }
 
 

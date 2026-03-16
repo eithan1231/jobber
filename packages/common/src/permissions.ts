@@ -74,7 +74,7 @@ export const PERMISSION_GATEWAY: JobberPermissions = [
   {
     effect: "allow",
     resource: "job/*/runners",
-    actions: ["read"],
+    actions: ["read", "delete"],
   },
   {
     effect: "deny",

@@ -1,0 +1,29 @@
+{
+  "name": "http-javascript-run-once",
+  "version": "1.0.0",
+  "description": "HTTP Javascript Run Once Example",
+  "license": "SEE LICENSE IN ../../",
+  "author": "Eithan",
+  "type": "module",
+  "main": "./src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "action": {
+    "runnerAsynchronous": false,
+    "runnerMinCount": 0,
+    "runnerMaxCount": 1,
+    "runnerMaxAge": 0,
+    "runnerMaxIdleAge": 0,
+    "runnerMaxAgeHard": 0,
+    "runnerMode": "run-once"
+  },
+  "triggers": [
+    {
+      "type": "http",
+      "name": "http-javascript-trigger",
+      "path": "/http-javascript-run-once",
+      "method": "GET"
+    }
+  ]
+}

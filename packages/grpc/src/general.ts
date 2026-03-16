@@ -7,6 +7,7 @@
 /* eslint-disable */
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
 import type { CallContext, CallOptions } from "nice-grpc-common";
+import { Empty } from "./base.js";
 import { Item as Item2 } from "./basics/action.js";
 import { Item as Item1 } from "./basics/job-version.js";
 import { Item } from "./basics/job.js";
@@ -154,6 +155,11 @@ export interface RunnersRequest {
 
 export interface RunnersResponse {
   runners: Item4[];
+}
+
+/** deleteRunner * */
+export interface DeleteRunnerRequest {
+  runnerId: string;
 }
 
 /** getStoreItem * */
@@ -2026,6 +2032,64 @@ export const RunnersResponse: MessageFns<RunnersResponse> = {
   },
 };
 
+function createBaseDeleteRunnerRequest(): DeleteRunnerRequest {
+  return { runnerId: "" };
+}
+
+export const DeleteRunnerRequest: MessageFns<DeleteRunnerRequest> = {
+  encode(message: DeleteRunnerRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.runnerId !== "") {
+      writer.uint32(10).string(message.runnerId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): DeleteRunnerRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseDeleteRunnerRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.runnerId = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): DeleteRunnerRequest {
+    return { runnerId: isSet(object.runnerId) ? globalThis.String(object.runnerId) : "" };
+  },
+
+  toJSON(message: DeleteRunnerRequest): unknown {
+    const obj: any = {};
+    if (message.runnerId !== "") {
+      obj.runnerId = message.runnerId;
+    }
+    return obj;
+  },
+
+  create(base?: DeepPartial<DeleteRunnerRequest>): DeleteRunnerRequest {
+    return DeleteRunnerRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<DeleteRunnerRequest>): DeleteRunnerRequest {
+    const message = createBaseDeleteRunnerRequest();
+    message.runnerId = object.runnerId ?? "";
+    return message;
+  },
+};
+
 function createBaseStoreItemRequest(): StoreItemRequest {
   return { jobId: "", key: "" };
 }
@@ -3001,6 +3065,14 @@ export const GeneralAPIDefinition = {
       responseStream: false,
       options: {},
     },
+    deleteRunner: {
+      name: "deleteRunner",
+      requestType: DeleteRunnerRequest,
+      requestStream: false,
+      responseType: Empty,
+      responseStream: false,
+      options: {},
+    },
     getStoreItem: {
       name: "getStoreItem",
       requestType: StoreItemRequest,
@@ -3098,6 +3170,7 @@ export interface GeneralAPIServiceImplementation<CallContextExt = {}> {
   ): Promise<DeepPartial<JobTriggersLatestResponse>>;
   getRunner(request: RunnerRequest, context: CallContext & CallContextExt): Promise<DeepPartial<RunnerResponse>>;
   getRunners(request: RunnersRequest, context: CallContext & CallContextExt): Promise<DeepPartial<RunnersResponse>>;
+  deleteRunner(request: DeleteRunnerRequest, context: CallContext & CallContextExt): Promise<DeepPartial<Empty>>;
   getStoreItem(
     request: StoreItemRequest,
     context: CallContext & CallContextExt,
@@ -3170,6 +3243,7 @@ export interface GeneralAPIClient<CallOptionsExt = {}> {
   ): Promise<JobTriggersLatestResponse>;
   getRunner(request: DeepPartial<RunnerRequest>, options?: CallOptions & CallOptionsExt): Promise<RunnerResponse>;
   getRunners(request: DeepPartial<RunnersRequest>, options?: CallOptions & CallOptionsExt): Promise<RunnersResponse>;
+  deleteRunner(request: DeepPartial<DeleteRunnerRequest>, options?: CallOptions & CallOptionsExt): Promise<Empty>;
   getStoreItem(
     request: DeepPartial<StoreItemRequest>,
     options?: CallOptions & CallOptionsExt,

@@ -12,7 +12,10 @@ import { GeneralAPIDefinition } from "@jobber/grpc/general.js";
 
 import { getConfigOption } from "~/config.js";
 
+import path from "node:path";
+import { fileExists } from "~/util.js";
 import { createSoftRunner } from "./methods/create-soft-runner.js";
+import { deleteRunner } from "./methods/delete-runner.js";
 import { deleteStoreItem } from "./methods/delete-store-item.js";
 import { getJobActionLatest } from "./methods/get-job-action-latest.js";
 import { getJobAction } from "./methods/get-job-action.js";
@@ -32,8 +35,6 @@ import { getStoreItem } from "./methods/get-store-item.js";
 import { getTemplates } from "./methods/get-templates.js";
 import { publishMqttMessage } from "./methods/publish-mqtt-message.js";
 import { setStoreItem } from "./methods/set-store-item.js";
-import { fileExists } from "~/util.js";
-import path from "node:path";
 
 const generalApiDefinition: ServiceImplementation<GeneralAPIDefinition> = {
   getJob: getJob,
@@ -63,6 +64,8 @@ const generalApiDefinition: ServiceImplementation<GeneralAPIDefinition> = {
   getRunner: getRunner,
 
   getRunners: getRunners,
+
+  deleteRunner: deleteRunner,
 
   createSoftRunner: createSoftRunner,
 
