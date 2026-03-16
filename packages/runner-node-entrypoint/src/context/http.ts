@@ -1,5 +1,6 @@
 import { deferred } from "@jobber/common/deferred.js";
 import { EventHttpRequest, EventHttpResponse } from "@jobber/grpc/runner.js";
+import assert from "node:assert";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { PassThrough, Readable, Writable } from "node:stream";
@@ -261,38 +262,85 @@ class HttpContextResponse {
   }
 
   public json<T = unknown>(data: T) {
+    if (this.headersFlushed) {
+      throw new Error(
+        "[HttpContextResponse/html] Cannot call html() after headers have been flushed",
+      );
+    }
+
+    this.headers.set("Content-Type", "application/json");
+
     this.headersFlushed = true;
     this.flushHeadersPromise.resolve();
 
-    this.headers.set("Content-Type", "application/json");
     this.stream.write(JSON.stringify(data));
     this.stream.end();
   }
 
   public text(data: string) {
+    assert(
+      typeof data === "string",
+      'Argument "data" must be type of string on HttpContextResponse.text()',
+    );
+
+    if (this.headersFlushed) {
+      throw new Error(
+        "[HttpContextResponse/html] Cannot call html() after headers have been flushed",
+      );
+    }
+
+    this.headers.set("Content-Type", "text/plain");
+
     this.headersFlushed = true;
     this.flushHeadersPromise.resolve();
 
-    this.headers.set("Content-Type", "text/plain");
     this.stream.write(data);
     this.stream.end();
   }
 
   public html(data: string) {
+    assert(
+      typeof data === "string",
+      'Argument "data" must be type of string on HttpContextResponse.html()',
+    );
+
+    if (this.headersFlushed) {
+      throw new Error(
+        "[HttpContextResponse/html] Cannot call html() after headers have been flushed",
+      );
+    }
+
+    this.headers.set("Content-Type", "text/html");
+
     this.headersFlushed = true;
     this.flushHeadersPromise.resolve();
 
-    this.headers.set("Content-Type", "text/html");
     this.stream.write(data);
     this.stream.end();
   }
 
-  public async *createResponse(): AsyncGenerator<EventHttpResponse> {
+  /**
+   * Invoked once the clients-execution code has finished. This is used
+   * to avoid timeouts and hanging.
+   */
+  public async _finished() {
+    if (!this.headersFlushed) {
+      this.status(204);
+      this.headersFlushed = true;
+      this.flushHeadersPromise.resolve();
+    }
+
+    await this.flushHeadersPromise.promise;
+
+    if (!this.stream.writableEnded) {
+      this.stream.end();
+    }
+  }
+
+  public async *_createResponse(): AsyncGenerator<EventHttpResponse> {
     await this.flushHeadersPromise.promise;
 
     const baseId = randomUUID();
-
-    await this.flushHeadersPromise.promise;
 
     yield {
       head: {
@@ -335,7 +383,10 @@ export class HttpContext {
 
   private contextResponse: HttpContextResponse;
 
-  constructor(runner: Runner, requestEvents: AsyncIterable<EventHttpRequest>) {
+  constructor(
+    private runner: Runner,
+    requestEvents: AsyncIterable<EventHttpRequest>,
+  ) {
     this.contextRequest = new HttpContextRequest(runner, requestEvents);
     this.contextResponse = new HttpContextResponse(runner);
   }
@@ -352,7 +403,11 @@ export class HttpContext {
     return this.contextResponse;
   }
 
-  public async *createResponse(): AsyncGenerator<EventHttpResponse> {
-    yield* this.contextResponse.createResponse();
+  public async publish(topic: string, payload: string) {
+    await this.runner.client.methods.publishMqttMessage({
+      jobId: this.runner.jobId,
+      topic,
+      payload,
+    });
   }
 }

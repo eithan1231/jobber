@@ -35,6 +35,14 @@ export class MqttContext {
     return this.request.payload;
   }
 
+  public get text() {
+    if (!this.request.context) {
+      throw new Error("MqttContext is missing context");
+    }
+
+    return this.request.payload.toString();
+  }
+
   public get json() {
     if (!this.request.context) {
       throw new Error("MqttContext is missing context");
@@ -59,7 +67,7 @@ export class MqttContext {
     });
   }
 
-  public createResponse(): EventMqttResponse {
+  public _createResponse(): EventMqttResponse {
     return {
       status: EventMqttResponse_Status.ACCEPTED,
     };

@@ -232,6 +232,8 @@ export class TriggerCron extends LoopBase {
         continue;
       }
 
+      const scheduledAt = new Date(trigger.scheduledAt).toISOString();
+
       trigger.scheduledAt = trigger.cron.sendAt().toMillis();
 
       assert(trigger.trigger.context.type === "schedule");
@@ -239,10 +241,9 @@ export class TriggerCron extends LoopBase {
       this.runnerManager
         .eventSchedule(trigger.job.id, {
           context: {
-            triggerName: trigger.trigger.context.name ?? "",
+            triggerName: trigger.trigger.context.name ?? "unnamed",
           },
-          id: trigger.trigger.id,
-          name: trigger.trigger.context.name ?? "",
+          scheduledAt: scheduledAt,
         })
         .then((response) => {
           if (response.status !== EventScheduleResponse_Status.ACCEPTED) {

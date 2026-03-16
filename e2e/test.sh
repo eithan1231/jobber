@@ -11,4 +11,4 @@ docker compose -f e2e/docker-compose.yaml up -d --build
 sleep 5
 
 # Run tests
-bash e2e/tests/http-javascript-test.sh
+bash e2e/tests/test-runner-basics.sh

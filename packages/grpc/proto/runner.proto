@@ -87,8 +87,7 @@ message EventMqttResponse {
 
 message EventScheduleRequest {
   BasicContext context = 1;
-  string id = 2;
-  string name = 3;
+  string scheduledAt = 2;
 }
 
 message EventScheduleResponse {

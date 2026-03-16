@@ -1,4 +1,5 @@
 import * as grpcRunner from "@jobber/grpc/basics/runner.js";
+import * as grpcAction from "@jobber/grpc/basics/action.js";
 import assert from "node:assert";
 import { open, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -12,6 +13,7 @@ import { validatePackageJson } from "./validator.js";
 import { Telemetry } from "./telemetry.js";
 import { deferred, Deferred } from "@jobber/common/deferred.js";
 import { RunnerOptions } from "./options.js";
+import { GlobalContext } from "./context/global-context.js";
 
 type Status = "pending" | "starting" | "running" | "closing";
 
@@ -47,7 +49,9 @@ export class Runner {
 
   protected _telemetry: Telemetry;
 
-  private runnerInfo: grpcRunner.Item | null = null;
+  private _runnerInfo: grpcRunner.Item | null = null;
+
+  private _actionInfo: grpcAction.Item | null = null;
 
   private _module: RunnerExpectedModule | null = null;
 
@@ -73,6 +77,8 @@ export class Runner {
     await this._client.start();
 
     await this._server.start();
+
+    (globalThis as any).jobber = new GlobalContext(this);
 
     await this.bootstrap();
 
@@ -101,6 +107,8 @@ export class Runner {
       console.info("gRPC client shut down successfully.");
     }
 
+    delete (globalThis as any).jobber;
+
     this._status = "pending";
     this._statusPromise.pending.resolve();
 
@@ -121,18 +129,30 @@ export class Runner {
       throw new Error(`Runner with ID ${this.options.runnerId} not found`);
     }
 
-    this.runnerInfo = runnerResponse.runner;
+    const actionResponse = await this._client.methods.getJobAction({
+      actionId: runnerResponse.runner.actionId,
+      jobId: runnerResponse.runner.jobId,
+    });
+
+    if (!actionResponse || !actionResponse.action) {
+      throw new Error(
+        `Action with ID ${runnerResponse.runner.actionId} not found`,
+      );
+    }
+
+    this._runnerInfo = runnerResponse.runner;
+    this._actionInfo = actionResponse.action;
   }
 
   async downloadArchive() {
     assert(
-      this.runnerInfo,
+      this._runnerInfo,
       "Runner info must be populated before bootstrapping",
     );
 
     const archiveStream = this._client.methods.getJobVersionArchive({
-      jobVersionId: this.runnerInfo.versionId,
-      jobId: this.runnerInfo.jobId,
+      jobVersionId: this._runnerInfo.versionId,
+      jobId: this._runnerInfo.jobId,
     });
 
     const archiveFilename = getTempFilePath({
@@ -240,11 +260,27 @@ export class Runner {
   }
 
   public get jobId() {
-    if (!this.runnerInfo) {
+    if (!this._runnerInfo) {
       throw new Error("Runner info not loaded yet");
     }
 
-    return this.runnerInfo.jobId;
+    return this._runnerInfo.jobId;
+  }
+
+  public get runnerInfo() {
+    if (!this._runnerInfo) {
+      throw new Error("Runner info not loaded yet");
+    }
+
+    return this._runnerInfo;
+  }
+
+  public get actionInfo() {
+    if (!this._actionInfo) {
+      throw new Error("Action info not loaded yet");
+    }
+
+    return this._actionInfo;
   }
 
   public get statusPromises() {

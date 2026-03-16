@@ -157,6 +157,12 @@ export class OAuthServiceClients extends LoopBase {
           actions: ["read"],
         },
         {
+          // Allow runner to read its own action info
+          effect: "allow",
+          resource: `job/${job.id}/actions`,
+          actions: ["read"],
+        },
+        {
           // Allow runner to read/write to its own store
           effect: "allow",
           resource: `job/${job.id}/store`,

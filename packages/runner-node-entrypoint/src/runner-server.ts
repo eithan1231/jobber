@@ -144,8 +144,6 @@ export class RunnerServer {
           );
         }
 
-        // TODO: Setup some sort of timeout.
-
         const httpContext = new HttpContext(thisWas.runner, request);
         const executionComplete = deferred<void>();
 
@@ -156,13 +154,22 @@ export class RunnerServer {
         thisWas.runner.telemetry.notifyRequest();
 
         if (thisWas.runner.module.handlerHttp) {
-          const result = thisWas.runner.module.handlerHttp(httpContext);
+          setImmediate(async () => {
+            assert(
+              thisWas?.runner?.module?.handlerHttp,
+              "HandlerHttp should exist",
+            );
 
-          if (result instanceof Promise) {
-            await result;
-          }
+            const result = thisWas.runner.module.handlerHttp(httpContext);
 
-          executionComplete.resolve();
+            if (result instanceof Promise) {
+              await result;
+            }
+
+            await httpContext.response._finished();
+
+            executionComplete.resolve();
+          });
         } else if (thisWas.runner.module.handler) {
           const legacyRequest = new LegacyContextRequest(httpContext);
           await legacyRequest._externalProcess(); // Legacy method streamed entire body into memory (yuck)
@@ -185,11 +192,18 @@ export class RunnerServer {
 
             legacyResponse._externalProcess();
 
+            await httpContext.response._finished();
+
             executionComplete.resolve();
           });
+        } else {
+          throw new ServerError(
+            Status.NOT_FOUND,
+            "No http handler implemented in runner",
+          );
         }
 
-        yield* httpContext.createResponse();
+        yield* httpContext.response._createResponse();
 
         await executionComplete.promise;
 
@@ -232,9 +246,14 @@ export class RunnerServer {
           if (result instanceof Promise) {
             await result;
           }
+        } else {
+          throw new ServerError(
+            Status.NOT_FOUND,
+            "No mqtt handler implemented in runner",
+          );
         }
 
-        return mqttContext.createResponse();
+        return mqttContext._createResponse();
       },
 
       eventSchedule: async (request, context) => {
@@ -273,9 +292,14 @@ export class RunnerServer {
           if (result instanceof Promise) {
             await result;
           }
+        } else {
+          throw new ServerError(
+            Status.NOT_FOUND,
+            "No schedule handler implemented in runner",
+          );
         }
 
-        return scheduleContext.createResponse();
+        return scheduleContext._createResponse();
       },
     };
   }

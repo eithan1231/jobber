@@ -43,6 +43,7 @@ services:
     networks:
       - internal
       - runner
+      - mqtt-network
     volumes:
       - /tmp/jobber-env:/tmp/jobber-env
       - /var/run/docker.sock:/var/run/docker.sock

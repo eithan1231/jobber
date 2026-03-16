@@ -394,11 +394,32 @@ export class GatewayClient extends LoopBase {
     }
 
     try {
+      let hasStartedResponding = false;
+      let hasTimeout = false;
+
+      const timeoutHandle = setTimeout(() => {
+        if (hasStartedResponding) {
+          return;
+        }
+
+        // Only timeout when the runner hasn't started responding
+        hasTimeout = true;
+        console.warn(
+          `[Gateway] HTTP request to runner ${runner.id} timed out after 30 seconds without response. Closing connection.`,
+        );
+      }, entry.action.runnerTimeout * 1000);
+
       const response = connection.client.eventHttp(
         this.buildHttpRequestStream(req, trigger),
       );
 
       for await (const event of response) {
+        if (hasTimeout) {
+          break;
+        }
+
+        hasStartedResponding = true;
+
         if (event.head) {
           res.statusCode = event.head.status;
           for (const header of event.head.headers) {
@@ -413,6 +434,8 @@ export class GatewayClient extends LoopBase {
           }
         }
       }
+
+      clearTimeout(timeoutHandle);
     } catch (err) {
       console.error(
         `[Gateway] Error proxying request to runner ${runner.id}:`,

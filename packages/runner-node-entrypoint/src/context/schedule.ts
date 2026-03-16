@@ -19,7 +19,19 @@ export class ScheduleContext {
     return this.request.context.triggerName;
   }
 
-  public createResponse(): EventMqttResponse {
+  public get scheduledAt() {
+    return this.request.scheduledAt;
+  }
+
+  public async publish(topic: string, payload: string) {
+    await this.runner.client.methods.publishMqttMessage({
+      jobId: this.runner.jobId,
+      topic,
+      payload,
+    });
+  }
+
+  public _createResponse(): EventMqttResponse {
     return {
       status: EventMqttResponse_Status.ACCEPTED,
     };

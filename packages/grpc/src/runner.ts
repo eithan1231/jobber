@@ -126,8 +126,7 @@ export function eventMqttResponse_StatusToNumber(object: EventMqttResponse_Statu
 
 export interface EventScheduleRequest {
   context: BasicContext | undefined;
-  id: string;
-  name: string;
+  scheduledAt: string;
 }
 
 export interface EventScheduleResponse {
@@ -1208,7 +1207,7 @@ export const EventMqttResponse: MessageFns<EventMqttResponse> = {
 };
 
 function createBaseEventScheduleRequest(): EventScheduleRequest {
-  return { context: undefined, id: "", name: "" };
+  return { context: undefined, scheduledAt: "" };
 }
 
 export const EventScheduleRequest: MessageFns<EventScheduleRequest> = {
@@ -1216,11 +1215,8 @@ export const EventScheduleRequest: MessageFns<EventScheduleRequest> = {
     if (message.context !== undefined) {
       BasicContext.encode(message.context, writer.uint32(10).fork()).join();
     }
-    if (message.id !== "") {
-      writer.uint32(18).string(message.id);
-    }
-    if (message.name !== "") {
-      writer.uint32(26).string(message.name);
+    if (message.scheduledAt !== "") {
+      writer.uint32(18).string(message.scheduledAt);
     }
     return writer;
   },
@@ -1245,15 +1241,7 @@ export const EventScheduleRequest: MessageFns<EventScheduleRequest> = {
             break;
           }
 
-          message.id = reader.string();
-          continue;
-        }
-        case 3: {
-          if (tag !== 26) {
-            break;
-          }
-
-          message.name = reader.string();
+          message.scheduledAt = reader.string();
           continue;
         }
       }
@@ -1268,8 +1256,7 @@ export const EventScheduleRequest: MessageFns<EventScheduleRequest> = {
   fromJSON(object: any): EventScheduleRequest {
     return {
       context: isSet(object.context) ? BasicContext.fromJSON(object.context) : undefined,
-      id: isSet(object.id) ? globalThis.String(object.id) : "",
-      name: isSet(object.name) ? globalThis.String(object.name) : "",
+      scheduledAt: isSet(object.scheduledAt) ? globalThis.String(object.scheduledAt) : "",
     };
   },
 
@@ -1278,11 +1265,8 @@ export const EventScheduleRequest: MessageFns<EventScheduleRequest> = {
     if (message.context !== undefined) {
       obj.context = BasicContext.toJSON(message.context);
     }
-    if (message.id !== "") {
-      obj.id = message.id;
-    }
-    if (message.name !== "") {
-      obj.name = message.name;
+    if (message.scheduledAt !== "") {
+      obj.scheduledAt = message.scheduledAt;
     }
     return obj;
   },
@@ -1295,8 +1279,7 @@ export const EventScheduleRequest: MessageFns<EventScheduleRequest> = {
     message.context = (object.context !== undefined && object.context !== null)
       ? BasicContext.fromPartial(object.context)
       : undefined;
-    message.id = object.id ?? "";
-    message.name = object.name ?? "";
+    message.scheduledAt = object.scheduledAt ?? "";
     return message;
   },
 };

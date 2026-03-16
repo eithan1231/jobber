@@ -13,17 +13,31 @@
     "runnerAsynchronous": true,
     "runnerMinCount": 1,
     "runnerMaxCount": 1,
-    "runnerMaxAge": 30,
-    "runnerMaxIdleAge": 30,
-    "runnerMaxAgeHard": 60,
+    "runnerMaxAge": 0,
+    "runnerMaxIdleAge": 0,
+    "runnerMaxAgeHard": 0,
     "runnerMode": "standard"
   },
   "triggers": [
     {
       "type": "http",
       "name": "http-javascript-trigger",
-      "path": "/http-javascript",
+      "path": "/e2e",
       "method": "GET"
+    },
+    {
+      "type": "mqtt",
+      "topics": [
+        "#"
+      ],
+      "connection": {
+        "protocol": "mqtt",
+        "host": "mqtt"
+      }
+    },
+    {
+      "type": "schedule",
+      "cron": "* * * * * *"
     }
   ]
 }
