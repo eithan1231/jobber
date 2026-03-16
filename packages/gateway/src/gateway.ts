@@ -314,9 +314,13 @@ export class GatewayClient extends LoopBase {
 
       const grpc = this.runnerGrpc.get(runner.id);
       if (grpc) {
-        const state = grpc.channel.getConnectivityState(true);
+        const state = grpc.channel.getConnectivityState(false);
 
-        if (state === ConnectivityState.READY) {
+        if (
+          state === ConnectivityState.READY ||
+          state === ConnectivityState.IDLE ||
+          state === ConnectivityState.CONNECTING
+        ) {
           return runner;
         }
       }
@@ -339,8 +343,12 @@ export class GatewayClient extends LoopBase {
           return false;
         }
 
-        const state = grpc.channel.getConnectivityState(true);
-        return state === ConnectivityState.READY;
+        const state = grpc.channel.getConnectivityState(false);
+        return (
+          state === ConnectivityState.READY ||
+          state === ConnectivityState.IDLE ||
+          state === ConnectivityState.CONNECTING
+        );
       }, 30_000);
 
       return runner;

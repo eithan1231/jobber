@@ -21,7 +21,7 @@ export const createSoftRunner: ServiceImplementation<GeneralAPIDefinition>["crea
 
     const manager = container.resolve(RunnerManager);
 
-    const runnerId = await manager.getRunner(job.id);
+    const runnerId = await manager.createSoftRunner(job.id);
 
     if (!runnerId) {
       throw new ServerError(Status.INTERNAL, "Failed to create runner");

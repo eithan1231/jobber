@@ -1046,10 +1046,11 @@ export class RunnerManager extends LoopBase {
   }
 
   /**
-   * Gets a runner. If its a RUN_ONCE runner, it will return a new runner.
-   * If its a runner compatible with a standard mode, it will return any available.
+   * Gets or creates a runner depending on runner mode
+   * - RUN_ONCE: creates a new runner
+   * - STANDARD: Attempts to fetch runner from runner pool. If runners are starting, waits for runner to start. If no runners exist, creates one.
    */
-  public async getRunner(jobId: string): Promise<string | null> {
+  public async createSoftRunner(jobId: string): Promise<string | null> {
     const action = await actionsModel.byJobIdLatest(jobId);
 
     if (!action) {
@@ -1057,7 +1058,7 @@ export class RunnerManager extends LoopBase {
     }
 
     if (action.runnerMode === "run-once") {
-      return this.startupQueueAdd(jobId);
+      return await this.startupQueueAdd(jobId);
     }
 
     if (action.runnerMode === "standard") {
@@ -1065,33 +1066,22 @@ export class RunnerManager extends LoopBase {
         specialActiveIshOnly: true,
       });
 
-      if (runners.length >= 1) {
-        const availableRunners = [...runners];
+      // attempt to use an existing runner... starting or otherwise
+      for (const runner of runners) {
+        const managerRunner = this.runners.get(runner.id);
 
-        while (availableRunners.length > 0) {
-          const runner = availableRunners
-            .splice(Math.floor(Math.random() * availableRunners.length), 1)
-            .at(0);
+        if (!managerRunner || !managerRunner.grpcChannel) {
+          continue;
+        }
 
-          if (!runner) {
-            continue;
-          }
+        const status = managerRunner.grpcChannel.getConnectivityState(false);
 
-          const managerRunner = this.runners.get(runner.id);
-
-          if (!managerRunner || !managerRunner.grpcChannel) {
-            continue;
-          }
-
-          const status = managerRunner.grpcChannel.getConnectivityState(true);
-
-          if (
-            status === connectivityState.READY ||
-            status === connectivityState.IDLE ||
-            status === connectivityState.CONNECTING
-          ) {
-            return runner.id;
-          }
+        if (
+          status === connectivityState.READY ||
+          status === connectivityState.IDLE ||
+          status === connectivityState.CONNECTING
+        ) {
+          return runner.id;
         }
       }
 
@@ -1104,11 +1094,11 @@ export class RunnerManager extends LoopBase {
         // runners.. in theory. Who knows, race conditions can be painful. Worst case this becomes
         // a DOS vector.
         // TODO: When e2e tests are figured out, add a test for this.
-        return existingQueueItem.startupPromise.promise;
+        return await existingQueueItem.startupPromise.promise;
       }
 
       // no runner found, start new one.
-      return this.startupQueueAdd(jobId);
+      return await this.startupQueueAdd(jobId);
     }
 
     return null;
@@ -1133,7 +1123,7 @@ export class RunnerManager extends LoopBase {
     jobId: string,
     trigger: EventScheduleRequest,
   ): Promise<EventScheduleResponse> {
-    const runnerId = await this.getRunner(jobId);
+    const runnerId = await this.createSoftRunner(jobId);
 
     if (!runnerId) {
       throw new Error(`No runner available for job ${jobId}`);
@@ -1163,7 +1153,7 @@ export class RunnerManager extends LoopBase {
     jobId: string,
     trigger: EventMqttRequest,
   ): Promise<EventMqttResponse> {
-    const runnerId = await this.getRunner(jobId);
+    const runnerId = await this.createSoftRunner(jobId);
 
     if (!runnerId) {
       throw new Error(`No runner available for job ${jobId}`);
