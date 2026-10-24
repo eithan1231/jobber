@@ -12,7 +12,6 @@
   "author": "Eithan Hersey-Tuit",
   "license": "MIT",
   "devDependencies": {
-    "@tsconfig/node20": "^20.1.10",
     "@types/node": "^20.19.43",
     "rimraf": "^5.0.10",
     "tsc-alias": "^1.9.9",

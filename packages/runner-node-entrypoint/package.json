@@ -6,7 +6,7 @@
   "types": "./dist/index.d.ts",
   "type": "module",
   "scripts": {
-    "build": "tsdown"
+    "build": "tsc --noEmit && tsdown"
   },
   "keywords": [],
   "author": "Eithan Hersey-Tuit",
@@ -15,10 +15,7 @@
     "@jobber/tcp-frame-socket": "workspace:*"
   },
   "devDependencies": {
-    "@tsconfig/node20": "^20.1.10",
     "@types/node": "^20.19.43",
-    "rimraf": "^5.0.10",
-    "tsc-alias": "^1.9.9",
     "tsdown": "^0.23.2",
     "typescript": "^5.9.3"
   }

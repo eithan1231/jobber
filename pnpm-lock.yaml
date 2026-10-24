@@ -13,20 +13,11 @@ importers:
     dependencies:
       '@jobber/tcp-frame-socket':
         specifier: workspace:*
-        version: link:../tcp-frame-socket
+        version: file:packages/tcp-frame-socket
     devDependencies:
-      '@tsconfig/node20':
-        specifier: ^20.1.10
-        version: 20.1.10
       '@types/node':
         specifier: ^20.19.43
         version: 20.19.43
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsc-alias:
-        specifier: ^1.9.9
-        version: 1.9.9
       tsdown:
         specifier: ^0.23.2
         version: 0.23.2(tsx@4.23.15)(typescript@5.9.3)
@@ -41,7 +32,7 @@ importers:
         version: 1.19.17(hono@4.13.13)
       '@jobber/tcp-frame-socket':
         specifier: workspace:*
-        version: link:../tcp-frame-socket
+        version: file:packages/tcp-frame-socket
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
@@ -76,12 +67,9 @@ importers:
         specifier: ^4.6.7
         version: 4.6.7
     devDependencies:
-      '@tsconfig/node20':
-        specifier: ^20.1.10
-        version: 20.1.10
       '@types/node':
-        specifier: ^20.19.43
-        version: 20.19.43
+        specifier: ^24.19.2
+        version: 24.19.2
       '@types/pg':
         specifier: ^8.23.1
         version: 8.23.1
@@ -102,13 +90,10 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^5.0.5
-        version: 5.0.5(@opentelemetry/api@1.9.0)(@types/node@20.19.43)(vite@6.4.5(@types/node@20.19.43)(jiti@2.4.1)(tsx@4.23.15)(yaml@2.6.1))
+        version: 5.0.5(@opentelemetry/api@1.9.0)(@types/node@24.19.2)(vite@6.4.5(@types/node@24.19.2)(jiti@2.4.1)(tsx@4.23.15)(yaml@2.6.1))
 
   packages/tcp-frame-socket:
     devDependencies:
-      '@tsconfig/node20':
-        specifier: ^20.1.10
-        version: 20.1.10
       '@types/node':
         specifier: ^20.19.43
         version: 20.19.43
@@ -142,7 +127,7 @@ importers:
         version: 19.3.0(@types/react@19.3.0)
       '@vitejs/plugin-react':
         specifier: ^4.7.0
-        version: 4.7.0(vite@6.4.5(@types/node@22.10.1)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.6.1))
+        version: 4.7.0(vite@6.4.5(@types/node@24.19.2)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.6.1))
       autoprefixer:
         specifier: ^10.6.1
         version: 10.6.1(postcss@8.5.31)
@@ -181,7 +166,7 @@ importers:
         version: 8.72.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)
       vite:
         specifier: ^6.4.5
-        version: 6.4.5(@types/node@22.10.1)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.6.1)
+        version: 6.4.5(@types/node@24.19.2)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.6.1)
 
 packages:
 
@@ -816,6 +801,9 @@ packages:
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
     engines: {node: '>=12'}
 
+  '@jobber/tcp-frame-socket@file:packages/tcp-frame-socket':
+    resolution: {directory: packages/tcp-frame-socket, type: directory}
+
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
 
@@ -1105,9 +1093,6 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@tsconfig/node20@20.1.10':
-    resolution: {integrity: sha512-5OZgdnxbFuvwm05iVwPXMU5/7iPuVDDZzAnxPDLj+kjN7fwQZSSVgHQhKTNkBPOO6Qef2D5MxPAoPLCGqE2VuQ==}
-
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
 
@@ -1138,8 +1123,8 @@ packages:
   '@types/node@20.19.43':
     resolution: {integrity: sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA==}
 
-  '@types/node@22.10.1':
-    resolution: {integrity: sha512-qKgsUwfHZV2WCWLAnVP1JqnpE6Im6h3Y0+fYgMTasNQ7V++CBX5OT1as0g0f+OyubbFqhf6XVNIsmN4IIhEgGQ==}
+  '@types/node@24.19.2':
+    resolution: {integrity: sha512-93d49wCWJkCyN87MxLpNN6KXPCwFw7bVUg79mGUV1OS40JGWwVCr8n61DXCSqz7CV6/VfPkb7xec7uP2M+QHWQ==}
 
   '@types/pg@8.23.1':
     resolution: {integrity: sha512-fKVHpikPdg4GKks3JuLEhvwSyvwzF23hnabPy6DD8ljVbC7+6J5dQzdv4arV6jqq57djnMgs1HKBxX4P8aBI3A==}
@@ -2609,11 +2594,11 @@ packages:
   unconfig-core@7.5.0:
     resolution: {integrity: sha512-Su3FauozOGP44ZmKdHy2oE6LPjk51M/TRRjHv2HNCWiDvfvCoxC2lno6jevMA91MYAdCdwP05QnWdWpSbncX/w==}
 
-  undici-types@6.20.0:
-    resolution: {integrity: sha512-Ny6QZ2Nju20vw1SRHe3d9jVu6gJ+4e3+MMpqu7pqE5HT6WsTSlce++GQmK5UXS8mzV8DSYHrQH+Xrf2jVcuKNg==}
-
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
+
+  undici-types@7.24.6:
+    resolution: {integrity: sha512-WRNW+sJgj5OBN4/0JpHFqtqzhpbnV0GuB+OozA9gCL7a993SmU+1JBZCzLNxYsbMfIeDL+lTsphD5jN5N+n0zg==}
 
   update-browserslist-db@1.3.4:
     resolution: {integrity: sha512-t8wonIOdQyOjtPd2VktlBu6QjTVTks6v8bSi7kd0r2Vll8TK1JYDZtRRdbmCHOAMphkZgrzK+L+vXK4pyZ8t4A==}
@@ -3238,6 +3223,8 @@ snapshots:
       wrap-ansi: 8.1.0
       wrap-ansi-cjs: wrap-ansi@7.0.0
 
+  '@jobber/tcp-frame-socket@file:packages/tcp-frame-socket': {}
+
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.0
@@ -3427,8 +3414,6 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.65.0':
     optional: true
 
-  '@tsconfig/node20@20.1.10': {}
-
   '@types/babel__core@7.20.5':
     dependencies:
       '@babel/parser': 7.26.3
@@ -3466,10 +3451,9 @@ snapshots:
     dependencies:
       undici-types: 6.21.0
 
-  '@types/node@22.10.1':
+  '@types/node@24.19.2':
     dependencies:
-      undici-types: 6.20.0
-    optional: true
+      undici-types: 7.24.6
 
   '@types/pg@8.23.1':
     dependencies:
@@ -3586,7 +3570,7 @@ snapshots:
       '@typescript-eslint/types': 8.72.0
       eslint-visitor-keys: 5.0.1
 
-  '@vitejs/plugin-react@4.7.0(vite@6.4.5(@types/node@22.10.1)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.6.1))':
+  '@vitejs/plugin-react@4.7.0(vite@6.4.5(@types/node@24.19.2)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.6.1))':
     dependencies:
       '@babel/core': 7.29.7
       '@babel/plugin-transform-react-jsx-self': 7.29.7(@babel/core@7.29.7)
@@ -3594,18 +3578,18 @@ snapshots:
       '@rolldown/pluginutils': 1.0.0-beta.27
       '@types/babel__core': 7.20.5
       react-refresh: 0.17.0
-      vite: 6.4.5(@types/node@22.10.1)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.6.1)
+      vite: 6.4.5(@types/node@24.19.2)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.6.1)
     transitivePeerDependencies:
       - supports-color
 
-  '@vitest/mocker@5.0.5(vite@6.4.5(@types/node@20.19.43)(jiti@2.4.1)(tsx@4.23.15)(yaml@2.6.1))':
+  '@vitest/mocker@5.0.5(vite@6.4.5(@types/node@24.19.2)(jiti@2.4.1)(tsx@4.23.15)(yaml@2.6.1))':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       '@vitest/spy': 5.0.5
       estree-walker: 3.0.3
       magic-string: 1.4.3
     optionalDependencies:
-      vite: 6.4.5(@types/node@20.19.43)(jiti@2.4.1)(tsx@4.23.15)(yaml@2.6.1)
+      vite: 6.4.5(@types/node@24.19.2)(jiti@2.4.1)(tsx@4.23.15)(yaml@2.6.1)
 
   '@vitest/spy@5.0.5': {}
 
@@ -4875,10 +4859,9 @@ snapshots:
       '@quansync/fs': 1.1.0
       quansync: 1.0.0
 
-  undici-types@6.20.0:
-    optional: true
-
   undici-types@6.21.0: {}
+
+  undici-types@7.24.6: {}
 
   update-browserslist-db@1.3.4(browserslist@4.29.4):
     dependencies:
@@ -4894,7 +4877,7 @@ snapshots:
 
   verkit@0.5.0: {}
 
-  vite@6.4.5(@types/node@20.19.43)(jiti@2.4.1)(tsx@4.23.15)(yaml@2.6.1):
+  vite@6.4.5(@types/node@24.19.2)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.6.1):
     dependencies:
       esbuild: 0.25.12
       fdir: 6.4.6(picomatch@4.0.7)
@@ -4903,31 +4886,31 @@ snapshots:
       rollup: 4.65.0
       tinyglobby: 0.2.14
     optionalDependencies:
-      '@types/node': 20.19.43
-      fsevents: 2.3.3
-      jiti: 2.4.1
-      tsx: 4.23.15
-      yaml: 2.6.1
-
-  vite@6.4.5(@types/node@22.10.1)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.6.1):
-    dependencies:
-      esbuild: 0.25.12
-      fdir: 6.4.6(picomatch@4.0.7)
-      picomatch: 4.0.7
-      postcss: 8.5.31
-      rollup: 4.65.0
-      tinyglobby: 0.2.14
-    optionalDependencies:
-      '@types/node': 22.10.1
+      '@types/node': 24.19.2
       fsevents: 2.3.3
       jiti: 1.21.7
       tsx: 4.23.15
       yaml: 2.6.1
 
-  vitest@5.0.5(@opentelemetry/api@1.9.0)(@types/node@20.19.43)(vite@6.4.5(@types/node@20.19.43)(jiti@2.4.1)(tsx@4.23.15)(yaml@2.6.1)):
+  vite@6.4.5(@types/node@24.19.2)(jiti@2.4.1)(tsx@4.23.15)(yaml@2.6.1):
+    dependencies:
+      esbuild: 0.25.12
+      fdir: 6.5.0(picomatch@4.0.7)
+      picomatch: 4.0.7
+      postcss: 8.5.31
+      rollup: 4.65.0
+      tinyglobby: 0.2.17
+    optionalDependencies:
+      '@types/node': 24.19.2
+      fsevents: 2.3.3
+      jiti: 2.4.1
+      tsx: 4.23.15
+      yaml: 2.6.1
+
+  vitest@5.0.5(@opentelemetry/api@1.9.0)(@types/node@24.19.2)(vite@6.4.5(@types/node@24.19.2)(jiti@2.4.1)(tsx@4.23.15)(yaml@2.6.1)):
     dependencies:
       '@types/chai': 5.2.2
-      '@vitest/mocker': 5.0.5(vite@6.4.5(@types/node@20.19.43)(jiti@2.4.1)(tsx@4.23.15)(yaml@2.6.1))
+      '@vitest/mocker': 5.0.5(vite@6.4.5(@types/node@24.19.2)(jiti@2.4.1)(tsx@4.23.15)(yaml@2.6.1))
       chai: 6.3.0
       es-module-lexer: 2.3.2
       expect-type: 1.4.0
@@ -4938,11 +4921,11 @@ snapshots:
       tinybench: 6.2.2
       tinyexec: 1.3.1
       tinyglobby: 0.2.17
-      vite: 6.4.5(@types/node@20.19.43)(jiti@2.4.1)(tsx@4.23.15)(yaml@2.6.1)
+      vite: 6.4.5(@types/node@24.19.2)(jiti@2.4.1)(tsx@4.23.15)(yaml@2.6.1)
       why-is-node-running: 3.2.1
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
-      '@types/node': 20.19.43
+      '@types/node': 24.19.2
     transitivePeerDependencies:
       - msw
 
