@@ -129,7 +129,7 @@ export const unzip = (
 
       console.log(logs);
 
-      throw new Error(`[unzip] Failed with exit code ${code}`);
+      return reject(new Error(`[unzip] Failed with exit code ${code}`));
     });
   });
 };
