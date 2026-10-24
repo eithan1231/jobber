@@ -7,31 +7,24 @@ export const acquireLock = async (
   table: string,
   primaryKey: string
 ): Promise<string | null> => {
-  try {
-    const lockKey = `${table}:${primaryKey}`;
+  const lockKey = `${table}:${primaryKey}`;
 
-    const result = (
-      await getDrizzle()
-        .insert(lockTable)
-        .values({
-          lockKey,
-        })
-        .returning()
-    ).at(0);
+  // A held lock conflicts on lockKey and inserts nothing, rather than throwing a unique violation.
+  const result = (
+    await getDrizzle()
+      .insert(lockTable)
+      .values({
+        lockKey,
+      })
+      .onConflictDoNothing({ target: lockTable.lockKey })
+      .returning()
+  ).at(0);
 
-    if (!result) {
-      return null;
-    }
-
-    return result.id;
-  } catch (err) {
-    const error = err as { code?: string };
-    if (error.code === "23505") {
-      return null;
-    }
-
-    throw err;
+  if (!result) {
+    return null;
   }
+
+  return result.id;
 };
 
 export const releaseLock = async (lockId: string): Promise<void> => {

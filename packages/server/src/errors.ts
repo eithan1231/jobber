@@ -1,3 +1,4 @@
+import { DrizzleQueryError } from "drizzle-orm";
 import { Context, ErrorHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { ContentfulStatusCode } from "hono/utils/http-status";
@@ -137,7 +138,12 @@ export const errorHandler: ErrorHandler = async (err, c) => {
     return c.json({ success: false, message: err.message }, err.status);
   }
 
-  console.error(err);
+  if (err instanceof DrizzleQueryError) {
+    // The message embeds the query params, which can hold password hashes, tokens or secrets.
+    console.error(`Failed query: ${err.query}`, err.cause);
+  } else {
+    console.error(err);
+  }
 
   return c.json(
     {
