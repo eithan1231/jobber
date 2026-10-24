@@ -2,6 +2,7 @@ import { HomePageComponent } from "../../components/home-page-component";
 import { TimeSinceComponent } from "../../components/time-since-component";
 import { useMetricOverview } from "../../hooks/use-metric-overview";
 import { useJobs } from "../../hooks/use-jobs";
+import { useNow } from "../../hooks/use-now";
 import { formatRelativeTime } from "../../util";
 import { useEffect } from "react";
 import { Doughnut } from "react-chartjs-2";
@@ -18,8 +19,9 @@ const Component = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const uptimeTimestamp =
-    Math.floor(Date.now() / 1000) - (metricsOverview?.uptime ?? 0);
+  const now = useNow();
+
+  const uptimeTimestamp = now - (metricsOverview?.uptime ?? 0);
 
   const uptimeRelative = formatRelativeTime(uptimeTimestamp);
 

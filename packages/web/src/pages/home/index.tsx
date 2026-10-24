@@ -9,6 +9,7 @@ import {
 
 import { useConfig } from "../../hooks/use-config";
 import { useJobs } from "../../hooks/use-jobs";
+import { useNow } from "../../hooks/use-now";
 
 import { PermissionGuardComponent } from "../../components/permission-guard";
 
@@ -63,9 +64,11 @@ const Component = () => {
     return null;
   }, [auth]);
 
+  // Minute precision is plenty for an hour long threshold, and avoids re-rendering the layout every second.
+  const now = useNow(60 * 1000);
+
   const isExpirySoon = sessionExpiryUnixTimestamp
-    ? Math.floor(sessionExpiryUnixTimestamp - Math.floor(Date.now() / 1000)) <
-      60 * 60
+    ? Math.floor(sessionExpiryUnixTimestamp - now) < 60 * 60
     : false;
 
   useEffect(() => {

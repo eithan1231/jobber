@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getConfig, JobberConfig } from "../api/config";
 
-let cachedConfig: JobberConfig | null = null;
+let configRequest: ReturnType<typeof getConfig> | null = null;
 
 export const useConfig = () => {
   const [config, setConfig] = useState<JobberConfig | null>(null);
@@ -9,13 +9,12 @@ export const useConfig = () => {
   const [reloadFlag, setReloadFlag] = useState(0);
 
   const handleUpdate = () => {
-    if (cachedConfig) {
-      setConfig(cachedConfig);
-      return;
-    }
+    configRequest ??= getConfig();
 
-    getConfig().then((res) => {
+    configRequest.then((res) => {
       if (!res.success) {
+        configRequest = null;
+
         setError("Failed to fetch config");
 
         console.error("Failed to fetch config", res.message);
@@ -23,7 +22,6 @@ export const useConfig = () => {
         return;
       }
 
-      cachedConfig = res.data;
       setConfig(res.data);
     });
   };
