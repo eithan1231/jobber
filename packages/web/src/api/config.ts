@@ -2,6 +2,7 @@ import { JobberGenericResponse } from "./common";
 
 export type JobberConfig = {
   jobberName: string;
+  jobberSetup: boolean;
   features: {
     metricsEnabled: boolean;
     actionDockerArgumentVolumesEnabled: boolean;

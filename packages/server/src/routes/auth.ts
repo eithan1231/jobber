@@ -16,6 +16,7 @@ import { InternalHonoApp } from "~/index.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { createMiddlewareResponseTime } from "~/middleware/response-time.js";
 import { PERMISSION_NONE } from "@jobber/common/permissions.js";
+import { JOBBER_COOKIE } from "~/constants.js";
 
 export async function createRouteAuth() {
   const app = new Hono<InternalHonoApp>();
@@ -79,7 +80,7 @@ export async function createRouteAuth() {
         throw new Error("Failed to create session");
       }
 
-      setCookie(c, "jobber-session", session.token, {
+      setCookie(c, JOBBER_COOKIE, session.token, {
         httpOnly: true,
         expires: session.expires,
       });
@@ -164,7 +165,7 @@ export async function createRouteAuth() {
         throw new Error("Failed to create session");
       }
 
-      setCookie(c, "jobber-session", session.token, {
+      setCookie(c, JOBBER_COOKIE, session.token, {
         httpOnly: true,
         expires: session.expires,
       });

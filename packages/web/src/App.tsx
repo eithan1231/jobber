@@ -5,6 +5,7 @@ import Chart from "chart.js/auto";
 import pageHome from "./pages/home/index";
 import pageAuthRegister from "./pages/auth/register";
 import pageAuthLogin from "./pages/auth/login";
+import pageSetupLanding from "./pages/setup/landing";
 import pageSpecial404 from "./pages/special/404";
 import { AuthProvider } from "./contexts/auth-context";
 
@@ -14,6 +15,7 @@ const router = createBrowserRouter([
   pageHome,
   pageAuthRegister,
   pageAuthLogin,
+  pageSetupLanding,
   pageSpecial404,
 ]);
 

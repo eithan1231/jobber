@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql, count as countDrizzle } from "drizzle-orm";
 import { getDrizzle } from "./index.js";
 import { usersTable } from "./schema.js";
 import { UsersTableInsertType } from "./types.js";
@@ -29,8 +29,20 @@ async function update(id: string, data: Partial<UsersTableInsertType>) {
   await getDrizzle().update(usersTable).set(data).where(eq(usersTable.id, id));
 }
 
+async function count() {
+  const result = await getDrizzle()
+    .select({
+      count: countDrizzle(usersTable.id),
+    })
+    .from(usersTable)
+    .then((res) => res.at(0));
+
+  return result?.count;
+}
+
 export const userModel = {
   byId,
   byUsername,
   update,
+  count,
 };

@@ -1,14 +1,22 @@
-import { useCallback, useContext, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import { Link, RouteObject, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../contexts/auth-context";
+import { useConfig } from "../../hooks/use-config";
 
 const Component = () => {
   const navigate = useNavigate();
   const { login } = useContext(AuthContext);
+  const { config } = useConfig();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (config && !config.jobberSetup) {
+      navigate("/setup");
+    }
+  }, [config]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -22,7 +30,7 @@ const Component = () => {
 
       await navigate("/home/");
     },
-    [username, password]
+    [username, password],
   );
 
   return (

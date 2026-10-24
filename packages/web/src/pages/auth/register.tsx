@@ -1,10 +1,12 @@
-import { useCallback, useContext, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import { Link, RouteObject, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../contexts/auth-context";
+import { useConfig } from "../../hooks/use-config";
 
 const Component = () => {
   const navigate = useNavigate();
   const { register } = useContext(AuthContext);
+  const { config } = useConfig();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -22,8 +24,14 @@ const Component = () => {
 
       await navigate("/home/");
     },
-    [username, password]
+    [username, password],
   );
+
+  useEffect(() => {
+    if (config && !config.jobberSetup) {
+      navigate("/setup");
+    }
+  }, [config]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">

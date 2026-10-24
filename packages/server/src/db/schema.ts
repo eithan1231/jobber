@@ -387,3 +387,19 @@ export const sessionsTable = pgTable("sessions", {
   expires: timestamp().notNull(),
   created: timestamp().defaultNow().notNull(),
 });
+
+/**
+ * Internal system flags
+ */
+export const flagsTable = pgTable("flags", {
+  flag: varchar({
+    length: 48,
+    enum: ["hasAdminRegistered"],
+  })
+    .notNull()
+    .primaryKey(),
+
+  value: boolean().notNull().default(false),
+
+  created: timestamp().defaultNow().notNull(),
+});

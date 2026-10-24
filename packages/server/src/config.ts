@@ -12,9 +12,6 @@ export const ConfigurationOptionsSchema = z.object({
 
   JOBBER_NAME: z.string().default("Jobber"),
 
-  STARTUP_USERNAME: z.string().optional().default("admin"),
-  STARTUP_PASSWORD: z.string().optional().default("Password1!"),
-
   SEED: z
     .string()
     .default("{}")

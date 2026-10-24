@@ -51,6 +51,7 @@ import { createRouteVersions } from "./routes/job/versions.js";
 import { createRouteMetrics } from "./routes/metrics.js";
 import { createRouteOAuthAdmin } from "./routes/oauth-admin.js";
 import { createRouteOAuth } from "./routes/oauth.js";
+import { createRouteSetup } from "./routes/setup.js";
 import { createRouteUser } from "./routes/user.js";
 import { seedsRun } from "./seeding/index.js";
 import { OAuthServiceClients } from "./service-clients.js";
@@ -126,6 +127,7 @@ async function createInternalHono() {
   app.route("/api/", await createRouteJobTriggers());
   app.route("/api/", await createRouteMetrics());
   app.route("/api/", await createRouteOAuthAdmin());
+  app.route("/api/", await createRouteSetup());
   app.route("/api/", await createRouteUser());
   app.route("/api/", await createRouteVersions());
 
@@ -152,58 +154,6 @@ async function createInternalHono() {
   return app;
 }
 
-async function createStartupAccount() {
-  const configUsername = getConfigOption("STARTUP_USERNAME");
-  const configPassword = getConfigOption("STARTUP_PASSWORD");
-
-  if (!configUsername || !configPassword) {
-    console.log(
-      "[createStartupAccount] No startup username or password configured. Skipping account creation.",
-    );
-
-    return;
-  }
-
-  const parsedUsername = UserUsernameSchema.safeParse(configUsername);
-  const parsedPassword = UserPasswordSchema.safeParse(configPassword);
-
-  if (!parsedUsername.success || !parsedPassword.success) {
-    console.error(
-      "[createStartupAccount] Invalid startup username or password. Please check your configuration.",
-    );
-
-    return;
-  }
-
-  const salt = await bcryptGenSalt(10);
-  const hashedPassword = await bcryptHash(parsedPassword.data, salt);
-
-  const user = await getDrizzle()
-    .insert(usersTable)
-    .values({
-      username: parsedUsername.data,
-      password: hashedPassword,
-      permissions: PERMISSION_SUPER,
-    })
-    .onConflictDoNothing({
-      where: eq(usersTable.username, parsedUsername.data),
-    })
-    .returning()
-    .then((res) => res.at(0));
-
-  if (!user) {
-    console.log(
-      "[createStartupAccount] User already exists or could not be created.",
-    );
-
-    return;
-  }
-
-  console.log(
-    `[createStartupAccount] Startup account created successfully: ${user.username}`,
-  );
-}
-
 async function createAnonymousAccount() {
   await getDrizzle()
     .insert(usersTable)
@@ -223,99 +173,6 @@ async function createAnonymousAccount() {
       where: eq(usersTable.username, USERNAME_ANONYMOUS),
     });
 }
-
-// async function createApiTokenInternal() {
-//   // API token created for internal services, used for easy setup. Can be omitted for manual setup.
-
-//   const tokenValue = getConfigOption("API_TOKEN_INTERNAL");
-//   const tokenFlag = getConfigOption("API_TOKEN_INTERNAL_FLAG");
-
-//   if (tokenValue === null) {
-//     return;
-//   }
-
-//   const permissions: JobberPermissions = [];
-
-//   if (tokenFlag === "gateway-permissions") {
-//     // Allow gateway access to create JWTs for runners
-//     permissions.push({
-//       effect: "allow",
-//       resource: "grpc/runner-jwt",
-//       actions: ["read", "write", "delete"],
-//     });
-
-//     // Allow full job access
-//     permissions.push({
-//       effect: "allow",
-//       resource: "job",
-//       actions: ["read", "write", "delete"],
-//     });
-
-//     // Prevent from accessing job environment variables
-//     permissions.push({
-//       effect: "deny",
-//       resource: "job/*/environment",
-//       actions: ["read", "write", "delete"],
-//     });
-
-//     // Prevent from accessing job store
-//     permissions.push({
-//       effect: "deny",
-//       resource: "job/*/store",
-//       actions: ["read", "write", "delete"],
-//     });
-
-//     // Prevent publishing jobs
-//     permissions.push({
-//       effect: "deny",
-//       resource: "job/-/publish",
-//       actions: ["read", "write", "delete"],
-//     });
-
-//     // Prevent all API tokens management
-//     permissions.push({
-//       effect: "deny",
-//       resource: "api-tokens",
-//       actions: ["read", "write", "delete"],
-//     });
-
-//     // Prevent all user management
-//     permissions.push({
-//       effect: "deny",
-//       resource: "users",
-//       actions: ["read", "write", "delete"],
-//     });
-
-//     //
-//   }
-
-//   const anonymousUser = await userModel.byUsername(USERNAME_ANONYMOUS);
-
-//   if (!anonymousUser) {
-//     throw new Error("Anonymous user does not exist.");
-//   }
-
-//   await getDrizzle()
-//     .insert(apiTokensTable)
-//     .values({
-//       token: tokenValue,
-//       description: "Internal API Token",
-//       permissions,
-//       status: "enabled",
-//       expires: new Date("2099-12-31T23:59:59Z"),
-//       userId: anonymousUser.id,
-//     })
-//     .onConflictDoUpdate({
-//       target: apiTokensTable.token,
-//       set: {
-//         description: "Internal API Token",
-//         permissions,
-//         status: "enabled",
-//         expires: new Date("2099-12-31T23:59:59Z"),
-//         userId: anonymousUser.id,
-//       },
-//     });
-// }
 
 async function main() {
   console.log(
@@ -352,10 +209,6 @@ async function main() {
   ); // Every 5 minutes
   console.log(`[main] done.`);
 
-  console.log(`[main] Creating startup account...`);
-  await createStartupAccount();
-  console.log(`[main] done.`);
-
   console.log(`[main] Creating anonymous account...`);
   await createAnonymousAccount();
   console.log(`[main] done.`);
@@ -369,10 +222,6 @@ async function main() {
   const oauthServiceClients = container.resolve(OAuthServiceClients);
   oauthServiceClients.start();
   console.log(`[main] done.`);
-
-  // console.log(`[main] Creating internal API token...`);
-  // await createApiTokenInternal();
-  // console.log(`[main] done.`);
 
   console.log("[main] Starting pg backup service...");
   const pgBackup = container.resolve(PgBackup);

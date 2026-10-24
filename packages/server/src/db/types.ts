@@ -4,6 +4,7 @@ import {
   apiTokensTable,
   auditLogTable,
   environmentsTable,
+  flagsTable,
   jobsTable,
   jobVersionsTable,
   lockTable,
@@ -235,3 +236,7 @@ export type StoreTableInsertType = typeof storeTable.$inferInsert;
 // Sessions
 export type SessionsTableType = typeof sessionsTable.$inferSelect;
 export type SessionsTableInsertType = typeof sessionsTable.$inferInsert;
+
+// Flags
+export type FlagsTableType = typeof flagsTable.$inferSelect;
+export type FlagsTableInsertType = typeof flagsTable.$inferInsert;
