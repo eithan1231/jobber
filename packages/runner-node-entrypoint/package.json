@@ -15,11 +15,11 @@
     "@jobber/tcp-frame-socket": "workspace:*"
   },
   "devDependencies": {
-    "@tsconfig/node20": "^20.1.4",
-    "@types/node": "^20.16.12",
+    "@tsconfig/node20": "^20.1.10",
+    "@types/node": "^20.19.43",
     "rimraf": "^5.0.10",
-    "tsc-alias": "^1.8.10",
-    "tsup": "^8.3.5",
-    "typescript": "^5.6.3"
+    "tsc-alias": "^1.9.9",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
   }
 }

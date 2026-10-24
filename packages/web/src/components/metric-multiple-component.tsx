@@ -99,6 +99,10 @@ export const MetricMultipleComponent = (props: {
                   label: (context) => {
                     const value = context.parsed.y;
 
+                    if (value === null) {
+                      return "";
+                    }
+
                     if (typeof props.axisYSuffix === "undefined") {
                       return `${value}`;
                     }
