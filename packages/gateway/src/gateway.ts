@@ -161,6 +161,7 @@ export class GatewayClient extends LoopBase {
     for (const connection of this.runnerGrpc.values()) {
       connection.channel.close();
     }
+
     this.runnerGrpc.clear();
     this.triggers.clear();
     this.jobs.clear();

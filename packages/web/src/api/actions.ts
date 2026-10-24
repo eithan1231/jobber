@@ -30,7 +30,7 @@ export type JobberAction = {
 };
 
 export const getJobActions = async (
-  jobId: string
+  jobId: string,
 ): Promise<JobberGenericResponse<JobberAction[]>> => {
   const result = await fetch(`/api/job/${jobId}/actions`);
 
@@ -38,7 +38,7 @@ export const getJobActions = async (
 };
 
 export const getJobActionCurrent = async (
-  jobId: string
+  jobId: string,
 ): Promise<JobberGenericResponse<JobberAction[]>> => {
   const result = await fetch(`/api/job/${jobId}/actions:current`);
 
