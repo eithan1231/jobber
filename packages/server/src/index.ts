@@ -10,14 +10,16 @@ import { TriggerHttp } from "./jobber/triggers/http.js";
 import { TriggerMqtt } from "./jobber/triggers/mqtt.js";
 
 import { serve } from "@hono/node-server";
-import { serveStatic } from "@hono/node-server/serve-static";
+import {
+  serveStatic,
+  ServeStaticOptions,
+} from "@hono/node-server/serve-static";
 import { genSalt as bcryptGenSalt, hash as bcryptHash } from "bcryptjs";
 import { eq } from "drizzle-orm";
-import { Hono } from "hono";
-import { StatusCode } from "hono/utils/http-status";
+import { Hono, MiddlewareHandler } from "hono";
+import { ContentfulStatusCode, StatusCode } from "hono/utils/http-status";
 import { mkdir, readFile } from "node:fs/promises";
 import { container } from "tsyringe";
-import { ZodError } from "zod";
 
 import { getDrizzle, getPool, runDrizzleMigration } from "./db/index.js";
 import { ApiTokensTableType } from "./db/schema/api-tokens.js";
@@ -30,6 +32,7 @@ import {
 } from "./db/schema/users.js";
 
 import { getConfigOption } from "./config.js";
+import { errorHandler } from "./errors.js";
 import { cleanupLocks } from "./lock.js";
 import { getJobActionArchiveDirectory, getPgDumpDirectory } from "./paths.js";
 import { JobberPermissions, PERMISSION_SUPER } from "./permissions.js";
@@ -64,40 +67,27 @@ export type InternalHonoApp = {
   };
 };
 
+// Last-Modified would let browsers heuristically cache index.html across deploys.
+const serveStaticWithoutLastModified = (
+  options: ServeStaticOptions<InternalHonoApp>,
+): MiddlewareHandler<InternalHonoApp> => {
+  const handler = serveStatic<InternalHonoApp>(options);
+
+  return async (c, next) => {
+    const res = await handler(c, next);
+
+    if (res instanceof Response) {
+      res.headers.delete("Last-Modified");
+    }
+
+    return res;
+  };
+};
+
 async function createInternalHono() {
   const app = new Hono<InternalHonoApp>();
 
-  app.onError(async (err, c) => {
-    if (err instanceof ZodError) {
-      if (
-        err.errors.every(
-          (issue) =>
-            issue.path.at(0) === "request" &&
-            (issue.path.at(1) === "body" ||
-              issue.path.at(1) === "query" ||
-              issue.path.at(1) === "param")
-        )
-      ) {
-        return c.json({
-          success: false,
-          message: "Malformed request body",
-          errors: err.errors.map(
-            (issue) => `${issue.path.join(".")} - ${issue.message}`
-          ),
-        });
-      }
-    }
-
-    console.error(err);
-
-    return c.json(
-      {
-        success: false,
-        message: "Internal Server Error",
-      },
-      500
-    );
-  });
+  app.onError(errorHandler);
 
   app.notFound(async (c) => {
     return c.json(
@@ -105,7 +95,7 @@ async function createInternalHono() {
         success: false,
         message: "Not Found",
       },
-      404
+      404,
     );
   });
 
@@ -129,17 +119,17 @@ async function createInternalHono() {
 
   app.use(
     "/*",
-    serveStatic({
+    serveStaticWithoutLastModified({
       root: "./public",
-    })
+    }),
   );
 
   app.use(
     "*",
-    serveStatic({
+    serveStaticWithoutLastModified({
       path: "index.html",
       root: "./public/",
-    })
+    }),
   );
 
   return app;
@@ -176,7 +166,7 @@ async function createGatewayHono() {
 
       if (acceptHeader.includes("text/html")) {
         const badGatewayPage = await readFile(
-          "./src/static-templates/bad-gateway.html"
+          "./src/static-templates/bad-gateway.html",
         );
 
         return c.html(badGatewayPage.toString(), 502);
@@ -188,7 +178,7 @@ async function createGatewayHono() {
             success: false,
             message: `Jobber: Gateway error!`,
           },
-          502
+          502,
         );
       }
 
@@ -198,7 +188,7 @@ async function createGatewayHono() {
           502,
           {
             "Content-Type": "application/xml",
-          }
+          },
         );
       }
 
@@ -211,16 +201,23 @@ async function createGatewayHono() {
           success: false,
           message: `Jobber: Gateway Error! No HTTP response received.`,
         },
-        502
+        502,
       );
+    }
+
+    const status = response.http.status as StatusCode;
+
+    // Null body statuses cannot carry a body, the Response constructor throws otherwise.
+    if (status === 204 || status === 205 || status === 304) {
+      return c.body(null, status, response.http.headers);
     }
 
     // TODO: In the future we should migrate to a streaming response for larger bodies. Previously
     // it was implicitly converted to a string, which is nonideal.
     return c.body(
       Uint8Array.from(response.http.body).buffer,
-      response.http.status as StatusCode,
-      response.http.headers
+      status as ContentfulStatusCode,
+      response.http.headers,
     );
   });
 
@@ -233,7 +230,7 @@ async function createStartupAccount() {
 
   if (!configUsername || !configPassword) {
     console.log(
-      "[createStartupAccount] No startup username or password configured. Skipping account creation."
+      "[createStartupAccount] No startup username or password configured. Skipping account creation.",
     );
 
     return;
@@ -244,7 +241,7 @@ async function createStartupAccount() {
 
   if (!parsedUsername.success || !parsedPassword.success) {
     console.error(
-      "[createStartupAccount] Invalid startup username or password. Please check your configuration."
+      "[createStartupAccount] Invalid startup username or password. Please check your configuration.",
     );
 
     return;
@@ -268,14 +265,14 @@ async function createStartupAccount() {
 
   if (!user) {
     console.log(
-      "[createStartupAccount] User already exists or could not be created."
+      "[createStartupAccount] User already exists or could not be created.",
     );
 
     return;
   }
 
   console.log(
-    `[createStartupAccount] Startup account created successfully: ${user.username}`
+    `[createStartupAccount] Startup account created successfully: ${user.username}`,
   );
 }
 
@@ -285,7 +282,7 @@ async function createAnonymousAccount() {
     .values({
       username: USERNAME_ANONYMOUS,
       password: "", // No password, should be hashed. Login will always fail.
-      enabled: false,
+      enabled: true,
       permissions: [
         {
           effect: "deny",
@@ -301,7 +298,7 @@ async function createAnonymousAccount() {
 
 async function main() {
   console.log(
-    "WARNING: This is an experimental runtime, and issues ARE expected! Report any issue, or raise a PR with a fix. Issues WILL be investigated and fixed."
+    "WARNING: This is an experimental runtime, and issues ARE expected! Report any issue, or raise a PR with a fix. Issues WILL be investigated and fixed.",
   );
 
   console.log("[main] Initialising Database connection...");
@@ -327,13 +324,16 @@ async function main() {
   console.log(`[main] done.`);
   console.log(`[main] Starting db lock cleanup...`);
   await cleanupLocks();
-  const lockCleanupInterval = setInterval(async () => {
-    try {
-      await cleanupLocks();
-    } catch (err) {
-      console.error("[main] Error during lock cleanup:", err);
-    }
-  }, 1000 * 60 * 5); // Every 5 minutes
+  const lockCleanupInterval = setInterval(
+    async () => {
+      try {
+        await cleanupLocks();
+      } catch (err) {
+        console.error("[main] Error during lock cleanup:", err);
+      }
+    },
+    1000 * 60 * 5,
+  ); // Every 5 minutes
   console.log(`[main] done.`);
 
   console.log(`[main] Creating startup account...`);
@@ -378,7 +378,7 @@ async function main() {
 
   console.log(`[main] Registering MQTT Publish Handler...`);
   runnerManager.registerMqttPublishHandler((...args) =>
-    triggerMqtt.publishMqttMessage(...args)
+    triggerMqtt.publishMqttMessage(...args),
   );
   console.log(`[main] done.`);
 

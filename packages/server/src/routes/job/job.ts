@@ -12,13 +12,14 @@ import { InternalHonoApp } from "~/index.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { getJobActionArchiveFile } from "~/paths.js";
 import { canPerformAction } from "~/permissions.js";
+import { parseRequestJson, parseRequestParam } from "~/errors.js";
 
 export async function createRouteJob() {
   const app = new Hono<InternalHonoApp>();
 
   app.get("/job/:jobId", createMiddlewareAuth(), async (c, next) => {
     const bouncer = c.get("bouncer")!;
-    const jobId = c.req.param("jobId");
+    const jobId = parseRequestParam(c, "jobId", z.guid());
 
     const job = await getDrizzle()
       .select({
@@ -95,7 +96,7 @@ export async function createRouteJob() {
 
   app.put("/job/:jobId", createMiddlewareAuth(), async (c, _next) => {
     const bouncer = c.get("bouncer")!;
-    const jobId = c.req.param("jobId");
+    const jobId = parseRequestParam(c, "jobId", z.guid());
 
     const job = await jobModel.byId(jobId);
 
@@ -113,9 +114,7 @@ export async function createRouteJob() {
       jobVersionId: z.string().uuid().nullable().optional(),
     });
 
-    const body = await schema.parseAsync(await c.req.json(), {
-      path: ["request", "body"],
-    });
+    const body = await parseRequestJson(c, schema);
 
     await getDrizzle()
       .update(jobsTable)
@@ -129,7 +128,7 @@ export async function createRouteJob() {
   });
 
   app.delete("/job/:jobId", createMiddlewareAuth(), async (c, _next) => {
-    const jobId = c.req.param("jobId");
+    const jobId = parseRequestParam(c, "jobId", z.guid());
     const bouncer = c.get("bouncer")!;
 
     const job = await jobModel.byId(jobId);

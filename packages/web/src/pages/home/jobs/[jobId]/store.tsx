@@ -4,7 +4,6 @@ import {
   deleteJobStoreItem,
   getJobStoreItem,
   JobberStoreItem,
-  JobberStoreItemPartial,
 } from "../../../../api/store";
 import { JobPageComponent } from "../../../../components/job-page-component";
 import { TimeSinceComponent } from "../../../../components/time-since-component";
@@ -19,9 +18,8 @@ export const Component = () => {
   const { canPerformAction } = useContext(AuthContext);
 
   const [displayStoreId, setDisplayStoreId] = useState<string | null>(null);
-  const [displayStoreItem, setShowStoreItem] = useState<
-    (JobberStoreItem | JobberStoreItemPartial) | null
-  >(null);
+  const [fetchedStoreItem, setFetchedStoreItem] =
+    useState<JobberStoreItem | null>(null);
 
   const { job, jobError } = useJob(jobId);
   const { store, storeError, reloadStore } = useStore(jobId);
@@ -31,17 +29,18 @@ export const Component = () => {
       return;
     }
 
-    const storeItemCached = store?.find((item) => item.id === displayStoreId);
-    if (storeItemCached) {
-      setShowStoreItem(storeItemCached);
-    }
-
-    getJobStoreItem(jobId, displayStoreId!).then((storeItem) => {
+    getJobStoreItem(jobId, displayStoreId).then((storeItem) => {
       if (storeItem.success) {
-        setShowStoreItem(storeItem.data);
+        setFetchedStoreItem(storeItem.data);
       }
     });
   }, [displayStoreId]);
+
+  // Show the full item once fetched, falling back to the partial item from the list meanwhile.
+  const displayStoreItem =
+    fetchedStoreItem?.id === displayStoreId
+      ? fetchedStoreItem
+      : (store?.find((item) => item.id === displayStoreId) ?? null);
 
   const deleteStoreItem = async (id: string) => {
     await deleteJobStoreItem(jobId, id);
@@ -113,8 +112,8 @@ export const Component = () => {
                     </div>
                     <div className="mb-6">
                       <pre className="bg-gray-50 border border-gray-300 rounded-md p-4 overflow-auto">
-                        {"value" in displayStoreItem
-                          ? displayStoreItem.value
+                        {fetchedStoreItem?.id === displayStoreItem.id
+                          ? fetchedStoreItem.value
                           : "Loading..."}
                       </pre>
                     </div>

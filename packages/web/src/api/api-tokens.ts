@@ -67,7 +67,7 @@ export const updateApiToken = async (
 
 export const deleteApiToken = async (
   tokenId: string
-): Promise<JobberGenericResponse<{}>> => {
+): Promise<JobberGenericResponse<Record<string, never>>> => {
   const result = await fetch(`/api/api-tokens/${tokenId}`, {
     method: "DELETE",
   });

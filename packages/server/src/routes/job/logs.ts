@@ -1,8 +1,10 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import { container } from "tsyringe";
 import { jobModel } from "~/db/job.js";
 import { InternalHonoApp } from "~/index.js";
 import { LogDriverBase } from "~/jobber/log-drivers/abstract.js";
+import { parseRequestParam } from "~/errors.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 
 export async function createRouteJobLogs() {
@@ -11,7 +13,7 @@ export async function createRouteJobLogs() {
   const app = new Hono<InternalHonoApp>();
 
   app.get("/job/:jobId/logs", createMiddlewareAuth(), async (c, next) => {
-    const jobId = c.req.param("jobId");
+    const jobId = parseRequestParam(c, "jobId", z.guid());
     const bouncer = c.get("bouncer")!;
 
     const job = await jobModel.byId(jobId);

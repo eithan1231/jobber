@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
-import { register } from "prom-client";
+import { register } from "@prometheus-io/client";
 import { container } from "tsyringe";
 import { getDrizzle } from "~/db/index.js";
 import { jobsTable } from "~/db/schema/jobs.js";

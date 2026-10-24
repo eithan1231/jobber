@@ -10,11 +10,7 @@ import { useVersions } from "../../../../hooks/use-versions";
 import { PermissionGuardComponent } from "../../../../components/permission-guard";
 
 export const Component = () => {
-  const { jobId } = useParams();
-
-  if (!jobId) {
-    return "Job ID is required";
-  }
+  const jobId = useParams().jobId ?? "";
 
   const { job, jobError, reloadJob } = useJob(jobId);
   const { versions, versionsError, reloadVersions } = useVersions(jobId);

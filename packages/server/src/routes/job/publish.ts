@@ -12,6 +12,7 @@ import { jobsTable } from "~/db/schema/jobs.js";
 import { triggersTable } from "~/db/schema/triggers.js";
 import { InternalHonoApp } from "~/index.js";
 import { classifyArchiveFile } from "~/jobber/images.js";
+import { parseRequestAsync } from "~/errors.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { getJobActionArchiveFile } from "~/paths.js";
 import { canPerformAction } from "~/permissions.js";
@@ -30,7 +31,7 @@ export async function createRouteJobPublish() {
       .string()
       .transform((val) => val.toLowerCase() === "true")
       .pipe(z.boolean())
-      .default("true"),
+      .prefault("true"),
   });
 
   app.post("/job/publish/", createMiddlewareAuth(), async (c, _next) => {
@@ -47,7 +48,7 @@ export async function createRouteJobPublish() {
       );
     }
 
-    const query = await querySchema.parseAsync(c.req.query());
+    const query = await parseRequestAsync(querySchema, c.req.query(), "query");
 
     console.log(`[/publish/] ${benchmark()}ms - Parsed query parameters`);
 

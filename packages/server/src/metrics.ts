@@ -1,4 +1,4 @@
-import { Counter, Gauge, Histogram } from "prom-client";
+import { Counter, Gauge, Histogram } from "@prometheus-io/client";
 
 // Counter for job-http runs
 export const counterTriggerHttp = new Counter({

@@ -31,7 +31,7 @@ const Component = () => {
   );
   const [payloadDescription, setPayloadDescription] = useState("");
 
-  const [_loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [result, setResult] = useState<{
     success: boolean;
     message: string;
@@ -56,7 +56,7 @@ const Component = () => {
     let parsedPermissions: JobberPermissions;
     try {
       parsedPermissions = JSON.parse(payloadPermissions);
-    } catch (error) {
+    } catch {
       setResult({
         success: false,
         message:

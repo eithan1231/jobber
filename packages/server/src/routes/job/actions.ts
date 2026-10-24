@@ -1,17 +1,19 @@
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
+import { z } from "zod";
 import { getDrizzle } from "~/db/index.js";
 import { actionsTable } from "~/db/schema/actions.js";
 import { jobVersionsTable } from "~/db/schema/job-versions.js";
 import { jobsTable } from "~/db/schema/jobs.js";
 import { InternalHonoApp } from "~/index.js";
+import { parseRequestParam } from "~/errors.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 
 export async function createRouteJobActions() {
   const app = new Hono<InternalHonoApp>();
 
   app.get("/job/:jobId/actions:current", createMiddlewareAuth(), async (c) => {
-    const jobId = c.req.param("jobId");
+    const jobId = parseRequestParam(c, "jobId", z.guid());
     const bouncer = c.get("bouncer")!;
 
     const actions = await getDrizzle()
@@ -60,7 +62,7 @@ export async function createRouteJobActions() {
   });
 
   app.get("/job/:jobId/actions", createMiddlewareAuth(), async (c) => {
-    const jobId = c.req.param("jobId");
+    const jobId = parseRequestParam(c, "jobId", z.guid());
     const bouncer = c.get("bouncer")!;
 
     const actions = await getDrizzle()

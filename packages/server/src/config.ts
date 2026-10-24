@@ -1,5 +1,5 @@
 import { hostname } from "os";
-import { z } from "zod";
+import { z, ZodRealError } from "zod";
 
 export const ConfigurationOptionsSchema = z.object({
   DATABASE_URL: z.string(),
@@ -16,24 +16,24 @@ export const ConfigurationOptionsSchema = z.object({
     .string()
     .transform((val) => val.toLowerCase() === "true")
     .pipe(z.boolean())
-    .default("false"),
+    .prefault("false"),
   AUTH_PUBLIC_LOGIN_ENABLED: z
     .string()
     .transform((val) => val.toLowerCase() === "true")
     .pipe(z.boolean())
-    .default("true"),
+    .prefault("true"),
 
   DEBUG_HTTP: z
     .string()
     .transform((val) => val.toLowerCase() === "true")
     .pipe(z.boolean())
-    .default("true"),
+    .prefault("true"),
 
   DEBUG_RUNNER: z
     .string()
     .transform((val) => val.toLowerCase() === "true")
     .pipe(z.boolean())
-    .default("false"),
+    .prefault("false"),
 
   MANAGER_PORT: z.coerce.number().default(5211),
   MANAGER_HOST: z.string().default(hostname()),
@@ -67,13 +67,13 @@ export const ConfigurationOptionsSchema = z.object({
         ])
       )
     )
-    .default(""),
+    .prefault(""),
 
   RUNNER_ALLOW_ARGUMENT_DIRECT_PASSTHROUGH: z
     .string()
     .transform((val) => val.toLowerCase() === "true")
     .pipe(z.boolean())
-    .default("false"),
+    .prefault("false"),
 
   LOG_DRIVER: z.enum(["database", "loki"]).default("database"),
   LOG_DRIVER_LOKI_PUSH: z
@@ -123,7 +123,17 @@ export const getConfigOption = <T extends ConfigurationOptions>(
 ): ConfigurationOptionsSchemaType[T] => {
   const schema = ConfigurationOptionsSchema.shape[option];
 
-  return schema.parse(process.env[option], {
-    path: ["config", option],
-  }) as ConfigurationOptionsSchemaType[T];
+  const result = schema.safeParse(process.env[option]);
+
+  if (!result.success) {
+    // Prefixed so logs name the option. ZodRealError, unlike `new ZodError()`, extends Error.
+    throw new ZodRealError(
+      result.error.issues.map((issue) => ({
+        ...issue,
+        path: ["config", option, ...issue.path],
+      })),
+    );
+  }
+
+  return result.data as ConfigurationOptionsSchemaType[T];
 };

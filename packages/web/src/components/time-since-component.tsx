@@ -1,5 +1,7 @@
+import { useNow } from "../hooks/use-now";
+
 export const TimeSinceComponent = ({ timestamp }: { timestamp: number }) => {
-  const now = Math.floor(Date.now() / 1000);
+  const now = useNow();
   const difference = now - timestamp;
 
   const fullDate = new Date(timestamp * 1000)

@@ -6,6 +6,7 @@ import { getDrizzle } from "~/db/index.js";
 import { apiTokensTable, ApiTokensTableType } from "~/db/schema/api-tokens.js";
 import { InternalHonoApp } from "~/index.js";
 import { withLock } from "~/lock.js";
+import { parseRequestJson, parseRequestParam } from "~/errors.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { canPerformAction, JobberPermissionsSchema } from "~/permissions.js";
 
@@ -44,7 +45,7 @@ export async function createRouteApiTokens() {
 
   app.get("/api-tokens/:tokenId", createMiddlewareAuth(), async (c) => {
     const bouncer = c.get("bouncer")!;
-    const tokenId = c.req.param("tokenId");
+    const tokenId = parseRequestParam(c, "tokenId", z.guid());
 
     if (!bouncer.canReadApiTokenGenerally()) {
       return c.json({ success: false, message: "Unauthorized" }, 403);
@@ -99,16 +100,12 @@ export async function createRouteApiTokens() {
       .strict();
     //
 
-    const body = schema.safeParse(await c.req.json());
+    const body = await parseRequestJson(c, schema);
 
-    if (!body.success) {
-      return c.json({ success: false, message: "Invalid request body" }, 400);
-    }
-
-    const { permissions } = body.data;
+    const { permissions } = body;
     const userId = bouncer.userId;
-    const expires = new Date(Date.now() + body.data.ttl * 1000);
-    const description = body.data.description;
+    const expires = new Date(Date.now() + body.ttl * 1000);
+    const description = body.description;
 
     const token = await getDrizzle()
       .insert(apiTokensTable)
@@ -142,7 +139,7 @@ export async function createRouteApiTokens() {
 
   app.put("/api-tokens/:tokenId", createMiddlewareAuth(), async (c) => {
     const bouncer = c.get("bouncer")!;
-    const tokenId = c.req.param("tokenId");
+    const tokenId = parseRequestParam(c, "tokenId", z.guid());
 
     if (!bouncer.canWriteApiTokenGenerally()) {
       return c.json({ success: false, message: "Unauthorized" }, 403);
@@ -171,13 +168,9 @@ export async function createRouteApiTokens() {
       })
       .strict();
 
-    const body = schema.safeParse(await c.req.json());
+    const body = await parseRequestJson(c, schema);
 
-    if (!body.success) {
-      return c.json({ success: false, message: "Invalid request body" }, 400);
-    }
-
-    const { permissions, status, description } = body.data;
+    const { permissions, status, description } = body;
 
     return await withLock("api-tokens", token.id, async () => {
       const updateData: Partial<
@@ -219,7 +212,7 @@ export async function createRouteApiTokens() {
 
   app.delete("/api-tokens/:tokenId", createMiddlewareAuth(), async (c) => {
     const bouncer = c.get("bouncer")!;
-    const tokenId = c.req.param("tokenId");
+    const tokenId = parseRequestParam(c, "tokenId", z.guid());
 
     if (!bouncer.canDeleteApiTokenGenerally()) {
       return c.json({ success: false, message: "Unauthorized" }, 403);

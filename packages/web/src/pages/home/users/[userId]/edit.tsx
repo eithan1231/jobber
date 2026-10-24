@@ -1,4 +1,4 @@
-import { MouseEvent, useEffect, useState } from "react";
+import { MouseEvent, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { JobberPermissions } from "../../../../api/common";
 import { updateUser } from "../../../../api/users";
@@ -19,16 +19,20 @@ const Component = () => {
 
   const { user, userError } = useUser(userId);
 
-  useEffect(() => {
-    setModifiedUsername(user?.username || "");
+  // Populate the form once the user loads. Done during render rather than in an effect, as React
+  // recommends for state derived from a changing value.
+  const [loadedUser, setLoadedUser] = useState(user);
+  if (user && user !== loadedUser) {
+    setLoadedUser(user);
+    setModifiedUsername(user.username || "");
     setModifiedPassword("");
 
-    if (user?.permissions) {
+    if (user.permissions) {
       setModifiedPermissions(JSON.stringify(user.permissions, null, 2));
     } else {
       setModifiedPermissions("[]");
     }
-  }, [user]);
+  }
 
   const handleUpdateUser = async (e: MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
@@ -64,7 +68,7 @@ const Component = () => {
     if (modifiedPermissions) {
       try {
         payload.permissions = JSON.parse(modifiedPermissions);
-      } catch (e) {
+      } catch {
         setError("Invalid permissions JSON format");
         setLoading(false);
         return;

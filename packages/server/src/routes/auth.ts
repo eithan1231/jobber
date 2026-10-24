@@ -20,6 +20,7 @@ import { InternalHonoApp } from "~/index.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { createMiddlewareResponseTime } from "~/middleware/response-time.js";
 import { PERMISSION_NONE } from "~/permissions.js";
+import { parseRequestJson } from "~/errors.js";
 
 export async function createRouteAuth() {
   const app = new Hono<InternalHonoApp>();
@@ -42,9 +43,7 @@ export async function createRouteAuth() {
         })
         .strict();
 
-      const { username, password } = schema.parse(await c.req.json(), {
-        path: ["request", "body"],
-      });
+      const { username, password } = await parseRequestJson(c, schema);
 
       const user = (
         await getDrizzle()
@@ -116,9 +115,7 @@ export async function createRouteAuth() {
         })
         .strict();
 
-      const { username, password } = schema.parse(await c.req.json(), {
-        path: ["request", "body"],
-      });
+      const { username, password } = await parseRequestJson(c, schema);
 
       const existingUser = (
         await getDrizzle()

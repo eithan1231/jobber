@@ -5,11 +5,7 @@ import { useLogs } from "../../../../hooks/use-logs";
 import { PermissionGuardComponent } from "../../../../components/permission-guard";
 
 export const Component = () => {
-  const { jobId } = useParams();
-
-  if (!jobId) {
-    return "Job ID is required";
-  }
+  const jobId = useParams().jobId ?? "";
 
   const { job, jobError } = useJob(jobId);
   const { logs, logsError } = useLogs(jobId);

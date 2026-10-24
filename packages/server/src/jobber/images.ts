@@ -216,7 +216,13 @@ export const classifyArchiveFile = async (
 
     cleanupFiles.push(directory);
 
-    await unzip(filename, directory);
+    try {
+      await unzip(filename, directory);
+    } catch (err) {
+      console.log(`[classifyArchiveFile] Failed to extract archive`, err);
+
+      return null;
+    }
 
     const jobberFile = path.join(directory, "jobber.yaml");
 
@@ -256,7 +262,7 @@ export const classifyArchiveFile = async (
     return null;
   } finally {
     for (const file of cleanupFiles) {
-      await rm(file, { recursive: true });
+      await rm(file, { recursive: true, force: true });
     }
   }
 };

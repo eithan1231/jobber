@@ -1,4 +1,4 @@
-import { MouseEvent, useEffect, useState } from "react";
+import { MouseEvent, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { updateApiToken } from "../../../../api/api-tokens";
 import { JobberPermissions } from "../../../../api/common";
@@ -19,27 +19,29 @@ const Component = () => {
     "enabled" | "disabled" | null
   >(null);
   const [payloadPermissions, setPayloadPermissions] = useState<string | null>(
-    null
+    null,
   );
   const [payloadDescription, setPayloadDescription] = useState<string | null>(
-    null
+    null,
   );
 
   const { apiToken } = useApiToken(tokenId);
 
-  const [_loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [result, setResult] = useState<{
     success: boolean;
     message: string;
   } | null>(null);
 
-  useEffect(() => {
-    if (apiToken) {
-      setPayloadStatus(apiToken.status);
-      setPayloadPermissions(JSON.stringify(apiToken.permissions, null, 2));
-      setPayloadDescription(apiToken.description ?? "");
-    }
-  }, [apiToken]);
+  // Populate the form once the token loads. Done during render rather than in an effect, as React
+  // recommends for state derived from a changing value.
+  const [loadedApiToken, setLoadedApiToken] = useState(apiToken);
+  if (apiToken && apiToken !== loadedApiToken) {
+    setLoadedApiToken(apiToken);
+    setPayloadStatus(apiToken.status);
+    setPayloadPermissions(JSON.stringify(apiToken.permissions, null, 2));
+    setPayloadDescription(apiToken.description ?? "");
+  }
 
   const handleEditToken = async (e: MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
@@ -60,7 +62,7 @@ const Component = () => {
     if (payloadPermissions) {
       try {
         payload.permissions = JSON.parse(payloadPermissions);
-      } catch (error) {
+      } catch {
         setResult({
           success: false,
           message: "Invalid permissions format. Please use valid JSON.",
@@ -138,7 +140,7 @@ const Component = () => {
                   <dd className="text-gray-900">
                     <TimeSinceComponent
                       timestamp={Math.floor(
-                        new Date(apiToken.created).getTime() / 1000
+                        new Date(apiToken.created).getTime() / 1000,
                       )}
                     />
                   </dd>
@@ -148,7 +150,7 @@ const Component = () => {
                   <dd className="text-gray-900">
                     <TimeSinceComponent
                       timestamp={Math.floor(
-                        new Date(apiToken.expires).getTime() / 1000
+                        new Date(apiToken.expires).getTime() / 1000,
                       )}
                     />
                   </dd>

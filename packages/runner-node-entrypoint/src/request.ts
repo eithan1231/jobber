@@ -22,7 +22,7 @@ export class JobberHandlerRequest {
   private _path: JobberHandlerRequestData["path"] = "";
   private _method: JobberHandlerRequestData["method"] = "";
   private _topic: JobberHandlerRequestData["topic"] = "";
-  private _body?: Buffer;
+  private _body?: Buffer<ArrayBuffer>;
   private _bodyLength?: number;
 
   constructor(data: JobberHandlerRequestData) {
