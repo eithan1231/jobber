@@ -10,10 +10,13 @@ import { TriggerHttp } from "./jobber/triggers/http.js";
 import { TriggerMqtt } from "./jobber/triggers/mqtt.js";
 
 import { serve } from "@hono/node-server";
-import { serveStatic } from "@hono/node-server/serve-static";
+import {
+  serveStatic,
+  ServeStaticOptions,
+} from "@hono/node-server/serve-static";
 import { genSalt as bcryptGenSalt, hash as bcryptHash } from "bcryptjs";
 import { eq } from "drizzle-orm";
-import { Hono } from "hono";
+import { Hono, MiddlewareHandler } from "hono";
 import { ContentfulStatusCode, StatusCode } from "hono/utils/http-status";
 import { mkdir, readFile } from "node:fs/promises";
 import { container } from "tsyringe";
@@ -64,6 +67,23 @@ export type InternalHonoApp = {
   };
 };
 
+// Last-Modified would let browsers heuristically cache index.html across deploys.
+const serveStaticWithoutLastModified = (
+  options: ServeStaticOptions<InternalHonoApp>,
+): MiddlewareHandler<InternalHonoApp> => {
+  const handler = serveStatic<InternalHonoApp>(options);
+
+  return async (c, next) => {
+    const res = await handler(c, next);
+
+    if (res instanceof Response) {
+      res.headers.delete("Last-Modified");
+    }
+
+    return res;
+  };
+};
+
 async function createInternalHono() {
   const app = new Hono<InternalHonoApp>();
 
@@ -99,14 +119,14 @@ async function createInternalHono() {
 
   app.use(
     "/*",
-    serveStatic({
+    serveStaticWithoutLastModified({
       root: "./public",
     }),
   );
 
   app.use(
     "*",
-    serveStatic({
+    serveStaticWithoutLastModified({
       path: "index.html",
       root: "./public/",
     }),
