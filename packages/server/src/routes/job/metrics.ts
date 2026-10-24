@@ -7,6 +7,7 @@ import { getDrizzle } from "~/db/index.js";
 import { jobVersionsTable } from "~/db/schema/job-versions.js";
 import { jobsTable } from "~/db/schema/jobs.js";
 import { InternalHonoApp } from "~/index.js";
+import { parseRequestAsync, parseRequestParam } from "~/errors.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { canPerformAction } from "~/permissions.js";
 import { getUnixTimestamp } from "~/util.js";
@@ -90,7 +91,9 @@ type MetricsResponse = {
 export async function createRouteJobMetrics() {
   const app = new Hono<InternalHonoApp>();
 
-  const durationSchema = z.coerce.number().min(1).max(10000).default(900);
+  const querySchema = z.object({
+    duration: z.coerce.number().min(1).max(10000).default(900),
+  });
 
   const promUrl = getConfigOption("METRICS_PROMETHEUS_QUERY")!;
   const promJobName = getConfigOption("METRICS_PROMETHEUS_JOB_NAME")!;
@@ -115,10 +118,22 @@ export async function createRouteJobMetrics() {
     createMiddlewareAuth(),
     async (c, next) => {
       const bouncer = c.get("bouncer")!;
-      const jobId = c.req.param("jobId");
-      let version = c.req.param("version");
-      const metric = c.req.param("metric");
-      const duration = await durationSchema.parseAsync(c.req.query("duration"));
+      const jobId = parseRequestParam(c, "jobId", z.guid());
+      let version = parseRequestParam(
+        c,
+        "version",
+        z.string().min(1).max(256),
+      );
+      const metric = parseRequestParam(
+        c,
+        "metric",
+        z.string().min(1).max(64),
+      );
+      const { duration } = await parseRequestAsync(
+        querySchema,
+        c.req.query(),
+        "query",
+      );
 
       if (!jobId || !version || !metric) {
         return c.json(
@@ -282,7 +297,9 @@ export async function createRouteJobMetrics() {
           },
         };
 
-      const queryItem = queryMap[metric];
+      const queryItem = Object.hasOwn(queryMap, metric)
+        ? queryMap[metric]
+        : undefined;
 
       if (!queryItem) {
         return c.json(
@@ -313,7 +330,6 @@ export async function createRouteJobMetrics() {
           {
             success: false,
             message: "Error querying Prometheus",
-            error: result.error,
           },
           500
         );

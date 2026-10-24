@@ -11,6 +11,7 @@ import {
 } from "~/db/schema/users.js";
 import { InternalHonoApp } from "~/index.js";
 import { withLock } from "~/lock.js";
+import { parseRequestJson, parseRequestParam } from "~/errors.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import {
   canPerformAction,
@@ -48,7 +49,7 @@ export async function createRouteUser() {
 
   app.get("/users/:id", createMiddlewareAuth(), async (c) => {
     const bouncer = c.get("bouncer")!;
-    const userId = c.req.param("id");
+    const userId = parseRequestParam(c, "id", z.guid());
 
     const user = await getDrizzle()
       .select({
@@ -90,13 +91,9 @@ export async function createRouteUser() {
       permissions: z.lazy(() => JobberPermissionsSchema),
     });
 
-    const body = schema.safeParse(await c.req.json());
+    const body = await parseRequestJson(c, schema);
 
-    if (!body.success) {
-      return c.json({ success: false, message: "Invalid request data" }, 400);
-    }
-
-    const { username, password, permissions } = body.data;
+    const { username, password, permissions } = body;
 
     const existingUser = await getDrizzle()
       .select()
@@ -143,7 +140,7 @@ export async function createRouteUser() {
 
   app.put("/users/:id", createMiddlewareAuth(), async (c) => {
     const bouncer = c.get("bouncer")!;
-    const userId = c.req.param("id");
+    const userId = parseRequestParam(c, "id", z.guid());
 
     const schema = z.object({
       username: z.lazy(() => UserUsernameSchema).optional(),
@@ -151,11 +148,7 @@ export async function createRouteUser() {
       permissions: z.lazy(() => JobberPermissionsSchema).optional(),
     });
 
-    const body = schema.safeParse(await c.req.json());
-
-    if (!body.success) {
-      return c.json({ success: false, message: "Invalid request data" }, 400);
-    }
+    const body = await parseRequestJson(c, schema);
 
     const user = await getDrizzle()
       .select()
@@ -179,7 +172,7 @@ export async function createRouteUser() {
         permissions: JobberPermissions;
       }> = {};
 
-      if (body.data.username) {
+      if (body.username) {
         if (!bouncer.canWriteUserUsername(user)) {
           return c.json(
             { success: false, message: "Unauthorized to change username" },
@@ -187,10 +180,10 @@ export async function createRouteUser() {
           );
         }
 
-        updates.username = body.data.username;
+        updates.username = body.username;
       }
 
-      if (body.data.password) {
+      if (body.password) {
         if (!bouncer.canWriteUserPassword(user)) {
           return c.json(
             { success: false, message: "Unauthorized to change password" },
@@ -199,10 +192,10 @@ export async function createRouteUser() {
         }
 
         const salt = await bcryptGenSalt(10);
-        updates.password = await bcryptHash(body.data.password, salt);
+        updates.password = await bcryptHash(body.password, salt);
       }
 
-      if (body.data.permissions) {
+      if (body.permissions) {
         if (!bouncer.canWriteUserPermissions(user)) {
           return c.json(
             { success: false, message: "Unauthorized to change permissions" },
@@ -210,7 +203,7 @@ export async function createRouteUser() {
           );
         }
 
-        updates.permissions = body.data.permissions;
+        updates.permissions = body.permissions;
       }
 
       const updatesUser = await getDrizzle()

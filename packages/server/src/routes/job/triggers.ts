@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
+import { z } from "zod";
 import { container } from "tsyringe";
 import { getDrizzle } from "~/db/index.js";
 import { jobVersionsTable } from "~/db/schema/job-versions.js";
@@ -9,6 +10,7 @@ import { InternalHonoApp } from "~/index.js";
 import { TriggerCron } from "~/jobber/triggers/cron.js";
 import { TriggerHttp } from "~/jobber/triggers/http.js";
 import { TriggerMqtt } from "~/jobber/triggers/mqtt.js";
+import { parseRequestParam } from "~/errors.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { canPerformAction } from "~/permissions.js";
 
@@ -24,7 +26,7 @@ export async function createRouteJobTriggers() {
     createMiddlewareAuth(),
     async (c, next) => {
       const bouncer = c.get("bouncer")!;
-      const jobId = c.req.param("jobId");
+      const jobId = parseRequestParam(c, "jobId", z.guid());
 
       const triggers = await getDrizzle()
         .select({
@@ -103,7 +105,7 @@ export async function createRouteJobTriggers() {
 
   app.get("/job/:jobId/triggers", createMiddlewareAuth(), async (c, next) => {
     const bouncer = c.get("bouncer")!;
-    const jobId = c.req.param("jobId");
+    const jobId = parseRequestParam(c, "jobId", z.guid());
 
     const triggers = await getDrizzle()
       .select({
@@ -173,8 +175,8 @@ export async function createRouteJobTriggers() {
     createMiddlewareAuth(),
     async (c, next) => {
       const bouncer = c.get("bouncer")!;
-      const jobId = c.req.param("jobId");
-      const triggerId = c.req.param("triggerId");
+      const jobId = parseRequestParam(c, "jobId", z.guid());
+      const triggerId = parseRequestParam(c, "triggerId", z.guid());
 
       const trigger = await getDrizzle()
         .select({

@@ -5,6 +5,7 @@ import {
   EnvironmentsContextSchemaType,
   environmentsTable,
 } from "~/db/schema/environments.js";
+import { parseRequestAsync, parseRequestParam } from "~/errors.js";
 import { getUnixTimestamp } from "~/util.js";
 import { jobEnvironmentNameSchema } from "./schemas-common.js";
 import { InternalHonoApp } from "~/index.js";
@@ -24,7 +25,7 @@ export async function createRouteJobEnvironment() {
     "/job/:jobId/environment",
     createMiddlewareAuth(),
     async (c, _next) => {
-      const jobId = c.req.param("jobId");
+      const jobId = parseRequestParam(c, "jobId", z.guid());
       const bouncer = c.get("bouncer")!;
 
       const environment = await environmentModel.byJobId(jobId);
@@ -75,16 +76,15 @@ export async function createRouteJobEnvironment() {
         value: z.string().max(512),
       });
 
-      const jobId = c.req.param("jobId");
+      const jobId = parseRequestParam(c, "jobId", z.guid());
 
-      const name = await jobEnvironmentNameSchema.parseAsync(
-        c.req.param("name"),
-        { path: ["request", "param"] }
+      const name = parseRequestParam(c, "name", jobEnvironmentNameSchema);
+
+      const body = await parseRequestAsync(
+        schema,
+        await c.req.parseBody(),
+        "body",
       );
-
-      const body = await schema.parseAsync(await c.req.parseBody(), {
-        path: ["request", "body"],
-      });
 
       const job = await jobModel.byId(jobId);
 
@@ -140,12 +140,9 @@ export async function createRouteJobEnvironment() {
     createMiddlewareAuth(),
     async (c, _next) => {
       const bouncer = c.get("bouncer")!;
-      const jobId = c.req.param("jobId");
+      const jobId = parseRequestParam(c, "jobId", z.guid());
 
-      const name = await jobEnvironmentNameSchema.parseAsync(
-        c.req.param("name"),
-        { path: ["request", "param"] }
-      );
+      const name = parseRequestParam(c, "name", jobEnvironmentNameSchema);
 
       const job = await jobModel.byId(jobId);
 

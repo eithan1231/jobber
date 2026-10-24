@@ -1,8 +1,10 @@
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
+import { z } from "zod";
 import { getDrizzle } from "~/db/index.js";
 import { jobVersionsTable } from "~/db/schema/job-versions.js";
 import { InternalHonoApp } from "~/index.js";
+import { parseRequestParam } from "~/errors.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { canPerformAction } from "~/permissions.js";
 
@@ -11,7 +13,7 @@ export async function createRouteVersions() {
 
   app.get("/job/:jobId/versions", createMiddlewareAuth(), async (c, next) => {
     const bouncer = c.get("bouncer")!;
-    const jobId = c.req.param("jobId");
+    const jobId = parseRequestParam(c, "jobId", z.guid());
 
     const versions = await getDrizzle()
       .select({

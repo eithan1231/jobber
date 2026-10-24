@@ -1,7 +1,9 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import { container } from "tsyringe";
 import { InternalHonoApp } from "~/index.js";
 import { Store } from "~/jobber/store.js";
+import { parseRequestParam } from "~/errors.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { canPerformAction } from "~/permissions.js";
 
@@ -14,8 +16,8 @@ export async function createRouteJobStore() {
     createMiddlewareAuth(),
     async (c, next) => {
       const bouncer = c.get("bouncer")!;
-      const jobId = c.req.param("jobId");
-      const storeId = c.req.param("storeId");
+      const jobId = parseRequestParam(c, "jobId", z.guid());
+      const storeId = parseRequestParam(c, "storeId", z.guid());
 
       const item = await store.getItemById(jobId, storeId);
 
@@ -39,7 +41,7 @@ export async function createRouteJobStore() {
 
   app.get("/job/:jobId/store/", createMiddlewareAuth(), async (c, next) => {
     const bouncer = c.get("bouncer")!;
-    const jobId = c.req.param("jobId");
+    const jobId = parseRequestParam(c, "jobId", z.guid());
 
     const items = await store.getItemsNoValue(jobId);
 
@@ -58,8 +60,8 @@ export async function createRouteJobStore() {
     createMiddlewareAuth(),
     async (c, next) => {
       const bouncer = c.get("bouncer")!;
-      const jobId = c.req.param("jobId");
-      const storeId = c.req.param("storeId");
+      const jobId = parseRequestParam(c, "jobId", z.guid());
+      const storeId = parseRequestParam(c, "storeId", z.guid());
 
       const item = await store.getItemById(jobId, storeId);
 

@@ -1,13 +1,16 @@
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
+import { z } from "zod";
 import { container } from "tsyringe";
 import { getDrizzle } from "~/db/index.js";
 import { jobModel } from "~/db/job.js";
 import { jobsTable } from "~/db/schema/jobs.js";
 import { InternalHonoApp } from "~/index.js";
 import { RunnerManager } from "~/jobber/runners/manager.js";
+import { parseRequestParam } from "~/errors.js";
 import { createMiddlewareAuth } from "~/middleware/auth.js";
 import { canPerformAction } from "~/permissions.js";
+import { runnerIdSchema } from "./schemas-common.js";
 
 export async function createRouteJobRunners() {
   const runnerManager = container.resolve(RunnerManager);
@@ -15,7 +18,7 @@ export async function createRouteJobRunners() {
   const app = new Hono<InternalHonoApp>();
 
   app.get("/job/:jobId/runners", createMiddlewareAuth(), async (c, next) => {
-    const jobId = c.req.param("jobId");
+    const jobId = parseRequestParam(c, "jobId", z.guid());
     const bouncer = c.get("bouncer")!;
 
     const job = await jobModel.byId(jobId);
@@ -45,8 +48,8 @@ export async function createRouteJobRunners() {
     async (c, next) => {
       const bouncer = c.get("bouncer")!;
 
-      const jobId = c.req.param("jobId");
-      const runnerId = c.req.param("runnerId");
+      const jobId = parseRequestParam(c, "jobId", z.guid());
+      const runnerId = parseRequestParam(c, "runnerId", runnerIdSchema);
       const queryShutdownForcefully = c.req.query("forceful") === "true";
 
       const job = await jobModel.byId(jobId);

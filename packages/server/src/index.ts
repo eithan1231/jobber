@@ -17,7 +17,6 @@ import { Hono } from "hono";
 import { ContentfulStatusCode, StatusCode } from "hono/utils/http-status";
 import { mkdir, readFile } from "node:fs/promises";
 import { container } from "tsyringe";
-import { ZodError } from "zod";
 
 import { getDrizzle, getPool, runDrizzleMigration } from "./db/index.js";
 import { ApiTokensTableType } from "./db/schema/api-tokens.js";
@@ -30,6 +29,7 @@ import {
 } from "./db/schema/users.js";
 
 import { getConfigOption } from "./config.js";
+import { errorHandler } from "./errors.js";
 import { cleanupLocks } from "./lock.js";
 import { getJobActionArchiveDirectory, getPgDumpDirectory } from "./paths.js";
 import { JobberPermissions, PERMISSION_SUPER } from "./permissions.js";
@@ -67,37 +67,7 @@ export type InternalHonoApp = {
 async function createInternalHono() {
   const app = new Hono<InternalHonoApp>();
 
-  app.onError(async (err, c) => {
-    if (err instanceof ZodError) {
-      if (
-        err.errors.every(
-          (issue) =>
-            issue.path.at(0) === "request" &&
-            (issue.path.at(1) === "body" ||
-              issue.path.at(1) === "query" ||
-              issue.path.at(1) === "param"),
-        )
-      ) {
-        return c.json({
-          success: false,
-          message: "Malformed request body",
-          errors: err.errors.map(
-            (issue) => `${issue.path.join(".")} - ${issue.message}`,
-          ),
-        });
-      }
-    }
-
-    console.error(err);
-
-    return c.json(
-      {
-        success: false,
-        message: "Internal Server Error",
-      },
-      500,
-    );
-  });
+  app.onError(errorHandler);
 
   app.notFound(async (c) => {
     return c.json(
