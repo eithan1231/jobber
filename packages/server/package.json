@@ -20,7 +20,7 @@
     "@jobber/tcp-frame-socket": "workspace:*",
     "@prometheus-io/client": "^0.16.1",
     "bcryptjs": "^3.0.3",
-    "cron": "^3.5.0",
+    "cron": "^4.4.0",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.13.13",
     "mqtt": "^5.16.1",
