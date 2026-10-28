@@ -432,14 +432,18 @@ export const Component = () => {
                             <td className="px-4 py-3 whitespace-nowrap">
                               <span
                                 className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                  trigger.status.status === "unhealthy"
-                                    ? "bg-red-100 text-red-800"
-                                    : "bg-green-100 text-green-800"
+                                  trigger.status.status === "healthy"
+                                    ? "bg-green-100 text-green-800"
+                                    : trigger.status.status === "unhealthy"
+                                      ? "bg-red-100 text-red-800"
+                                      : "bg-gray-100 text-gray-800"
                                 }`}
                               >
-                                {trigger.status.status === "unhealthy"
-                                  ? "Unhealthy"
-                                  : "Healthy"}
+                                {trigger.status.status === "healthy"
+                                  ? "Healthy"
+                                  : trigger.status.status === "unhealthy"
+                                    ? "Unhealthy"
+                                    : "Unknown"}
                               </span>
                               {trigger.status.message && (
                                 <div className="text-xs text-gray-500 mt-1 max-w-xs">
